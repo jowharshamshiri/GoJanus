@@ -3,6 +3,8 @@ package protocol
 import (
 	"context"
 	"fmt"
+	"net"
+	"os"
 	"sync"
 	"time"
 
@@ -263,7 +265,7 @@ func (client *UnixSockAPIClient) PublishCommand(ctx context.Context, commandName
 }
 
 // StartListening starts listening for incoming commands
-// Matches Swift: func startListening() async throws
+// Logic: if handlers registered -> create server socket, if no handlers -> client mode
 func (client *UnixSockAPIClient) StartListening(ctx context.Context) error {
 	client.listenMutex.Lock()
 	defer client.listenMutex.Unlock()
@@ -272,6 +274,73 @@ func (client *UnixSockAPIClient) StartListening(ctx context.Context) error {
 		return fmt.Errorf("already listening")
 	}
 	
+	// Check if we have handlers registered (expecting requests mode)
+	client.handlerMutex.RLock()
+	hasHandlers := len(client.handlers) > 0
+	client.handlerMutex.RUnlock()
+	
+	if hasHandlers {
+		// Server mode: create Unix domain socket and listen for connections
+		return client.startServerMode(ctx)
+	} else {
+		// Client mode: connect to existing socket for receiving responses
+		return client.startClientMode(ctx)
+	}
+}
+
+// startServerMode creates Unix domain socket server and accepts connections
+func (client *UnixSockAPIClient) startServerMode(ctx context.Context) error {
+	// Remove existing socket file if it exists
+	if err := os.Remove(client.socketPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to remove existing socket: %w", err)
+	}
+	
+	// Create Unix domain socket listener
+	listener, err := net.Listen("unix", client.socketPath)
+	if err != nil {
+		return fmt.Errorf("failed to create Unix socket server: %w", err)
+	}
+	
+	client.isListening = true
+	
+	// Start accepting connections in goroutine
+	go func() {
+		defer listener.Close()
+		
+		for {
+			select {
+			case <-client.stopListening:
+				return
+			case <-ctx.Done():
+				return
+			default:
+				// Accept connection with timeout
+				if conn, err := listener.Accept(); err == nil {
+					go client.handleServerConnection(conn)
+				}
+			}
+		}
+	}()
+	
+	// Start goroutine to handle stop signal
+	go func() {
+		select {
+		case <-client.stopListening:
+			client.listenMutex.Lock()
+			client.isListening = false
+			client.listenMutex.Unlock()
+		case <-ctx.Done():
+			client.listenMutex.Lock()
+			client.isListening = false
+			client.listenMutex.Unlock()
+		}
+	}()
+	
+	return nil
+}
+
+// startClientMode connects to existing socket for receiving responses
+func (client *UnixSockAPIClient) startClientMode(ctx context.Context) error {
 	// Create a dedicated connection for listening
 	clientConfig := core.UnixSocketClientConfig{
 		MaxMessageSize:    client.config.MaxMessageSize,
@@ -312,6 +381,22 @@ func (client *UnixSockAPIClient) StartListening(ctx context.Context) error {
 	}()
 	
 	return nil
+}
+
+// handleServerConnection handles incoming connections in server mode
+func (client *UnixSockAPIClient) handleServerConnection(conn net.Conn) {
+	defer conn.Close()
+	
+	buffer := make([]byte, client.config.MaxMessageSize)
+	for {
+		n, err := conn.Read(buffer)
+		if err != nil {
+			return
+		}
+		
+		data := buffer[:n]
+		client.handleIncomingMessage(data)
+	}
 }
 
 // StopListening stops listening for incoming commands

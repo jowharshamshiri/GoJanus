@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	api "github.com/user/GoUnixSocketAPI"
@@ -13,57 +14,21 @@ import (
 func main() {
 	// Parse command line arguments
 	socketPath := flag.String("socket-path", "/tmp/go_test_server.sock", "Unix socket path")
+	specPath := flag.String("spec", "test-api-spec.json", "API specification file")
 	flag.Parse()
 
 	fmt.Printf("Connecting Go client to: %s\n", *socketPath)
 
-	// Create API specification (matching server)
-	spec := &api.APISpecification{
-		Version:     "1.0.0",
-		Name:        "Cross-Platform Test API",
-		Description: "Test API for cross-platform communication",
-		Channels: map[string]*api.ChannelSpec{
-			"test": {
-				Description: "Test channel",
-				Commands: map[string]*api.CommandSpec{
-					"ping": {
-						Description: "Simple ping command",
-						Response: &api.ResponseSpec{
-							Type: "object",
-							Properties: map[string]*api.ArgumentSpec{
-								"pong": {
-									Type:        "boolean",
-									Description: "Ping response",
-								},
-								"timestamp": {
-									Type:        "string",
-									Description: "Response timestamp",
-								},
-							},
-						},
-					},
-					"echo": {
-						Description: "Echo back input",
-						Arguments: map[string]*api.ArgumentSpec{
-							"message": {
-								Type:        "string",
-								Required:    true,
-								Description: "Message to echo",
-							},
-						},
-						Response: &api.ResponseSpec{
-							Type: "object",
-							Properties: map[string]*api.ArgumentSpec{
-								"echo": {
-									Type:        "string",
-									Description: "Echoed message",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
+	// Load API specification from file
+	specData, err := os.ReadFile(*specPath)
+	if err != nil {
+		log.Fatalf("Failed to read API specification: %v", err)
+	}
+	
+	parser := api.NewAPISpecificationParser()
+	spec, err := parser.ParseJSON(specData)
+	if err != nil {
+		log.Fatalf("Failed to parse API specification: %v", err)
 	}
 
 	// Create client

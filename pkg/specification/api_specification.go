@@ -31,7 +31,7 @@ type ChannelSpec struct {
 type CommandSpec struct {
 	Name        string                    `json:"name"`
 	Description string                    `json:"description"`
-	Arguments   map[string]*ArgumentSpec  `json:"arguments,omitempty"`
+	Args        map[string]*ArgumentSpec  `json:"args,omitempty"`
 	Response    *ResponseSpec             `json:"response,omitempty"`
 	ErrorCodes  []string                  `json:"errorCodes,omitempty"`
 }
@@ -122,7 +122,7 @@ func (spec *APISpecification) GetCommand(channelID, commandName string) (*Comman
 // ValidateCommandArgs validates command arguments against the specification
 // Matches Swift comprehensive argument validation
 func (spec *APISpecification) ValidateCommandArgs(commandSpec *CommandSpec, args map[string]interface{}) error {
-	if commandSpec.Arguments == nil {
+	if commandSpec.Args == nil {
 		if len(args) > 0 {
 			return &ValidationError{
 				Field:   "arguments",
@@ -134,7 +134,7 @@ func (spec *APISpecification) ValidateCommandArgs(commandSpec *CommandSpec, args
 	}
 	
 	// Check required arguments
-	for argName, argSpec := range commandSpec.Arguments {
+	for argName, argSpec := range commandSpec.Args {
 		if argSpec.Required {
 			if _, exists := args[argName]; !exists {
 				return &ValidationError{
@@ -148,7 +148,7 @@ func (spec *APISpecification) ValidateCommandArgs(commandSpec *CommandSpec, args
 	
 	// Validate provided arguments
 	for argName, argValue := range args {
-		argSpec, exists := commandSpec.Arguments[argName]
+		argSpec, exists := commandSpec.Args[argName]
 		if !exists {
 			return &ValidationError{
 				Field:   argName,
@@ -535,7 +535,7 @@ func (spec *APISpecification) Validate() error {
 			}
 			
 			// Validate argument specifications
-			for argName, argSpec := range command.Arguments {
+			for argName, argSpec := range command.Args {
 				if err := spec.validateArgumentSpec(fmt.Sprintf("%s.%s.%s", channelID, commandName, argName), argSpec); err != nil {
 					return err
 				}
