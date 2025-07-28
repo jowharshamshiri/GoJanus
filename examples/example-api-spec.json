@@ -1,0 +1,538 @@
+{
+  "version": "1.0.0",
+  "name": "Example API Specification",
+  "description": "Comprehensive example API specification for GoUnixSocketAPI demonstrating all features",
+  "channels": {
+    "library-management": {
+      "name": "Library Management",
+      "description": "Channel for managing library books and operations",
+      "commands": {
+        "get-book": {
+          "name": "Get Book",
+          "description": "Retrieve information about a specific book",
+          "arguments": {
+            "id": {
+              "name": "Book ID",
+              "type": "string",
+              "description": "Unique identifier for the book",
+              "required": true,
+              "pattern": "^[a-zA-Z0-9-]+$",
+              "minLength": 1,
+              "maxLength": 50
+            }
+          },
+          "response": {
+            "type": "object",
+            "description": "Book information",
+            "modelRef": "Book"
+          },
+          "errorCodes": ["BOOK_NOT_FOUND", "INVALID_ID"]
+        },
+        "add-book": {
+          "name": "Add Book",
+          "description": "Add a new book to the library",
+          "arguments": {
+            "title": {
+              "name": "Book Title",
+              "type": "string",
+              "description": "Title of the book",
+              "required": true,
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "author": {
+              "name": "Author",
+              "type": "string",
+              "description": "Author of the book",
+              "required": true,
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "isbn": {
+              "name": "ISBN",
+              "type": "string",
+              "description": "ISBN number",
+              "required": false,
+              "pattern": "^[0-9-]+$",
+              "minLength": 10,
+              "maxLength": 17
+            },
+            "pages": {
+              "name": "Page Count",
+              "type": "integer",
+              "description": "Number of pages",
+              "required": false,
+              "minimum": 1,
+              "maximum": 10000
+            }
+          },
+          "response": {
+            "type": "object",
+            "description": "Created book information",
+            "properties": {
+              "id": {
+                "name": "Book ID",
+                "type": "string",
+                "description": "Generated unique identifier"
+              },
+              "created": {
+                "name": "Creation Time",
+                "type": "string",
+                "description": "ISO 8601 timestamp"
+              }
+            }
+          },
+          "errorCodes": ["VALIDATION_ERROR", "DUPLICATE_BOOK"]
+        },
+        "search-books": {
+          "name": "Search Books",
+          "description": "Search for books by various criteria",
+          "arguments": {
+            "query": {
+              "name": "Search Query",
+              "type": "string",
+              "description": "Search term",
+              "required": true,
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "field": {
+              "name": "Search Field",
+              "type": "string",
+              "description": "Field to search in",
+              "required": false,
+              "enum": ["title", "author", "isbn", "all"],
+              "default": "all"
+            },
+            "limit": {
+              "name": "Result Limit",
+              "type": "integer",
+              "description": "Maximum number of results",
+              "required": false,
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            }
+          },
+          "response": {
+            "type": "object",
+            "description": "Search results",
+            "properties": {
+              "books": {
+                "name": "Books",
+                "type": "array",
+                "description": "Array of matching books"
+              },
+              "total": {
+                "name": "Total Count",
+                "type": "integer",
+                "description": "Total number of matches"
+              }
+            }
+          },
+          "errorCodes": ["INVALID_QUERY", "SEARCH_ERROR"]
+        }
+      }
+    },
+    "task-management": {
+      "name": "Task Management",
+      "description": "Channel for managing tasks and workflows",
+      "commands": {
+        "create-task": {
+          "name": "Create Task",
+          "description": "Create a new task",
+          "arguments": {
+            "title": {
+              "name": "Task Title",
+              "type": "string",
+              "description": "Title of the task",
+              "required": true,
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "description": {
+              "name": "Task Description",
+              "type": "string",
+              "description": "Detailed description",
+              "required": false,
+              "maxLength": 1000
+            },
+            "priority": {
+              "name": "Priority",
+              "type": "string",
+              "description": "Task priority level",
+              "required": false,
+              "enum": ["low", "medium", "high", "urgent"],
+              "default": "medium"
+            },
+            "due_date": {
+              "name": "Due Date",
+              "type": "string",
+              "description": "Due date in ISO 8601 format",
+              "required": false,
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+            }
+          },
+          "response": {
+            "type": "object",
+            "description": "Created task information",
+            "modelRef": "Task"
+          },
+          "errorCodes": ["VALIDATION_ERROR", "CREATION_FAILED"]
+        },
+        "get-task": {
+          "name": "Get Task",
+          "description": "Retrieve a specific task",
+          "arguments": {
+            "id": {
+              "name": "Task ID",
+              "type": "string",
+              "description": "Unique task identifier",
+              "required": true,
+              "pattern": "^task-[a-zA-Z0-9-]+$"
+            }
+          },
+          "response": {
+            "type": "object",
+            "description": "Task information",
+            "modelRef": "Task"
+          },
+          "errorCodes": ["TASK_NOT_FOUND", "INVALID_ID"]
+        },
+        "update-task-status": {
+          "name": "Update Task Status",
+          "description": "Update the status of a task",
+          "arguments": {
+            "id": {
+              "name": "Task ID",
+              "type": "string",
+              "description": "Unique task identifier",
+              "required": true,
+              "pattern": "^task-[a-zA-Z0-9-]+$"
+            },
+            "status": {
+              "name": "Status",
+              "type": "string",
+              "description": "New task status",
+              "required": true,
+              "enum": ["pending", "in_progress", "completed", "cancelled"]
+            }
+          },
+          "response": {
+            "type": "object",
+            "description": "Updated task information",
+            "properties": {
+              "id": {
+                "name": "Task ID",
+                "type": "string",
+                "description": "Task identifier"
+              },
+              "status": {
+                "name": "Status",
+                "type": "string",
+                "description": "Updated status"
+              },
+              "updated": {
+                "name": "Update Time",
+                "type": "string",
+                "description": "ISO 8601 timestamp"
+              }
+            }
+          },
+          "errorCodes": ["TASK_NOT_FOUND", "INVALID_STATUS", "UPDATE_FAILED"]
+        }
+      }
+    },
+    "llm-operations": {
+      "name": "LLM Operations",
+      "description": "Channel for AI/ML language model operations",
+      "commands": {
+        "generate-text": {
+          "name": "Generate Text",
+          "description": "Generate text using language model",
+          "arguments": {
+            "prompt": {
+              "name": "Prompt",
+              "type": "string",
+              "description": "Input prompt for text generation",
+              "required": true,
+              "minLength": 1,
+              "maxLength": 4000
+            },
+            "max_tokens": {
+              "name": "Maximum Tokens",
+              "type": "integer",
+              "description": "Maximum number of tokens to generate",
+              "required": false,
+              "minimum": 1,
+              "maximum": 2000,
+              "default": 100
+            },
+            "temperature": {
+              "name": "Temperature",
+              "type": "number",
+              "description": "Sampling temperature (0.0 to 1.0)",
+              "required": false,
+              "minimum": 0.0,
+              "maximum": 1.0,
+              "default": 0.7
+            },
+            "model": {
+              "name": "Model",
+              "type": "string",
+              "description": "Language model to use",
+              "required": false,
+              "enum": ["gpt-3.5", "gpt-4", "claude-3", "llama-2"],
+              "default": "gpt-3.5"
+            }
+          },
+          "response": {
+            "type": "object",
+            "description": "Generated text response",
+            "properties": {
+              "text": {
+                "name": "Generated Text",
+                "type": "string",
+                "description": "The generated text"
+              },
+              "tokens_used": {
+                "name": "Tokens Used",
+                "type": "integer",
+                "description": "Number of tokens consumed"
+              },
+              "model_used": {
+                "name": "Model Used",
+                "type": "string",
+                "description": "Actual model used for generation"
+              }
+            }
+          },
+          "errorCodes": ["INVALID_PROMPT", "MODEL_UNAVAILABLE", "GENERATION_FAILED"]
+        },
+        "analyze-sentiment": {
+          "name": "Analyze Sentiment",
+          "description": "Analyze sentiment of provided text",
+          "arguments": {
+            "text": {
+              "name": "Text",
+              "type": "string",
+              "description": "Text to analyze",
+              "required": true,
+              "minLength": 1,
+              "maxLength": 2000
+            }
+          },
+          "response": {
+            "type": "object",
+            "description": "Sentiment analysis results",
+            "properties": {
+              "sentiment": {
+                "name": "Sentiment",
+                "type": "string",
+                "description": "Overall sentiment"
+              },
+              "confidence": {
+                "name": "Confidence",
+                "type": "number",
+                "description": "Confidence score (0.0 to 1.0)"
+              },
+              "scores": {
+                "name": "Detailed Scores",
+                "type": "object",
+                "description": "Detailed sentiment scores"
+              }
+            }
+          },
+          "errorCodes": ["ANALYSIS_FAILED", "TEXT_TOO_SHORT"]
+        }
+      }
+    }
+  },
+  "models": {
+    "Book": {
+      "name": "Book",
+      "type": "object",
+      "description": "Represents a book in the library system",
+      "properties": {
+        "id": {
+          "name": "Book ID",
+          "type": "string",
+          "description": "Unique identifier"
+        },
+        "title": {
+          "name": "Title",
+          "type": "string",
+          "description": "Book title"
+        },
+        "author": {
+          "name": "Author",
+          "type": "string",
+          "description": "Book author"
+        },
+        "isbn": {
+          "name": "ISBN",
+          "type": "string",
+          "description": "ISBN number"
+        },
+        "pages": {
+          "name": "Pages",
+          "type": "integer",
+          "description": "Number of pages"
+        },
+        "available": {
+          "name": "Available",
+          "type": "boolean",
+          "description": "Whether the book is available"
+        },
+        "created": {
+          "name": "Created",
+          "type": "string",
+          "description": "Creation timestamp"
+        }
+      },
+      "required": ["id", "title", "author", "available", "created"]
+    },
+    "Task": {
+      "name": "Task",
+      "type": "object",
+      "description": "Represents a task in the task management system",
+      "properties": {
+        "id": {
+          "name": "Task ID",
+          "type": "string",
+          "description": "Unique identifier"
+        },
+        "title": {
+          "name": "Title",
+          "type": "string",
+          "description": "Task title"
+        },
+        "description": {
+          "name": "Description",
+          "type": "string",
+          "description": "Task description"
+        },
+        "status": {
+          "name": "Status",
+          "type": "string",
+          "description": "Current status"
+        },
+        "priority": {
+          "name": "Priority",
+          "type": "string",
+          "description": "Priority level"
+        },
+        "due_date": {
+          "name": "Due Date",
+          "type": "string",
+          "description": "Due date"
+        },
+        "created": {
+          "name": "Created",
+          "type": "string",
+          "description": "Creation timestamp"
+        },
+        "updated": {
+          "name": "Updated",
+          "type": "string",
+          "description": "Last update timestamp"
+        }
+      },
+      "required": ["id", "title", "status", "priority", "created", "updated"]
+    },
+    "User": {
+      "name": "User",
+      "type": "object",
+      "description": "Represents a user in the system",
+      "properties": {
+        "id": {
+          "name": "User ID",
+          "type": "string",
+          "description": "Unique identifier"
+        },
+        "username": {
+          "name": "Username",
+          "type": "string",
+          "description": "User's username"
+        },
+        "email": {
+          "name": "Email",
+          "type": "string",
+          "description": "User's email address"
+        },
+        "role": {
+          "name": "Role",
+          "type": "string",
+          "description": "User's role in the system"
+        },
+        "active": {
+          "name": "Active",
+          "type": "boolean",
+          "description": "Whether the user is active"
+        }
+      },
+      "required": ["id", "username", "email", "role", "active"]
+    },
+    "ApiError": {
+      "name": "API Error",
+      "type": "object",
+      "description": "Standard error response format",
+      "properties": {
+        "code": {
+          "name": "Error Code",
+          "type": "string",
+          "description": "Machine-readable error code"
+        },
+        "message": {
+          "name": "Error Message",
+          "type": "string",
+          "description": "Human-readable error message"
+        },
+        "details": {
+          "name": "Error Details",
+          "type": "string",
+          "description": "Additional error details"
+        },
+        "timestamp": {
+          "name": "Timestamp",
+          "type": "string",
+          "description": "Error occurrence timestamp"
+        }
+      },
+      "required": ["code", "message", "timestamp"]
+    },
+    "PaginatedResponse": {
+      "name": "Paginated Response",
+      "type": "object",
+      "description": "Standard paginated response format",
+      "properties": {
+        "data": {
+          "name": "Data",
+          "type": "array",
+          "description": "Array of result items"
+        },
+        "total": {
+          "name": "Total",
+          "type": "integer",
+          "description": "Total number of items"
+        },
+        "page": {
+          "name": "Page",
+          "type": "integer",
+          "description": "Current page number"
+        },
+        "per_page": {
+          "name": "Per Page",
+          "type": "integer",
+          "description": "Items per page"
+        },
+        "has_more": {
+          "name": "Has More",
+          "type": "boolean",
+          "description": "Whether there are more pages"
+        }
+      },
+      "required": ["data", "total", "page", "per_page", "has_more"]
+    }
+  }
+}
