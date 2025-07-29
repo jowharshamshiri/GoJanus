@@ -13,6 +13,19 @@ import (
 	"github.com/user/GoUnixSocketAPI/pkg/specification"
 )
 
+// ResponseTracker tracks pending responses for async communication
+type ResponseTracker struct {
+	CommandID string
+	ChannelID string
+	CreatedAt time.Time
+	TimeoutDuration time.Duration
+}
+
+// IsExpired checks if the response tracker has expired
+func (rt *ResponseTracker) IsExpired() bool {
+	return time.Since(rt.CreatedAt) > rt.TimeoutDuration
+}
+
 // UnixSockAPIClient is the main client interface for Unix socket communication
 // Matches Swift UnixSockAPIClient functionality exactly for cross-language compatibility
 type UnixSockAPIClient struct {
@@ -35,6 +48,15 @@ type UnixSockAPIClient struct {
 	isListening   bool
 	listenMutex   sync.Mutex
 	stopListening chan struct{}
+	
+	// Async response tracking (like Swift)
+	pendingCommands map[string]chan *models.SocketResponse
+	responseTrackers map[string]*ResponseTracker
+	trackingMutex   sync.RWMutex
+	
+	// Persistent connection for async communication
+	persistentConn *core.UnixSocketClient
+	connMutex      sync.Mutex
 }
 
 // UnixSockAPIClientConfig holds configuration options for the API client
@@ -125,15 +147,17 @@ func NewUnixSockAPIClient(socketPath, channelID string, apiSpec *specification.A
 	timeoutManager := NewTimeoutManager()
 	
 	return &UnixSockAPIClient{
-		socketPath:     socketPath,
-		channelID:      channelID,
-		apiSpec:        apiSpec,
-		config:         cfg,
-		connectionPool: pool,
-		validator:      validator,
-		handlers:       make(map[string]models.CommandHandler),
-		timeoutManager: timeoutManager,
-		stopListening:  make(chan struct{}),
+		socketPath:       socketPath,
+		channelID:        channelID,
+		apiSpec:          apiSpec,
+		config:           cfg,
+		connectionPool:   pool,
+		validator:        validator,
+		handlers:         make(map[string]models.CommandHandler),
+		timeoutManager:   timeoutManager,
+		stopListening:    make(chan struct{}),
+		pendingCommands:  make(map[string]chan *models.SocketResponse),
+		responseTrackers: make(map[string]*ResponseTracker),
 	}, nil
 }
 
@@ -208,24 +232,63 @@ func (client *UnixSockAPIClient) SendCommand(ctx context.Context, commandName st
 		defer client.timeoutManager.CancelTimeout(command.ID)
 	}
 	
-	// Send command through connection pool (stateless communication)
-	responseData, err := client.connectionPool.SendMessage(timeoutCtx, commandData)
-	if err != nil {
+	// Set up async response tracking
+	responseChan := make(chan *models.SocketResponse, 1)
+	
+	// Register pending command and response tracker
+	client.trackingMutex.Lock()
+	client.pendingCommands[command.ID] = responseChan
+	client.responseTrackers[command.ID] = &ResponseTracker{
+		CommandID: command.ID,
+		ChannelID: client.channelID,
+		CreatedAt: time.Now(),
+		TimeoutDuration: timeout,
+	}
+	client.trackingMutex.Unlock()
+	
+	// Ensure message listener is running
+	if err := client.ensureMessageListener(); err != nil {
+		return nil, fmt.Errorf("failed to start message listener: %w", err)
+	}
+	
+	// Send command asynchronously
+	if err := client.sendMessageAsync(commandData); err != nil {
+		// Clean up on error
+		client.trackingMutex.Lock()
+		delete(client.pendingCommands, command.ID)
+		delete(client.responseTrackers, command.ID)
+		client.trackingMutex.Unlock()
 		return nil, fmt.Errorf("failed to send command: %w", err)
 	}
 	
-	// Parse response
-	var response models.SocketResponse
-	if err := response.FromJSON(responseData); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+	// Wait for response with timeout
+	select {
+	case response := <-responseChan:
+		// Clean up tracking
+		client.trackingMutex.Lock()
+		delete(client.pendingCommands, command.ID)
+		delete(client.responseTrackers, command.ID)
+		client.trackingMutex.Unlock()
+		
+		// Validate channel isolation
+		if err := client.validator.ValidateChannelIsolation(client.channelID, response.ChannelID); err != nil {
+			return nil, fmt.Errorf("channel isolation violation: %w", err)
+		}
+		
+		return response, nil
+		
+	case <-timeoutCtx.Done():
+		// Clean up on timeout
+		client.trackingMutex.Lock()
+		delete(client.pendingCommands, command.ID)
+		delete(client.responseTrackers, command.ID)
+		client.trackingMutex.Unlock()
+		
+		if onTimeout != nil {
+			onTimeout(command.ID)
+		}
+		return nil, fmt.Errorf("command timeout after %v", timeout)
 	}
-	
-	// Validate channel isolation
-	if err := client.validator.ValidateChannelIsolation(client.channelID, response.ChannelID); err != nil {
-		return nil, fmt.Errorf("channel isolation violation: %w", err)
-	}
-	
-	return &response, nil
 }
 
 // PublishCommand sends a fire-and-forget command (no response expected)
@@ -505,6 +568,119 @@ func (client *UnixSockAPIClient) IsListening() bool {
 	client.listenMutex.Lock()
 	defer client.listenMutex.Unlock()
 	return client.isListening
+}
+
+// ensureMessageListener starts the message listener if not already running
+func (client *UnixSockAPIClient) ensureMessageListener() error {
+	client.listenMutex.Lock()
+	defer client.listenMutex.Unlock()
+	
+	if !client.isListening {
+		go client.messageListenerLoop()
+		client.isListening = true
+	}
+	return nil
+}
+
+// sendMessageAsync sends a message without waiting for response
+func (client *UnixSockAPIClient) sendMessageAsync(messageData []byte) error {
+	// Use persistent connection for sending
+	client.connMutex.Lock()
+	if client.persistentConn == nil {
+		// Create persistent connection
+		conn, err := core.NewUnixSocketClient(client.socketPath)
+		if err != nil {
+			client.connMutex.Unlock()
+			return fmt.Errorf("failed to create persistent connection: %w", err)
+		}
+		client.persistentConn = conn
+	}
+	conn := client.persistentConn
+	client.connMutex.Unlock()
+	
+	ctx, cancel := context.WithTimeout(context.Background(), client.config.ConnectionTimeout)
+	defer cancel()
+	
+	if err := conn.SendNoResponse(ctx, messageData); err != nil {
+		return fmt.Errorf("failed to send message: %w", err)
+	}
+	
+	return nil
+}
+
+// messageListenerLoop runs in background to handle incoming responses
+func (client *UnixSockAPIClient) messageListenerLoop() {
+	defer func() {
+		client.listenMutex.Lock()
+		client.isListening = false
+		client.listenMutex.Unlock()
+	}()
+	
+	for {
+		select {
+		case <-client.stopListening:
+			return
+		default:
+			// Listen for incoming messages
+			if err := client.handleIncomingMessages(); err != nil {
+				// Log error and continue (add exponential backoff in production)
+				fmt.Printf("Error handling incoming messages: %v\n", err)
+				time.Sleep(time.Second)
+			}
+		}
+	}
+}
+
+// handleIncomingMessages listens for and processes incoming responses
+func (client *UnixSockAPIClient) handleIncomingMessages() error {
+	// Use persistent connection for listening
+	client.connMutex.Lock()
+	if client.persistentConn == nil {
+		// Create persistent connection
+		conn, err := core.NewUnixSocketClient(client.socketPath)
+		if err != nil {
+			client.connMutex.Unlock()
+			return fmt.Errorf("failed to create persistent connection: %w", err)
+		}
+		client.persistentConn = conn
+	}
+	conn := client.persistentConn
+	client.connMutex.Unlock()
+	
+	ctx, cancel := context.WithTimeout(context.Background(), client.config.ConnectionTimeout)
+	defer cancel()
+	
+	// Read message with timeout
+	responseData, err := conn.ReceiveMessage(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to receive message: %w", err)
+	}
+	
+	// Parse response
+	var response models.SocketResponse
+	if err := response.FromJSON(responseData); err != nil {
+		return fmt.Errorf("failed to parse response: %w", err)
+	}
+	
+	// Route response to correct pending command
+	client.trackingMutex.Lock()
+	responseChan, exists := client.pendingCommands[response.CommandID]
+	if exists {
+		delete(client.pendingCommands, response.CommandID)
+		delete(client.responseTrackers, response.CommandID)
+	}
+	client.trackingMutex.Unlock()
+	
+	if exists && responseChan != nil {
+		select {
+		case responseChan <- &response:
+			// Response delivered successfully
+		default:
+			// Channel might be closed or full, ignore
+		}
+	}
+	
+	return nil
 }
 
 // Close closes the client and cleans up resources

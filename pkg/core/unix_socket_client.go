@@ -300,3 +300,37 @@ func (usc *UnixSocketClient) IsConnected() bool {
 	
 	return usc.conn != nil
 }
+
+// ReceiveMessage receives a message from the Unix socket (for async listening)
+func (usc *UnixSocketClient) ReceiveMessage(ctx context.Context) ([]byte, error) {
+	// Connect if not already connected
+	if err := usc.Connect(ctx); err != nil {
+		return nil, err
+	}
+	
+	usc.connMutex.Lock()
+	conn := usc.conn
+	usc.connMutex.Unlock()
+	
+	if conn == nil {
+		return nil, fmt.Errorf("not connected to socket")
+	}
+	
+	// Set read timeout
+	if err := conn.SetReadDeadline(time.Now().Add(usc.connectionTimeout)); err != nil {
+		return nil, fmt.Errorf("failed to set read deadline: %w", err)
+	}
+	
+	// Read response with framing
+	response, err := usc.framing.ReadMessage(conn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read message: %w", err)
+	}
+	
+	// Validate response format
+	if err := usc.framing.ValidateMessageFormat(response); err != nil {
+		return nil, fmt.Errorf("message validation failed: %w", err)
+	}
+	
+	return response, nil
+}
