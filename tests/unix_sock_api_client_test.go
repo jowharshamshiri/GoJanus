@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/user/GoUnixSockAPI"
+	"github.com/user/GoUnixSockAPI/pkg/protocol"
 )
 
 // TestClientInitializationWithValidSpec tests client creation with valid specification
@@ -21,11 +22,11 @@ func TestClientInitializationWithValidSpec(t *testing.T) {
 	
 	spec := createComplexAPISpec()
 	
-	client, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "library-management", spec)
+	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client with valid spec: %v", err)
 	}
-	defer client.Close()
+	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
 	if client.SocketPathString() != testSocketPath {
 		t.Errorf("Expected socket path '%s', got '%s'", testSocketPath, client.SocketPathString())
@@ -51,7 +52,7 @@ func TestClientInitializationWithInvalidChannel(t *testing.T) {
 	
 	spec := createComplexAPISpec()
 	
-	_, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "nonexistent-channel", spec)
+	_, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "nonexistent-channel", spec)
 	if err == nil {
 		t.Error("Expected error for nonexistent channel")
 	}
@@ -86,7 +87,7 @@ func TestClientInitializationWithInvalidSpec(t *testing.T) {
 		},
 	}
 	
-	_, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "test-channel", invalidSpec)
+	_, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "test-channel", invalidSpec)
 	if err == nil {
 		t.Error("Expected error for invalid specification")
 	}
@@ -106,11 +107,11 @@ func TestRegisterValidCommandHandler(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "library-management", spec)
+	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
-	defer client.Close()
+	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
 	// Register handler for existing command
 	handler := func(command *gounixsocketapi.SocketCommand) (*gounixsocketapi.SocketResponse, error) {
@@ -135,11 +136,11 @@ func TestRegisterInvalidCommandHandler(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "library-management", spec)
+	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
-	defer client.Close()
+	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
 	// Try to register handler for nonexistent command
 	handler := func(command *gounixsocketapi.SocketCommand) (*gounixsocketapi.SocketResponse, error) {
@@ -166,11 +167,11 @@ func TestSocketCommandValidation(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "library-management", spec)
+	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
-	defer client.Close()
+	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
 	ctx := context.Background()
 	
@@ -181,7 +182,7 @@ func TestSocketCommandValidation(t *testing.T) {
 	
 	// This should fail with connection error (expected since no server running)
 	// but the command validation should pass
-	_, err = client.SendCommand(ctx, "get-book", validArgs, 1*time.Second, nil)
+	_, err = client.SendCommand(ctx, "get-book", validArgs, protocol.CommandOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected connection error since no server is running")
 	}
@@ -196,7 +197,7 @@ func TestSocketCommandValidation(t *testing.T) {
 		"wrong_field": "value",
 	}
 	
-	_, err = client.SendCommand(ctx, "get-book", invalidArgs, 1*time.Second, nil)
+	_, err = client.SendCommand(ctx, "get-book", invalidArgs, protocol.CommandOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected validation error for invalid arguments")
 	}
@@ -216,11 +217,16 @@ func TestCommandMessageSerialization(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "library-management", spec)
+	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
-	defer client.Close()
+	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
+	
+	// Verify client was created properly
+	if client.ChannelIdentifier() != "library-management" {
+		t.Errorf("Expected channel ID 'library-management', got %s", client.ChannelIdentifier())
+	}
 	
 	args := map[string]interface{}{
 		"title":  "Test Book",
@@ -275,14 +281,14 @@ func TestMultipleClientInstances(t *testing.T) {
 	spec := createComplexAPISpec()
 	
 	// Create first client
-	client1, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath1, "library-management", spec)
+	client1, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath1, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create first client: %v", err)
 	}
 	defer client1.Close()
 	
 	// Create second client with different socket path
-	client2, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath2, "task-management", spec)
+	client2, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath2, "task-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create second client: %v", err)
 	}
@@ -331,11 +337,11 @@ func TestCommandHandlerWithAsyncOperations(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "library-management", spec)
+	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
-	defer client.Close()
+	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
 	// Register async handler
 	asyncHandler := func(command *gounixsocketapi.SocketCommand) (*gounixsocketapi.SocketResponse, error) {
@@ -364,11 +370,11 @@ func TestCommandHandlerErrorHandling(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "library-management", spec)
+	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
-	defer client.Close()
+	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
 	// Register error-producing handler
 	errorHandler := func(command *gounixsocketapi.SocketCommand) (*gounixsocketapi.SocketResponse, error) {
@@ -395,11 +401,11 @@ func TestAPISpecWithComplexArguments(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "task-management", spec)
+	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "task-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
-	defer client.Close()
+	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
 	// Test complex arguments for create-task command
 	complexArgs := map[string]interface{}{
@@ -413,7 +419,7 @@ func TestAPISpecWithComplexArguments(t *testing.T) {
 	
 	// This should fail with connection error (expected since no server running)
 	// but the argument validation should pass
-	_, err = client.SendCommand(ctx, "create-task", complexArgs, 1*time.Second, nil)
+	_, err = client.SendCommand(ctx, "create-task", complexArgs, protocol.CommandOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected connection error since no server is running")
 	}
@@ -434,11 +440,11 @@ func TestArgumentValidationConstraints(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "library-management", spec)
+	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
-	defer client.Close()
+	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
 	ctx := context.Background()
 	
@@ -447,7 +453,7 @@ func TestArgumentValidationConstraints(t *testing.T) {
 		"id": "",
 	}
 	
-	_, err = client.SendCommand(ctx, "get-book", invalidArgs, 1*time.Second, nil)
+	_, err = client.SendCommand(ctx, "get-book", invalidArgs, protocol.CommandOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected validation error for empty ID")
 	}
@@ -461,7 +467,7 @@ func TestArgumentValidationConstraints(t *testing.T) {
 		"id": "invalid id with spaces",
 	}
 	
-	_, err = client.SendCommand(ctx, "get-book", invalidPatternArgs, 1*time.Second, nil)
+	_, err = client.SendCommand(ctx, "get-book", invalidPatternArgs, protocol.CommandOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected validation error for invalid ID pattern")
 	}
@@ -482,7 +488,7 @@ func createComplexAPISpec() *gounixsocketapi.APISpecification {
 					"get-book": {
 						Name:        "Get Book",
 						Description: "Retrieve a book by ID",
-						Arguments: map[string]*gounixsocketapi.ArgumentSpec{
+						Args: map[string]*gounixsocketapi.ArgumentSpec{
 							"id": {
 								Name:        "Book ID",
 								Type:        "string",
@@ -502,7 +508,7 @@ func createComplexAPISpec() *gounixsocketapi.APISpecification {
 					"add-book": {
 						Name:        "Add Book",
 						Description: "Add a new book",
-						Arguments: map[string]*gounixsocketapi.ArgumentSpec{
+						Args: map[string]*gounixsocketapi.ArgumentSpec{
 							"title": {
 								Name:        "Title",
 								Type:        "string",
@@ -543,7 +549,7 @@ func createComplexAPISpec() *gounixsocketapi.APISpecification {
 					"create-task": {
 						Name:        "Create Task",
 						Description: "Create a new task",
-						Arguments: map[string]*gounixsocketapi.ArgumentSpec{
+						Args: map[string]*gounixsocketapi.ArgumentSpec{
 							"title": {
 								Name:        "Title",
 								Type:        "string",

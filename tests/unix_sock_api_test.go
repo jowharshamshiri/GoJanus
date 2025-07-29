@@ -345,7 +345,7 @@ func TestUnixSocketClientInitialization(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	client, err := gounixsocketapi.NewUnixSocketClient(testSocketPath)
+	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath)
 	if err != nil {
 		t.Fatalf("Failed to create Unix socket client: %v", err)
 	}
@@ -379,7 +379,7 @@ func createTestAPISpec() *gounixsocketapi.APISpecification {
 					"test-command": {
 						Name:        "Test Command",
 						Description: "Test command description",
-						Arguments: map[string]*gounixsocketapi.ArgumentSpec{
+						Args: map[string]*gounixsocketapi.ArgumentSpec{
 							"test_arg": {
 								Name:        "Test Argument",
 								Type:        "string",

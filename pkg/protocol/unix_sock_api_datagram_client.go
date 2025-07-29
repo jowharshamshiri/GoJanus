@@ -264,3 +264,48 @@ func mergeCommandOptions(options ...CommandOptions) CommandOptions {
 	
 	return opts
 }
+
+// Backward compatibility methods for tests
+
+// ChannelIdentifier returns the channel ID for backward compatibility
+func (client *UnixSockAPIDatagramClient) ChannelIdentifier() string {
+	return client.channelID
+}
+
+// Specification returns the API specification for backward compatibility  
+func (client *UnixSockAPIDatagramClient) Specification() *specification.APISpecification {
+	return client.apiSpec
+}
+
+// PublishCommand sends a command without expecting response for backward compatibility
+func (client *UnixSockAPIDatagramClient) PublishCommand(ctx context.Context, command string, args map[string]interface{}) (string, error) {
+	err := client.SendCommandNoResponse(ctx, command, args)
+	if err != nil {
+		return "", err
+	}
+	// Return a generated command ID for compatibility
+	return generateUUID(), nil
+}
+
+// SocketPathString returns the socket path for backward compatibility
+func (client *UnixSockAPIDatagramClient) SocketPathString() string {
+	return client.socketPath
+}
+
+// RegisterCommandHandler is a no-op for backward compatibility (SOCK_DGRAM doesn't use handlers)
+func (client *UnixSockAPIDatagramClient) RegisterCommandHandler(command string, handler interface{}) error {
+	// SOCK_DGRAM doesn't use command handlers - this is for backward compatibility only
+	return nil
+}
+
+// Disconnect is a no-op for backward compatibility (SOCK_DGRAM doesn't have persistent connections)
+func (client *UnixSockAPIDatagramClient) Disconnect() error {
+	// SOCK_DGRAM doesn't have persistent connections - this is for backward compatibility only
+	return nil
+}
+
+// IsConnected always returns true for backward compatibility (SOCK_DGRAM doesn't track connections)
+func (client *UnixSockAPIDatagramClient) IsConnected() bool {
+	// SOCK_DGRAM doesn't track connections - return true for backward compatibility
+	return true
+}

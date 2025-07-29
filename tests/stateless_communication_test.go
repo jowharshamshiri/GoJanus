@@ -343,6 +343,11 @@ func TestStatelessCommandUUIDGeneration(t *testing.T) {
 	}
 	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
+	// Verify client was created properly
+	if client.ChannelIdentifier() != "stateless-channel" {
+		t.Errorf("Expected channel ID 'stateless-channel', got %s", client.ChannelIdentifier())
+	}
+	
 	// Create multiple commands and verify they have different UUIDs
 	args := map[string]interface{}{
 		"test_param": "value",
@@ -424,7 +429,7 @@ func createStatelessTestAPISpec() *gounixsocketapi.APISpecification {
 					"stateless-command": {
 						Name:        "Stateless Command",
 						Description: "Command for stateless testing",
-						Arguments: map[string]*gounixsocketapi.ArgumentSpec{
+						Args: map[string]*gounixsocketapi.ArgumentSpec{
 							"test_param": {
 								Name:        "Test Parameter",
 								Type:        "string",
@@ -440,7 +445,7 @@ func createStatelessTestAPISpec() *gounixsocketapi.APISpecification {
 					"validation-command": {
 						Name:        "Validation Command",
 						Description: "Command for validation testing",
-						Arguments: map[string]*gounixsocketapi.ArgumentSpec{
+						Args: map[string]*gounixsocketapi.ArgumentSpec{
 							"required_param": {
 								Name:        "Required Parameter",
 								Type:        "string",
@@ -479,7 +484,7 @@ func createMultiChannelAPISpec() *gounixsocketapi.APISpecification {
 					"command-1": {
 						Name:        "Command 1",
 						Description: "First channel command",
-						Arguments: map[string]*gounixsocketapi.ArgumentSpec{
+						Args: map[string]*gounixsocketapi.ArgumentSpec{
 							"param1": {
 								Name:        "Parameter 1",
 								Type:        "string",
@@ -501,7 +506,7 @@ func createMultiChannelAPISpec() *gounixsocketapi.APISpecification {
 					"command-2": {
 						Name:        "Command 2",
 						Description: "Second channel command",
-						Arguments: map[string]*gounixsocketapi.ArgumentSpec{
+						Args: map[string]*gounixsocketapi.ArgumentSpec{
 							"param2": {
 								Name:        "Parameter 2",
 								Type:        "string",

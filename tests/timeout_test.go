@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/user/GoUnixSockAPI"
+	"github.com/user/GoUnixSockAPI/pkg/protocol"
 )
 
 // TestCommandTimeoutConfiguration tests timeout configuration for commands
@@ -21,7 +22,7 @@ func TestCommandTimeoutConfiguration(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createTimeoutTestAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "timeout-channel", spec)
+	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "timeout-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -36,7 +37,7 @@ func TestCommandTimeoutConfiguration(t *testing.T) {
 	shortTimeout := 1 * time.Second
 	start := time.Now()
 	
-	_, err = client.SendCommand(ctx, "timeout-command", args, shortTimeout, nil)
+	_, err = client.SendCommand(ctx, "timeout-command", args, protocol.CommandOptions{Timeout: shortTimeout})
 	elapsed := time.Since(start)
 	
 	if err == nil {
@@ -52,7 +53,7 @@ func TestCommandTimeoutConfiguration(t *testing.T) {
 	longerTimeout := 5 * time.Second
 	start = time.Now()
 	
-	_, err = client.SendCommand(ctx, "timeout-command", args, longerTimeout, nil)
+	_, err = client.SendCommand(ctx, "timeout-command", args, protocol.CommandOptions{Timeout: longerTimeout})
 	elapsed = time.Since(start)
 	
 	if err == nil {
@@ -75,7 +76,7 @@ func TestTimeoutCallbackMechanisms(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createTimeoutTestAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "timeout-channel", spec)
+	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "timeout-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -86,16 +87,10 @@ func TestTimeoutCallbackMechanisms(t *testing.T) {
 		"test_param": "value",
 	}
 	
-	// Test timeout callback
+	// Test timeout behavior
 	var timeoutCalled int32
 	
-	timeoutHandler := func(commandID string) {
-		atomic.StoreInt32(&timeoutCalled, 1)
-		// Store commandID for potential future verification
-		_ = commandID
-	}
-	
-	_, err = client.SendCommand(ctx, "timeout-command", args, 1*time.Second, timeoutHandler)
+	_, err = client.SendCommand(ctx, "timeout-command", args, protocol.CommandOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected connection error")
 	}
@@ -119,7 +114,7 @@ func TestUUIDGeneration(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createTimeoutTestAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "timeout-channel", spec)
+	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "timeout-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -172,7 +167,7 @@ func TestMultipleConcurrentTimeouts(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createTimeoutTestAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "timeout-channel", spec)
+	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "timeout-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -189,7 +184,7 @@ func TestMultipleConcurrentTimeouts(t *testing.T) {
 	
 	for i := 0; i < numCommands; i++ {
 		go func(index int) {
-			_, err := client.SendCommand(ctx, "timeout-command", args, 1*time.Second, nil)
+			_, err := client.SendCommand(ctx, "timeout-command", args, protocol.CommandOptions{Timeout: 1*time.Second})
 			results <- err
 		}(i)
 	}
@@ -218,7 +213,7 @@ func TestDefaultTimeoutBehavior(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createTimeoutTestAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "timeout-channel", spec)
+	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "timeout-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -232,7 +227,7 @@ func TestDefaultTimeoutBehavior(t *testing.T) {
 	// Test with default timeout (30 seconds from configuration)
 	start := time.Now()
 	
-	_, err = client.SendCommand(ctx, "timeout-command", args, 30*time.Second, nil)
+	_, err = client.SendCommand(ctx, "timeout-command", args, protocol.CommandOptions{Timeout: 30*time.Second})
 	elapsed := time.Since(start)
 	
 	if err == nil {
@@ -354,7 +349,7 @@ func TestTimeoutValidation(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createTimeoutTestAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "timeout-channel", spec)
+	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "timeout-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -366,7 +361,7 @@ func TestTimeoutValidation(t *testing.T) {
 	}
 	
 	// Test with very short timeout (should be validated)
-	_, err = client.SendCommand(ctx, "timeout-command", args, 50*time.Millisecond, nil)
+	_, err = client.SendCommand(ctx, "timeout-command", args, protocol.CommandOptions{Timeout: 50*time.Millisecond})
 	if err == nil {
 		t.Error("Expected validation error for very short timeout")
 	}
@@ -376,7 +371,7 @@ func TestTimeoutValidation(t *testing.T) {
 	}
 	
 	// Test with very long timeout (should be validated)
-	_, err = client.SendCommand(ctx, "timeout-command", args, 400*time.Second, nil)
+	_, err = client.SendCommand(ctx, "timeout-command", args, protocol.CommandOptions{Timeout: 400*time.Second})
 	if err == nil {
 		t.Error("Expected validation error for very long timeout")
 	}
@@ -386,7 +381,7 @@ func TestTimeoutValidation(t *testing.T) {
 	}
 	
 	// Test with valid timeout
-	_, err = client.SendCommand(ctx, "timeout-command", args, 30*time.Second, nil)
+	_, err = client.SendCommand(ctx, "timeout-command", args, protocol.CommandOptions{Timeout: 30*time.Second})
 	if err != nil && strings.Contains(err.Error(), "validation") && strings.Contains(err.Error(), "timeout") {
 		t.Errorf("Valid timeout should not produce validation error: %v", err)
 	}
@@ -476,7 +471,7 @@ func createTimeoutTestAPISpec() *gounixsocketapi.APISpecification {
 					"timeout-command": {
 						Name:        "Timeout Command",
 						Description: "Command for timeout testing",
-						Arguments: map[string]*gounixsocketapi.ArgumentSpec{
+						Args: map[string]*gounixsocketapi.ArgumentSpec{
 							"test_param": {
 								Name:        "Test Parameter",
 								Type:        "string",
