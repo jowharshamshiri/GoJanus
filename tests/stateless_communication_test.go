@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/user/GoUnixSockAPI"
+	"github.com/user/GoUnixSockAPI/pkg/protocol"
 )
 
 // TestCommandValidationWithoutConnection tests command validation without requiring a connection
@@ -33,7 +34,7 @@ func TestCommandValidationWithoutConnection(t *testing.T) {
 		"test_param": "valid_value",
 	}
 	
-	_, err = client.SendCommand(ctx, "stateless-command", validArgs, 1*time.Second, nil)
+	_, err = client.SendCommand(ctx, "stateless-command", validArgs, protocol.CommandOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected connection error since no server is running")
 	}
@@ -48,7 +49,7 @@ func TestCommandValidationWithoutConnection(t *testing.T) {
 		"wrong_param": "value",
 	}
 	
-	_, err = client.SendCommand(ctx, "stateless-command", invalidArgs, 1*time.Second, nil)
+	_, err = client.SendCommand(ctx, "stateless-command", invalidArgs, protocol.CommandOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected validation error for invalid arguments")
 	}
@@ -88,8 +89,8 @@ func TestIndependentCommandExecution(t *testing.T) {
 	
 	// Both should fail with connection error (no server running)
 	// but each should have unique command IDs
-	_, err1 := client.SendCommand(ctx, "stateless-command", args1, 1*time.Second, nil)
-	_, err2 := client.SendCommand(ctx, "stateless-command", args2, 1*time.Second, nil)
+	_, err1 := client.SendCommand(ctx, "stateless-command", args1, protocol.CommandOptions{Timeout: 1*time.Second})
+	_, err2 := client.SendCommand(ctx, "stateless-command", args2, protocol.CommandOptions{Timeout: 1*time.Second})
 	
 	if err1 == nil || err2 == nil {
 		t.Error("Expected connection errors since no server is running")
@@ -142,7 +143,7 @@ func TestChannelIsolationBetweenClients(t *testing.T) {
 		"param1": "value",
 	}
 	
-	_, err = client1.SendCommand(ctx, "command-1", args1, 1*time.Second, nil)
+	_, err = client1.SendCommand(ctx, "command-1", args1, protocol.CommandOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected connection error since no server is running")
 	}
@@ -153,7 +154,7 @@ func TestChannelIsolationBetweenClients(t *testing.T) {
 	}
 	
 	// Client1 should NOT be able to call channel-2 commands
-	_, err = client1.SendCommand(ctx, "command-2", args1, 1*time.Second, nil)
+	_, err = client1.SendCommand(ctx, "command-2", args1, protocol.CommandOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected validation error for wrong channel command")
 	}
@@ -187,7 +188,7 @@ func TestArgumentValidationInStatelessMode(t *testing.T) {
 		"optional_param": "value",
 	}
 	
-	_, err = client.SendCommand(ctx, "validation-command", argsWithoutRequired, 1*time.Second, nil)
+	_, err = client.SendCommand(ctx, "validation-command", argsWithoutRequired, protocol.CommandOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected validation error for missing required argument")
 	}
@@ -202,7 +203,7 @@ func TestArgumentValidationInStatelessMode(t *testing.T) {
 		"optional_param": "value",
 	}
 	
-	_, err = client.SendCommand(ctx, "validation-command", argsWithWrongType, 1*time.Second, nil)
+	_, err = client.SendCommand(ctx, "validation-command", argsWithWrongType, protocol.CommandOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected validation error for wrong argument type")
 	}
@@ -217,7 +218,7 @@ func TestArgumentValidationInStatelessMode(t *testing.T) {
 		"optional_param": "optional_value",
 	}
 	
-	_, err = client.SendCommand(ctx, "validation-command", validArgs, 1*time.Second, nil)
+	_, err = client.SendCommand(ctx, "validation-command", validArgs, protocol.CommandOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected connection error since no server is running")
 	}
@@ -314,13 +315,13 @@ func TestMultiChannelAPISpecificationHandling(t *testing.T) {
 	}
 	
 	// Client1 should be able to validate command-1 (exists in channel-1)
-	_, err = client1.SendCommand(ctx, "command-1", args, 1*time.Second, nil)
+	_, err = client1.SendCommand(ctx, "command-1", args, protocol.CommandOptions{Timeout: 1*time.Second})
 	if err != nil && strings.Contains(err.Error(), "not found") {
 		t.Errorf("Client1 should be able to find command-1: %v", err)
 	}
 	
 	// Client1 should NOT be able to validate command-2 (doesn't exist in channel-1)
-	_, err = client1.SendCommand(ctx, "command-2", args, 1*time.Second, nil)
+	_, err = client1.SendCommand(ctx, "command-2", args, protocol.CommandOptions{Timeout: 1*time.Second})
 	if err == nil || !strings.Contains(err.Error(), "not found") {
 		t.Error("Client1 should not be able to find command-2")
 	}
@@ -399,7 +400,7 @@ func TestChannelIsolationValidation(t *testing.T) {
 	}
 	
 	// Try to call command from different channel - should fail validation
-	_, err = client.SendCommand(ctx, "command-2", args, 1*time.Second, nil)
+	_, err = client.SendCommand(ctx, "command-2", args, protocol.CommandOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected validation error for cross-channel command")
 	}
