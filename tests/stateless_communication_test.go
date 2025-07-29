@@ -24,7 +24,7 @@ func TestCommandValidationWithoutConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
-	defer client.Close()
+	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
 	ctx := context.Background()
 	
@@ -73,7 +73,7 @@ func TestIndependentCommandExecution(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
-	defer client.Close()
+	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
 	ctx := context.Background()
 	
@@ -178,7 +178,7 @@ func TestArgumentValidationInStatelessMode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
-	defer client.Close()
+	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
 	ctx := context.Background()
 	
@@ -242,7 +242,7 @@ func TestMessageSerializationForStatelessOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
-	defer client.Close()
+	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
 	// Test publish command (fire-and-forget)
 	publishArgs := map[string]interface{}{
@@ -340,7 +340,7 @@ func TestStatelessCommandUUIDGeneration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
-	defer client.Close()
+	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
 	// Create multiple commands and verify they have different UUIDs
 	args := map[string]interface{}{
@@ -389,7 +389,7 @@ func TestChannelIsolationValidation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
-	defer client.Close()
+	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
 	ctx := context.Background()
 	

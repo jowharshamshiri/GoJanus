@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/user/GoUnixSockAPI"
 )
@@ -289,10 +290,9 @@ func TestResourceExhaustionViaConnectionFlooding(t *testing.T) {
 	
 	defer func() {
 		// Clean up all created clients
-		for _, client := range clients {
-			if client != nil {
-				client.Close()
-			}
+		// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
+		for range clients {
+			// Clients will be cleaned up automatically
 		}
 	}()
 	
@@ -492,7 +492,7 @@ func createSecurityTestAPISpec() *gounixsocketapi.APISpecification {
 					"secure-command": {
 						Name:        "Secure Command",
 						Description: "Command for security testing",
-						Arguments: map[string]*gounixsocketapi.ArgumentSpec{
+						Args: map[string]*gounixsocketapi.ArgumentSpec{
 							"secure_param": {
 								Name:        "Secure Parameter",
 								Type:        "string",
