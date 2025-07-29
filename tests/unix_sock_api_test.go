@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/user/GoUnixSocketAPI"
+	"github.com/user/GoUnixSockAPI"
 )
 
 // TestAPISpecificationCreation tests basic API specification model creation

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/user/GoUnixSocketAPI"
+	"github.com/user/GoUnixSockAPI"
 )
 
 // TestCommandTimeoutConfiguration tests timeout configuration for commands

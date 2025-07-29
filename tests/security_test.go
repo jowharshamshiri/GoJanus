@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/user/GoUnixSocketAPI"
+	"github.com/user/GoUnixSockAPI"
 )
 
 // TestPathTraversalAttackPrevention tests prevention of path traversal attacks
@@ -29,7 +29,7 @@ func TestPathTraversalAttackPrevention(t *testing.T) {
 	}
 	
 	for _, maliciousPath := range maliciousPaths {
-		_, err := gounixsocketapi.NewUnixSockAPIClient(maliciousPath, "security-channel", spec)
+		_, err := gounixsocketapi.NewUnixSockAPIDatagramClient(maliciousPath, "security-channel", spec)
 		if err == nil {
 			t.Errorf("Expected security error for malicious path: %s", maliciousPath)
 		}
@@ -54,7 +54,7 @@ func TestNullByteInjectionDetection(t *testing.T) {
 	}
 	
 	for _, nullBytePath := range nullBytePaths {
-		_, err := gounixsocketapi.NewUnixSockAPIClient(nullBytePath, "security-channel", spec)
+		_, err := gounixsocketapi.NewUnixSockAPIDatagramClient(nullBytePath, "security-channel", spec)
 		if err == nil {
 			t.Errorf("Expected security error for null byte injection: %s", nullBytePath)
 		}
@@ -93,7 +93,7 @@ func TestChannelIDInjectionAttacks(t *testing.T) {
 	}
 	
 	for _, maliciousChannelID := range maliciousChannelIDs {
-		_, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, maliciousChannelID, spec)
+		_, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, maliciousChannelID, spec)
 		if err == nil {
 			t.Errorf("Expected security error for malicious channel ID: %s", maliciousChannelID)
 		}
@@ -115,7 +115,7 @@ func TestCommandInjectionInArguments(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createSecurityTestAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "security-channel", spec)
+	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "security-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestUnicodeNormalizationAttacks(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createSecurityTestAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "security-channel", spec)
+	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "security-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -246,7 +246,7 @@ func TestMemoryExhaustionViaLargePayloads(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createSecurityTestAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "security-channel", spec)
+	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "security-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -285,7 +285,7 @@ func TestResourceExhaustionViaConnectionFlooding(t *testing.T) {
 	
 	// Test creating many clients rapidly
 	maxAttempts := 200 // More than default max connections (100)
-	clients := make([]*gounixsocketapi.UnixSockAPIClient, 0, maxAttempts)
+	clients := make([]*gounixsocketapi.UnixSockAPIDatagramClient, 0, maxAttempts)
 	
 	defer func() {
 		// Clean up all created clients
@@ -301,7 +301,7 @@ func TestResourceExhaustionViaConnectionFlooding(t *testing.T) {
 	
 	for i := 0; i < maxAttempts; i++ {
 		testSocketPath := fmt.Sprintf("/tmp/gounixsocketapi-flood-%d.sock", i)
-		client, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "security-channel", spec)
+		client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "security-channel", spec)
 		
 		if err != nil {
 			errorCount++
@@ -338,22 +338,17 @@ func TestConfigurationSecurityValidation(t *testing.T) {
 	spec := createSecurityTestAPISpec()
 	
 	// Test insecure configurations
-	insecureConfigs := []gounixsocketapi.UnixSockAPIClientConfig{
+	insecureConfigs := []gounixsocketapi.UnixSockAPIDatagramClientConfig{
 		{
-			MaxConcurrentConnections: 10000, // Too many connections
-			MaxMessageSize:          100,
-			ConnectionTimeout:       30000000000, // 30 seconds in nanoseconds
-			MaxPendingCommands:      100,
-			MaxCommandHandlers:      100,
-			EnableResourceMonitoring: false,
-			MaxChannelNameLength:    256,
-			MaxCommandNameLength:    256,
-			MaxArgsDataSize:         100,
+			MaxMessageSize:   100,    // Too small
+			DefaultTimeout:   1 * time.Nanosecond, // Too short
+			DatagramTimeout:  1 * time.Nanosecond, // Too short
+			EnableValidation: false,  // Insecure
 		},
 	}
 	
 	for i, config := range insecureConfigs {
-		_, err := gounixsocketapi.NewUnixSockAPIClientWithConfig(testSocketPath, "security-channel", spec, config)
+		_, err := gounixsocketapi.NewUnixSockAPIDatagramClientWithConfig(testSocketPath, "security-channel", spec, config)
 		if err == nil {
 			t.Errorf("Expected configuration validation error for insecure config %d", i)
 		}
@@ -374,7 +369,7 @@ func TestValidationBypassAttempts(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createSecurityTestAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "security-channel", spec)
+	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "security-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -453,7 +448,7 @@ func TestSocketPathSecurityRestrictions(t *testing.T) {
 	}
 	
 	for _, restrictedPath := range restrictedPaths {
-		_, err := gounixsocketapi.NewUnixSockAPIClient(restrictedPath, "security-channel", spec)
+		_, err := gounixsocketapi.NewUnixSockAPIDatagramClient(restrictedPath, "security-channel", spec)
 		if err == nil {
 			t.Errorf("Expected security error for restricted path: %s", restrictedPath)
 		}
@@ -471,7 +466,7 @@ func TestSocketPathSecurityRestrictions(t *testing.T) {
 	}
 	
 	for _, allowedPath := range allowedPaths {
-		client, err := gounixsocketapi.NewUnixSockAPIClient(allowedPath, "security-channel", spec)
+		client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(allowedPath, "security-channel", spec)
 		if err != nil {
 			t.Errorf("Expected allowed path to work: %s, got error: %v", allowedPath, err)
 		} else {

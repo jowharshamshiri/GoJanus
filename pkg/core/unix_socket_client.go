@@ -4,43 +4,41 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"sync"
 	"time"
 )
 
-// UnixSocketClient provides low-level Unix domain socket communication
-// Matches Swift UnixSocketClient functionality exactly for cross-language compatibility
-type UnixSocketClient struct {
+// UnixDatagramClient provides low-level Unix domain datagram socket communication  
+// SOCK_DGRAM connectionless implementation for cross-language compatibility
+type UnixDatagramClient struct {
 	socketPath        string
 	maxMessageSize    int
-	connectionTimeout time.Duration
-	framing          *MessageFraming
+	datagramTimeout   time.Duration
 	validator        *SecurityValidator
 	messageHandlers  []func([]byte)
 	handlerMutex     sync.RWMutex
-	conn             net.Conn
-	connMutex        sync.Mutex
 }
 
-// UnixSocketClientConfig holds configuration options for the Unix socket client
-// Matches Swift configuration structure
-type UnixSocketClientConfig struct {
-	MaxMessageSize    int
-	ConnectionTimeout time.Duration
+// UnixDatagramClientConfig holds configuration options for the datagram client
+// SOCK_DGRAM configuration structure
+type UnixDatagramClientConfig struct {
+	MaxMessageSize   int
+	DatagramTimeout  time.Duration
 }
 
-// DefaultUnixSocketClientConfig returns default configuration matching Swift defaults
-func DefaultUnixSocketClientConfig() UnixSocketClientConfig {
-	return UnixSocketClientConfig{
-		MaxMessageSize:    10 * 1024 * 1024, // 10MB matches Swift
-		ConnectionTimeout: 5 * time.Second,   // 5s matches Swift
+// DefaultUnixDatagramClientConfig returns default configuration for SOCK_DGRAM
+func DefaultUnixDatagramClientConfig() UnixDatagramClientConfig {
+	return UnixDatagramClientConfig{
+		MaxMessageSize:  64 * 1024,       // 64KB datagram limit
+		DatagramTimeout: 5 * time.Second, // 5s timeout
 	}
 }
 
-// NewUnixSocketClient creates a new Unix socket client
-// Matches Swift: init(socketPath: String, maxMessageSize: Int, connectionTimeout: TimeInterval)
-func NewUnixSocketClient(socketPath string, config ...UnixSocketClientConfig) (*UnixSocketClient, error) {
-	cfg := DefaultUnixSocketClientConfig()
+// NewUnixDatagramClient creates a new Unix datagram client
+// SOCK_DGRAM connectionless implementation
+func NewUnixDatagramClient(socketPath string, config ...UnixDatagramClientConfig) (*UnixDatagramClient, error) {
+	cfg := DefaultUnixDatagramClientConfig()
 	if len(config) > 0 {
 		cfg = config[0]
 	}
@@ -52,285 +50,192 @@ func NewUnixSocketClient(socketPath string, config ...UnixSocketClientConfig) (*
 		return nil, fmt.Errorf("invalid socket path: %w", err)
 	}
 	
-	return &UnixSocketClient{
+	return &UnixDatagramClient{
 		socketPath:        socketPath,
 		maxMessageSize:    cfg.MaxMessageSize,
-		connectionTimeout: cfg.ConnectionTimeout,
-		framing:          NewMessageFraming(cfg.MaxMessageSize),
+		datagramTimeout:   cfg.DatagramTimeout,
 		validator:        validator,
 		messageHandlers:  make([]func([]byte), 0),
 	}, nil
 }
 
-// Connect establishes a connection to the Unix socket
-// Matches Swift: func connect() async throws
-func (usc *UnixSocketClient) Connect(ctx context.Context) error {
-	usc.connMutex.Lock()
-	defer usc.connMutex.Unlock()
+// BindResponseSocket creates a datagram socket for receiving responses
+// Connectionless SOCK_DGRAM implementation
+func (udc *UnixDatagramClient) BindResponseSocket(ctx context.Context, responsePath string) (net.Conn, error) {
 	
-	if usc.conn != nil {
-		return nil // Already connected
-	}
-	
-	// Create context with timeout
-	connectCtx, cancel := context.WithTimeout(ctx, usc.connectionTimeout)
-	defer cancel()
-	
-	// Dial Unix socket with context
-	dialer := &net.Dialer{}
-	conn, err := dialer.DialContext(connectCtx, "unix", usc.socketPath)
+	// Create UDP-style Unix datagram socket
+	addr, err := net.ResolveUnixAddr("unixgram", responsePath)
 	if err != nil {
-		return fmt.Errorf("failed to connect to Unix socket at %s: %w", usc.socketPath, err)
+		return nil, fmt.Errorf("failed to resolve response socket address %s: %w", responsePath, err)
 	}
 	
-	usc.conn = conn
-	return nil
+	// Listen on datagram socket for responses
+	conn, err := net.ListenUnixgram("unixgram", addr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to bind response socket at %s: %w", responsePath, err)
+	}
+	
+	return conn, nil
 }
 
-// Disconnect closes the connection to the Unix socket
-// Matches Swift: func disconnect()
-func (usc *UnixSocketClient) Disconnect() error {
-	usc.connMutex.Lock()
-	defer usc.connMutex.Unlock()
+// CloseSocket closes a datagram socket and cleans up the socket file
+// Connectionless SOCK_DGRAM implementation
+func (udc *UnixDatagramClient) CloseSocket(conn net.Conn, socketPath string) error {
 	
-	if usc.conn == nil {
-		return nil // Already disconnected
+	if conn == nil {
+		return nil // Already closed
 	}
 	
-	err := usc.conn.Close()
-	usc.conn = nil
+	// Close the socket connection
+	err := conn.Close()
+	
+	// Remove the socket file from filesystem
+	if socketPath != "" {
+		os.Remove(socketPath) // Best effort cleanup
+	}
+	
 	return err
 }
 
-// Send sends data through the Unix socket and returns the response
-// Matches Swift: func send(_ data: Data) async throws -> Data
-func (usc *UnixSocketClient) Send(ctx context.Context, data []byte) ([]byte, error) {
+// SendDatagram sends data via connectionless Unix datagram socket
+// SOCK_DGRAM implementation for connectionless communication
+func (udc *UnixDatagramClient) SendDatagram(ctx context.Context, data []byte, responsePath string) ([]byte, error) {
 	// Validate message data using security validator
-	if err := usc.validator.ValidateMessageData(data); err != nil {
+	if err := udc.validator.ValidateMessageData(data); err != nil {
 		return nil, fmt.Errorf("message validation failed: %w", err)
 	}
 	
-	// Validate message format
-	if err := usc.framing.ValidateMessageFormat(data); err != nil {
-		return nil, fmt.Errorf("message format validation failed: %w", err)
+	// Create response socket for receiving reply
+	responseConn, err := udc.BindResponseSocket(ctx, responsePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to bind response socket: %w", err)
+	}
+	defer udc.CloseSocket(responseConn, responsePath)
+	
+	// Resolve server socket address
+	serverAddr, err := net.ResolveUnixAddr("unixgram", udc.socketPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve server address %s: %w", udc.socketPath, err)
 	}
 	
-	// Connect if not already connected
-	if err := usc.Connect(ctx); err != nil {
-		return nil, err
+	// Create client socket for sending command
+	clientConn, err := net.DialUnix("unixgram", nil, serverAddr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to dial server socket: %w", err)
 	}
-	
-	usc.connMutex.Lock()
-	conn := usc.conn
-	usc.connMutex.Unlock()
-	
-	if conn == nil {
-		return nil, fmt.Errorf("not connected to socket")
-	}
+	defer clientConn.Close()
 	
 	// Set write timeout
-	if err := conn.SetWriteDeadline(time.Now().Add(usc.connectionTimeout)); err != nil {
+	if err := clientConn.SetWriteDeadline(time.Now().Add(udc.datagramTimeout)); err != nil {
 		return nil, fmt.Errorf("failed to set write deadline: %w", err)
 	}
 	
-	// Send message with framing
-	if err := usc.framing.WriteMessage(conn, data); err != nil {
-		usc.Disconnect() // Close connection on error
-		return nil, fmt.Errorf("failed to send message: %w", err)
+	// Send datagram (no framing needed for SOCK_DGRAM)
+	if _, err := clientConn.Write(data); err != nil {
+		return nil, fmt.Errorf("failed to send datagram: %w", err)
 	}
 	
-	// Set read timeout
-	if err := conn.SetReadDeadline(time.Now().Add(usc.connectionTimeout)); err != nil {
+	// Set read timeout for response
+	if err := responseConn.SetReadDeadline(time.Now().Add(udc.datagramTimeout)); err != nil {
 		return nil, fmt.Errorf("failed to set read deadline: %w", err)
 	}
 	
-	// Read response with framing
-	response, err := usc.framing.ReadMessage(conn)
+	// Read response datagram
+	buffer := make([]byte, udc.maxMessageSize)
+	n, err := responseConn.Read(buffer)
 	if err != nil {
-		usc.Disconnect() // Close connection on error
-		return nil, fmt.Errorf("failed to read response: %w", err)
+		return nil, fmt.Errorf("failed to read response datagram: %w", err)
 	}
 	
-	// Validate response format
-	if err := usc.framing.ValidateMessageFormat(response); err != nil {
-		return nil, fmt.Errorf("response validation failed: %w", err)
-	}
-	
-	return response, nil
+	return buffer[:n], nil
 }
 
-// SendNoResponse sends data through the Unix socket without expecting a response
-// Useful for fire-and-forget commands (matches Swift publish pattern)
-func (usc *UnixSocketClient) SendNoResponse(ctx context.Context, data []byte) error {
+// SendDatagramNoResponse sends datagram without expecting a response
+// Fire-and-forget pattern for SOCK_DGRAM
+func (udc *UnixDatagramClient) SendDatagramNoResponse(ctx context.Context, data []byte) error {
 	// Validate message data using security validator
-	if err := usc.validator.ValidateMessageData(data); err != nil {
+	if err := udc.validator.ValidateMessageData(data); err != nil {
 		return fmt.Errorf("message validation failed: %w", err)
 	}
 	
-	// Validate message format
-	if err := usc.framing.ValidateMessageFormat(data); err != nil {
-		return fmt.Errorf("message format validation failed: %w", err)
-	}
-	
-	// Create temporary connection for stateless communication
-	connectCtx, cancel := context.WithTimeout(ctx, usc.connectionTimeout)
-	defer cancel()
-	
-	dialer := &net.Dialer{}
-	conn, err := dialer.DialContext(connectCtx, "unix", usc.socketPath)
+	// Resolve server socket address
+	serverAddr, err := net.ResolveUnixAddr("unixgram", udc.socketPath)
 	if err != nil {
-		return fmt.Errorf("failed to connect to Unix socket: %w", err)
+		return fmt.Errorf("failed to resolve server address %s: %w", udc.socketPath, err)
 	}
-	defer conn.Close()
+	
+	// Create client socket for sending datagram
+	clientConn, err := net.DialUnix("unixgram", nil, serverAddr)
+	if err != nil {
+		return fmt.Errorf("failed to dial server socket: %w", err)
+	}
+	defer clientConn.Close()
 	
 	// Set write timeout
-	if err := conn.SetWriteDeadline(time.Now().Add(usc.connectionTimeout)); err != nil {
+	if err := clientConn.SetWriteDeadline(time.Now().Add(udc.datagramTimeout)); err != nil {
 		return fmt.Errorf("failed to set write deadline: %w", err)
 	}
 	
-	// Send message with framing
-	if err := usc.framing.WriteMessage(conn, data); err != nil {
-		return fmt.Errorf("failed to send message: %w", err)
+	// Send datagram (no framing needed for SOCK_DGRAM)
+	if _, err := clientConn.Write(data); err != nil {
+		return fmt.Errorf("failed to send datagram: %w", err)
 	}
 	
 	return nil
 }
 
-// TestConnection tests the connection to the Unix socket
-// Matches Swift test connection functionality
-func (usc *UnixSocketClient) TestConnection(ctx context.Context) error {
-	connectCtx, cancel := context.WithTimeout(ctx, usc.connectionTimeout)
-	defer cancel()
+// TestDatagramSocket tests the datagram socket connectivity
+// SOCK_DGRAM connectivity test
+func (udc *UnixDatagramClient) TestDatagramSocket(ctx context.Context) error {
+	// Resolve server socket address
+	serverAddr, err := net.ResolveUnixAddr("unixgram", udc.socketPath)
+	if err != nil {
+		return fmt.Errorf("failed to resolve server address %s: %w", udc.socketPath, err)
+	}
 	
-	dialer := &net.Dialer{}
-	conn, err := dialer.DialContext(connectCtx, "unix", usc.socketPath)
+	// Try to create client socket
+	clientConn, err := net.DialUnix("unixgram", nil, serverAddr)
 	if err != nil {
 		return fmt.Errorf("connection test failed: %w", err)
 	}
-	defer conn.Close()
+	defer clientConn.Close()
 	
 	return nil
 }
 
 // AddMessageHandler adds a handler for incoming messages
-// Matches Swift: func addMessageHandler(_ handler: @escaping (Data) -> Void)
-func (usc *UnixSocketClient) AddMessageHandler(handler func([]byte)) {
-	usc.handlerMutex.Lock()
-	defer usc.handlerMutex.Unlock()
+// SOCK_DGRAM message handler pattern
+func (udc *UnixDatagramClient) AddMessageHandler(handler func([]byte)) {
+	udc.handlerMutex.Lock()
+	defer udc.handlerMutex.Unlock()
 	
-	usc.messageHandlers = append(usc.messageHandlers, handler)
+	udc.messageHandlers = append(udc.messageHandlers, handler)
 }
 
 // RemoveAllMessageHandlers removes all message handlers
-// Matches Swift: func removeAllMessageHandlers()
-func (usc *UnixSocketClient) RemoveAllMessageHandlers() {
-	usc.handlerMutex.Lock()
-	defer usc.handlerMutex.Unlock()
+// SOCK_DGRAM handler cleanup
+func (udc *UnixDatagramClient) RemoveAllMessageHandlers() {
+	udc.handlerMutex.Lock()
+	defer udc.handlerMutex.Unlock()
 	
-	usc.messageHandlers = make([]func([]byte), 0)
+	udc.messageHandlers = make([]func([]byte), 0)
 }
 
-// StartListening starts listening for incoming messages (for persistent connections)
-// Matches Swift persistent listening functionality
-func (usc *UnixSocketClient) StartListening(ctx context.Context) error {
-	// Connect if not already connected
-	if err := usc.Connect(ctx); err != nil {
-		return err
-	}
-	
-	usc.connMutex.Lock()
-	conn := usc.conn
-	usc.connMutex.Unlock()
-	
-	if conn == nil {
-		return fmt.Errorf("not connected to socket")
-	}
-	
-	// Start goroutine to handle incoming messages
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				// Read message with framing
-				message, err := usc.framing.ReadMessage(conn)
-				if err != nil {
-					// Connection error, break the loop
-					usc.Disconnect()
-					return
-				}
-				
-				// Validate message format
-				if err := usc.framing.ValidateMessageFormat(message); err != nil {
-					continue // Skip invalid messages
-				}
-				
-				// Call all message handlers
-				usc.handlerMutex.RLock()
-				handlers := make([]func([]byte), len(usc.messageHandlers))
-				copy(handlers, usc.messageHandlers)
-				usc.handlerMutex.RUnlock()
-				
-				for _, handler := range handlers {
-					go handler(message) // Handle each message in separate goroutine
-				}
-			}
-		}
-	}()
-	
-	return nil
+// GenerateResponseSocketPath generates a unique response socket path
+// Used for SOCK_DGRAM reply-to mechanism
+func (udc *UnixDatagramClient) GenerateResponseSocketPath() string {
+	timestamp := time.Now().UnixNano()
+	pid := os.Getpid()
+	return fmt.Sprintf("/tmp/go_datagram_client_%d_%d.sock", pid, timestamp)
 }
 
 // MaximumMessageSize returns the maximum message size (read-only property)
-// Matches Swift: var maximumMessageSize: Int { get }
-func (usc *UnixSocketClient) MaximumMessageSize() int {
-	return usc.maxMessageSize
+// SOCK_DGRAM datagram size limit
+func (udc *UnixDatagramClient) MaximumMessageSize() int {
+	return udc.maxMessageSize
 }
 
 // SocketPath returns the socket path (read-only property)
-func (usc *UnixSocketClient) SocketPath() string {
-	return usc.socketPath
-}
-
-// IsConnected returns whether the client is currently connected
-func (usc *UnixSocketClient) IsConnected() bool {
-	usc.connMutex.Lock()
-	defer usc.connMutex.Unlock()
-	
-	return usc.conn != nil
-}
-
-// ReceiveMessage receives a message from the Unix socket (for async listening)
-func (usc *UnixSocketClient) ReceiveMessage(ctx context.Context) ([]byte, error) {
-	// Connect if not already connected
-	if err := usc.Connect(ctx); err != nil {
-		return nil, err
-	}
-	
-	usc.connMutex.Lock()
-	conn := usc.conn
-	usc.connMutex.Unlock()
-	
-	if conn == nil {
-		return nil, fmt.Errorf("not connected to socket")
-	}
-	
-	// Set read timeout
-	if err := conn.SetReadDeadline(time.Now().Add(usc.connectionTimeout)); err != nil {
-		return nil, fmt.Errorf("failed to set read deadline: %w", err)
-	}
-	
-	// Read response with framing
-	response, err := usc.framing.ReadMessage(conn)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read message: %w", err)
-	}
-	
-	// Validate response format
-	if err := usc.framing.ValidateMessageFormat(response); err != nil {
-		return nil, fmt.Errorf("message validation failed: %w", err)
-	}
-	
-	return response, nil
+func (udc *UnixDatagramClient) SocketPath() string {
+	return udc.socketPath
 }

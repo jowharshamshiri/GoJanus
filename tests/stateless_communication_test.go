@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/user/GoUnixSocketAPI"
+	"github.com/user/GoUnixSockAPI"
 )
 
 // TestCommandValidationWithoutConnection tests command validation without requiring a connection
@@ -20,7 +20,7 @@ func TestCommandValidationWithoutConnection(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createStatelessTestAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "stateless-channel", spec)
+	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "stateless-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestIndependentCommandExecution(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createStatelessTestAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "stateless-channel", spec)
+	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "stateless-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -118,13 +118,13 @@ func TestChannelIsolationBetweenClients(t *testing.T) {
 	spec := createMultiChannelAPISpec()
 	
 	// Create clients for different channels
-	client1, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath1, "channel-1", spec)
+	client1, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath1, "channel-1", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client1: %v", err)
 	}
 	defer client1.Close()
 	
-	client2, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath2, "channel-2", spec)
+	client2, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath2, "channel-2", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client2: %v", err)
 	}
@@ -174,7 +174,7 @@ func TestArgumentValidationInStatelessMode(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createStatelessTestAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "stateless-channel", spec)
+	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "stateless-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -238,7 +238,7 @@ func TestMessageSerializationForStatelessOperations(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createStatelessTestAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "stateless-channel", spec)
+	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "stateless-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -280,13 +280,13 @@ func TestMultiChannelAPISpecificationHandling(t *testing.T) {
 	spec := createMultiChannelAPISpec()
 	
 	// Test creating clients for different channels
-	client1, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "channel-1", spec)
+	client1, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "channel-1", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client for channel-1: %v", err)
 	}
 	defer client1.Close()
 	
-	client2, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "channel-2", spec)
+	client2, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "channel-2", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client for channel-2: %v", err)
 	}
@@ -336,7 +336,7 @@ func TestStatelessCommandUUIDGeneration(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createStatelessTestAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "stateless-channel", spec)
+	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "stateless-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -385,7 +385,7 @@ func TestChannelIsolationValidation(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createMultiChannelAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIClient(testSocketPath, "channel-1", spec)
+	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "channel-1", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}

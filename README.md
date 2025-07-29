@@ -1,4 +1,4 @@
-# GoUnixSocketAPI
+# GoUnixSockAPI
 
 A production-ready Unix domain socket communication library for Go with **async response tracking** and cross-language compatibility.
 
@@ -17,7 +17,7 @@ A production-ready Unix domain socket communication library for Go with **async 
 
 ```bash
 go mod init your-project
-go get github.com/user/GoUnixSocketAPI
+go get github.com/user/GoUnixSockAPI
 ```
 
 ## Quick Start
@@ -31,8 +31,8 @@ import (
     "context"
     "fmt"
     "time"
-    "github.com/user/GoUnixSocketAPI/pkg/protocol"
-    "github.com/user/GoUnixSocketAPI/pkg/specification"
+    "github.com/user/GoUnixSockAPI/pkg/protocol"
+    "github.com/user/GoUnixSockAPI/pkg/specification"
 )
 
 func main() {
@@ -83,8 +83,8 @@ package main
 import (
     "context"
     "fmt"
-    "github.com/user/GoUnixSocketAPI/pkg/protocol"
-    "github.com/user/GoUnixSocketAPI/pkg/models"
+    "github.com/user/GoUnixSockAPI/pkg/protocol"
+    "github.com/user/GoUnixSockAPI/pkg/models"
 )
 
 func main() {

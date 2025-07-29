@@ -1,17 +1,17 @@
 // Package gounixsocketapi provides a Go implementation of Unix socket API communication
-// with 100% feature and protocol compatibility with SwiftUnixSocketAPI and RustUnixSocketAPI
+// with 100% feature and protocol compatibility with SwiftUnixSockAPI and RustUnixSockAPI
 //
-// This package implements the complete three-layer architecture:
-// - Core Layer: Low-level Unix socket communication with security validation
-// - Protocol Layer: High-level API client with command handling and timeout management
+// This package implements SOCK_DGRAM connectionless Unix domain socket communication:
+// - Core Layer: Low-level Unix datagram socket communication with security validation
+// - Protocol Layer: High-level API client with datagram messaging and reply-to mechanism
 // - Specification Layer: API specification parsing and validation engine
 //
 // Key Features:
-// - Stateless communication with UUID tracking
+// - Connectionless SOCK_DGRAM communication
+// - Reply-to mechanism for request-response patterns
 // - 25+ comprehensive security mechanisms
 // - Cross-language protocol compatibility
-// - Connection pooling and resource management
-// - Bilateral timeout management
+// - Ephemeral socket patterns
 // - API specification engine (JSON/YAML)
 // - Enterprise-grade configuration options
 //
@@ -51,10 +51,10 @@
 package gounixsocketapi
 
 import (
-	"github.com/user/GoUnixSocketAPI/pkg/core"
-	"github.com/user/GoUnixSocketAPI/pkg/models"
-	"github.com/user/GoUnixSocketAPI/pkg/protocol"
-	"github.com/user/GoUnixSocketAPI/pkg/specification"
+	"github.com/user/GoUnixSockAPI/pkg/core"
+	"github.com/user/GoUnixSockAPI/pkg/models"
+	"github.com/user/GoUnixSockAPI/pkg/protocol"
+	"github.com/user/GoUnixSockAPI/pkg/specification"
 )
 
 // Version represents the library version
@@ -64,19 +64,16 @@ const Version = "1.0.0"
 
 // Core layer types
 type (
-	UnixSocketClient         = core.UnixSocketClient
-	UnixSocketClientConfig   = core.UnixSocketClientConfig
-	ConnectionPool           = core.ConnectionPool
-	ConnectionPoolConfig     = core.ConnectionPoolConfig
-	SecurityValidator        = core.SecurityValidator
-	MessageFraming          = core.MessageFraming
+	UnixDatagramClient         = core.UnixDatagramClient
+	UnixDatagramClientConfig   = core.UnixDatagramClientConfig
+	SecurityValidator          = core.SecurityValidator
 )
 
 // Protocol layer types
 type (
-	UnixSockAPIClient       = protocol.UnixSockAPIClient
-	UnixSockAPIClientConfig = protocol.UnixSockAPIClientConfig
-	TimeoutManager          = protocol.TimeoutManager
+	UnixSockAPIDatagramClient       = protocol.UnixSockAPIDatagramClient
+	UnixSockAPIDatagramClientConfig = protocol.UnixSockAPIDatagramClientConfig
+	TimeoutManager                  = protocol.TimeoutManager
 )
 
 // Model types
@@ -103,34 +100,24 @@ type (
 
 // Convenience constructors
 
-// NewUnixSocketClient creates a new Unix socket client with default configuration
-func NewUnixSocketClient(socketPath string) (*UnixSocketClient, error) {
-	return core.NewUnixSocketClient(socketPath)
+// NewUnixDatagramClient creates a new Unix datagram client with default configuration
+func NewUnixDatagramClient(socketPath string) (*UnixDatagramClient, error) {
+	return core.NewUnixDatagramClient(socketPath)
 }
 
-// NewUnixSocketClientWithConfig creates a new Unix socket client with custom configuration
-func NewUnixSocketClientWithConfig(socketPath string, config UnixSocketClientConfig) (*UnixSocketClient, error) {
-	return core.NewUnixSocketClient(socketPath, config)
+// NewUnixDatagramClientWithConfig creates a new Unix datagram client with custom configuration
+func NewUnixDatagramClientWithConfig(socketPath string, config UnixDatagramClientConfig) (*UnixDatagramClient, error) {
+	return core.NewUnixDatagramClient(socketPath, config)
 }
 
-// NewConnectionPool creates a new connection pool with default configuration
-func NewConnectionPool(socketPath string) (*ConnectionPool, error) {
-	return core.NewConnectionPool(socketPath)
+// NewUnixSockAPIDatagramClient creates a new Unix socket API datagram client with default configuration
+func NewUnixSockAPIDatagramClient(socketPath, channelID string, apiSpec *APISpecification) (*UnixSockAPIDatagramClient, error) {
+	return protocol.NewUnixSockAPIDatagramClient(socketPath, channelID, apiSpec)
 }
 
-// NewConnectionPoolWithConfig creates a new connection pool with custom configuration
-func NewConnectionPoolWithConfig(socketPath string, config ConnectionPoolConfig) (*ConnectionPool, error) {
-	return core.NewConnectionPool(socketPath, config)
-}
-
-// NewUnixSockAPIClient creates a new Unix socket API client with default configuration
-func NewUnixSockAPIClient(socketPath, channelID string, apiSpec *APISpecification) (*UnixSockAPIClient, error) {
-	return protocol.NewUnixSockAPIClient(socketPath, channelID, apiSpec)
-}
-
-// NewUnixSockAPIClientWithConfig creates a new Unix socket API client with custom configuration
-func NewUnixSockAPIClientWithConfig(socketPath, channelID string, apiSpec *APISpecification, config UnixSockAPIClientConfig) (*UnixSockAPIClient, error) {
-	return protocol.NewUnixSockAPIClient(socketPath, channelID, apiSpec, config)
+// NewUnixSockAPIDatagramClientWithConfig creates a new Unix socket API datagram client with custom configuration
+func NewUnixSockAPIDatagramClientWithConfig(socketPath, channelID string, apiSpec *APISpecification, config UnixSockAPIDatagramClientConfig) (*UnixSockAPIDatagramClient, error) {
+	return protocol.NewUnixSockAPIDatagramClient(socketPath, channelID, apiSpec, config)
 }
 
 // NewAPISpecificationParser creates a new API specification parser
@@ -143,10 +130,6 @@ func NewSecurityValidator() *SecurityValidator {
 	return core.NewSecurityValidator()
 }
 
-// NewMessageFraming creates a new message framing handler
-func NewMessageFraming(maxMessageSize int) *MessageFraming {
-	return core.NewMessageFraming(maxMessageSize)
-}
 
 // NewTimeoutManager creates a new timeout manager
 func NewTimeoutManager() *TimeoutManager {
@@ -192,19 +175,14 @@ func NewErrorResponse(commandID, channelID string, err *SocketError) *SocketResp
 
 // Default configuration getters
 
-// DefaultUnixSocketClientConfig returns the default Unix socket client configuration
-func DefaultUnixSocketClientConfig() UnixSocketClientConfig {
-	return core.DefaultUnixSocketClientConfig()
+// DefaultUnixDatagramClientConfig returns the default Unix datagram client configuration
+func DefaultUnixDatagramClientConfig() UnixDatagramClientConfig {
+	return core.DefaultUnixDatagramClientConfig()
 }
 
-// DefaultConnectionPoolConfig returns the default connection pool configuration
-func DefaultConnectionPoolConfig() ConnectionPoolConfig {
-	return core.DefaultConnectionPoolConfig()
-}
-
-// DefaultUnixSockAPIClientConfig returns the default Unix socket API client configuration
-func DefaultUnixSockAPIClientConfig() UnixSockAPIClientConfig {
-	return protocol.DefaultUnixSockAPIClientConfig()
+// DefaultUnixSockAPIDatagramClientConfig returns the default Unix socket API datagram client configuration
+func DefaultUnixSockAPIDatagramClientConfig() UnixSockAPIDatagramClientConfig {
+	return protocol.DefaultUnixSockAPIDatagramClientConfig()
 }
 
 // Library information
@@ -217,15 +195,15 @@ func GetVersion() string {
 // GetSupportedFeatures returns a list of supported features
 func GetSupportedFeatures() []string {
 	return []string{
-		"Stateless Communication",
+		"Connectionless SOCK_DGRAM Communication",
+		"Reply-To Response Mechanism",
 		"UUID Command Tracking",
-		"Bilateral Timeout Management",
-		"Connection Pooling",
+		"Ephemeral Socket Patterns",
 		"25+ Security Mechanisms",
 		"API Specification Engine",
 		"JSON/YAML Support",
 		"Cross-Language Compatibility",
-		"Message Framing Protocol",
+		"Natural Message Boundaries",
 		"Channel Isolation",
 		"Resource Monitoring",
 		"Concurrent Operations",

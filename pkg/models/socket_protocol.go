@@ -9,14 +9,15 @@ import (
 )
 
 // SocketCommand represents a command message sent through the Unix socket
-// Matches the Swift SocketCommand structure exactly for cross-language compatibility
+// SOCK_DGRAM version with reply_to field for connectionless communication
 type SocketCommand struct {
 	ID        string                 `json:"id"`
 	ChannelID string                 `json:"channelId"`
 	Command   string                 `json:"command"`
+	ReplyTo   string                 `json:"reply_to,omitempty"`
 	Args      map[string]interface{} `json:"args,omitempty"`
 	Timeout   *float64               `json:"timeout,omitempty"`
-	Timestamp time.Time              `json:"timestamp"`
+	Timestamp float64                `json:"timestamp"`
 }
 
 // SocketResponse represents a response message from the Unix socket
@@ -27,7 +28,7 @@ type SocketResponse struct {
 	Success   bool                   `json:"success"`
 	Result    map[string]interface{} `json:"result,omitempty"`
 	Error     *SocketError           `json:"error,omitempty"`
-	Timestamp time.Time              `json:"timestamp"`
+	Timestamp float64                `json:"timestamp"`
 }
 
 // SocketError represents error information in responses
@@ -61,7 +62,7 @@ func NewSocketCommand(channelID, command string, args map[string]interface{}, ti
 		Command:   command,
 		Args:      args,
 		Timeout:   timeout,
-		Timestamp: time.Now().UTC(),
+		Timestamp: float64(time.Now().Unix()) + float64(time.Now().Nanosecond())/1e9,
 	}
 }
 
@@ -72,7 +73,7 @@ func NewSuccessResponse(commandID, channelID string, result map[string]interface
 		ChannelID: channelID,
 		Success:   true,
 		Result:    result,
-		Timestamp: time.Now().UTC(),
+		Timestamp: float64(time.Now().Unix()) + float64(time.Now().Nanosecond())/1e9,
 	}
 }
 
@@ -83,7 +84,7 @@ func NewErrorResponse(commandID, channelID string, err *SocketError) *SocketResp
 		ChannelID: channelID,
 		Success:   false,
 		Error:     err,
-		Timestamp: time.Now().UTC(),
+		Timestamp: float64(time.Now().Unix()) + float64(time.Now().Nanosecond())/1e9,
 	}
 }
 

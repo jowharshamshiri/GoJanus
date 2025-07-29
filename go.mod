@@ -1,4 +1,4 @@
-module github.com/user/GoUnixSocketAPI
+module github.com/user/GoUnixSockAPI
 
 go 1.21
 

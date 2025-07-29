@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/user/GoUnixSocketAPI"
+	"github.com/user/GoUnixSockAPI"
 )
 
 // TestParseJSONSpecification tests parsing a valid JSON API specification
@@ -73,11 +73,11 @@ func TestParseJSONSpecification(t *testing.T) {
 		t.Fatal("Expected 'test-command' to exist")
 	}
 	
-	if len(command.Arguments) != 1 {
-		t.Errorf("Expected 1 argument, got %d", len(command.Arguments))
+	if len(command.Args) != 1 {
+		t.Errorf("Expected 1 argument, got %d", len(command.Args))
 	}
 	
-	arg, exists := command.Arguments["arg1"]
+	arg, exists := command.Args["arg1"]
 	if !exists {
 		t.Fatal("Expected 'arg1' to exist")
 	}
@@ -144,7 +144,7 @@ channels:
 		t.Fatal("Expected 'test-command' to exist")
 	}
 	
-	arg, exists := command.Arguments["arg1"]
+	arg, exists := command.Args["arg1"]
 	if !exists {
 		t.Fatal("Expected 'arg1' to exist")
 	}
@@ -259,7 +259,7 @@ func TestValidateSpecificationWithInvalidValidation(t *testing.T) {
 	spec := createValidAPISpecification()
 	
 	// Add invalid argument specification (empty type)
-	spec.Channels["test-channel"].Commands["test-command"].Arguments["invalid_arg"] = &gounixsocketapi.ArgumentSpec{
+	spec.Channels["test-channel"].Commands["test-command"].Args["invalid_arg"] = &gounixsocketapi.ArgumentSpec{
 		Name:        "Invalid Argument",
 		Type:        "", // Empty type should cause validation error
 		Description: "Invalid argument",
@@ -282,7 +282,7 @@ func TestValidateSpecificationWithInvalidRegexPattern(t *testing.T) {
 	spec := createValidAPISpecification()
 	
 	// Add argument with invalid regex pattern
-	spec.Channels["test-channel"].Commands["test-command"].Arguments["regex_arg"] = &gounixsocketapi.ArgumentSpec{
+	spec.Channels["test-channel"].Commands["test-command"].Args["regex_arg"] = &gounixsocketapi.ArgumentSpec{
 		Name:        "Regex Argument",
 		Type:        "string",
 		Description: "Argument with invalid regex",
@@ -477,7 +477,7 @@ func createValidAPISpecification() *gounixsocketapi.APISpecification {
 					"test-command": {
 						Name:        "Test Command",
 						Description: "Test command description",
-						Arguments: map[string]*gounixsocketapi.ArgumentSpec{
+						Args: map[string]*gounixsocketapi.ArgumentSpec{
 							"test_arg": {
 								Name:        "Test Argument",
 								Type:        "string",

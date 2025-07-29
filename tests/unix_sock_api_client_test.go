@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/user/GoUnixSocketAPI"
+	"github.com/user/GoUnixSockAPI"
 )
 
 // TestClientInitializationWithValidSpec tests client creation with valid specification
