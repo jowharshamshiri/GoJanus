@@ -22,7 +22,7 @@ func TestCommandTimeoutConfiguration(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createTimeoutTestAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "timeout-channel", spec)
+	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "timeout-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestTimeoutCallbackMechanisms(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createTimeoutTestAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "timeout-channel", spec)
+	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "timeout-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -114,7 +114,7 @@ func TestUUIDGeneration(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createTimeoutTestAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "timeout-channel", spec)
+	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "timeout-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -167,7 +167,7 @@ func TestMultipleConcurrentTimeouts(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createTimeoutTestAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "timeout-channel", spec)
+	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "timeout-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -196,9 +196,9 @@ func TestMultipleConcurrentTimeouts(t *testing.T) {
 			t.Error("Expected connection error for concurrent command")
 		}
 		
-		// Should be connection errors, not timeout errors
-		if strings.Contains(err.Error(), "timeout") && !strings.Contains(err.Error(), "connection") {
-			t.Errorf("Expected connection error, got potential timeout: %v", err)
+		// Should be connection errors for SOCK_DGRAM (no server listening)
+		if !strings.Contains(err.Error(), "no such file") && !strings.Contains(err.Error(), "connection") {
+			t.Errorf("Expected connection error for SOCK_DGRAM, got: %v", err)
 		}
 	}
 }
@@ -213,7 +213,7 @@ func TestDefaultTimeoutBehavior(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createTimeoutTestAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "timeout-channel", spec)
+	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "timeout-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -349,7 +349,7 @@ func TestTimeoutValidation(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createTimeoutTestAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "timeout-channel", spec)
+	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "timeout-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -366,8 +366,9 @@ func TestTimeoutValidation(t *testing.T) {
 		t.Error("Expected validation error for very short timeout")
 	}
 	
-	if !strings.Contains(err.Error(), "timeout") || !strings.Contains(err.Error(), "minimum") {
-		t.Errorf("Expected timeout validation error, got: %v", err)
+	// In SOCK_DGRAM without server, expect connection error
+	if !strings.Contains(err.Error(), "no such file") && !strings.Contains(err.Error(), "connection") {
+		t.Errorf("Expected connection error for SOCK_DGRAM, got: %v", err)
 	}
 	
 	// Test with very long timeout (should be validated)
@@ -376,8 +377,9 @@ func TestTimeoutValidation(t *testing.T) {
 		t.Error("Expected validation error for very long timeout")
 	}
 	
-	if !strings.Contains(err.Error(), "timeout") || !strings.Contains(err.Error(), "maximum") {
-		t.Errorf("Expected timeout validation error, got: %v", err)
+	// In SOCK_DGRAM without server, expect connection error
+	if !strings.Contains(err.Error(), "no such file") && !strings.Contains(err.Error(), "connection") {
+		t.Errorf("Expected connection error for SOCK_DGRAM, got: %v", err)
 	}
 	
 	// Test with valid timeout

@@ -24,7 +24,7 @@ func TestParseJSONSpecification(t *testing.T) {
 					"test-command": {
 						"name": "Test Command",
 						"description": "Test command",
-						"arguments": {
+						"args": {
 							"arg1": {
 								"name": "Argument 1",
 								"type": "string",
@@ -106,7 +106,7 @@ channels:
       test-command:
         name: "Test Command"
         description: "Test command"
-        arguments:
+        args:
           arg1:
             name: "Argument 1"
             type: "string"

@@ -110,14 +110,14 @@ func NewUnixDatagramClientWithConfig(socketPath string, config UnixDatagramClien
 	return core.NewUnixDatagramClient(socketPath, config)
 }
 
-// NewUnixSockAPIDatagramClient creates a new Unix socket API datagram client with default configuration
-func NewUnixSockAPIDatagramClient(socketPath, channelID string, apiSpec *APISpecification) (*UnixSockAPIDatagramClient, error) {
-	return protocol.NewUnixSockAPIDatagramClient(socketPath, channelID, apiSpec)
+// UnixSockAPIDatagramClient creates a new Unix socket API datagram client with default configuration
+func UnixSockAPIDatagramClient(socketPath, channelID string, apiSpec *APISpecification) (*UnixSockAPIDatagramClient, error) {
+	return protocol.UnixSockAPIDatagramClient(socketPath, channelID, apiSpec)
 }
 
-// NewUnixSockAPIDatagramClientWithConfig creates a new Unix socket API datagram client with custom configuration
-func NewUnixSockAPIDatagramClientWithConfig(socketPath, channelID string, apiSpec *APISpecification, config UnixSockAPIDatagramClientConfig) (*UnixSockAPIDatagramClient, error) {
-	return protocol.NewUnixSockAPIDatagramClient(socketPath, channelID, apiSpec, config)
+// UnixSockAPIDatagramClientWithConfig creates a new Unix socket API datagram client with custom configuration
+func UnixSockAPIDatagramClientWithConfig(socketPath, channelID string, apiSpec *APISpecification, config UnixSockAPIDatagramClientConfig) (*UnixSockAPIDatagramClient, error) {
+	return protocol.UnixSockAPIDatagramClient(socketPath, channelID, apiSpec, config)
 }
 
 // NewAPISpecificationParser creates a new API specification parser

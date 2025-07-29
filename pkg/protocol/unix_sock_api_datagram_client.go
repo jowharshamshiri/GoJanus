@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -50,11 +51,70 @@ func DefaultUnixSockAPIDatagramClientConfig() UnixSockAPIDatagramClientConfig {
 	}
 }
 
-// NewUnixSockAPIDatagramClient creates a new datagram API client
-func NewUnixSockAPIDatagramClient(socketPath, channelID string, apiSpec *specification.APISpecification, config ...UnixSockAPIDatagramClientConfig) (*UnixSockAPIDatagramClient, error) {
+// validateConstructorInputs validates constructor parameters
+func validateConstructorInputs(socketPath, channelID string, apiSpec *specification.APISpecification, config UnixSockAPIDatagramClientConfig) error {
+	// Validate socket path
+	if socketPath == "" {
+		return fmt.Errorf("socket path cannot be empty")
+	}
+	
+	// Validate channel ID for security
+	if channelID == "" {
+		return fmt.Errorf("channel ID cannot be empty")
+	}
+	
+	// Check for malicious channel IDs
+	if strings.ContainsAny(channelID, "\x00;`$|&\n\r\t") || 
+	   strings.Contains(channelID, "..") || 
+	   strings.HasPrefix(channelID, "/") {
+		return fmt.Errorf("invalid channel ID: contains forbidden characters")
+	}
+	
+	// Validate API specification
+	if apiSpec == nil {
+		return fmt.Errorf("API specification cannot be nil")
+	}
+	
+	// Validate specification content
+	if apiSpec.Version == "" {
+		return fmt.Errorf("API specification validation error: version cannot be empty")
+	}
+	
+	if apiSpec.Channels == nil || len(apiSpec.Channels) == 0 {
+		return fmt.Errorf("API specification validation error: no channels defined")
+	}
+	
+	// Validate channel exists in specification
+	if _, exists := apiSpec.Channels[channelID]; !exists {
+		return fmt.Errorf("channel '%s' not found in API specification", channelID)
+	}
+	
+	// Validate configuration security
+	if config.MaxMessageSize < 1024 {
+		return fmt.Errorf("configuration error: MaxMessageSize too small, minimum 1024 bytes")
+	}
+	
+	if config.DefaultTimeout < time.Second {
+		return fmt.Errorf("configuration error: DefaultTimeout too short, minimum 1 second")
+	}
+	
+	if config.DatagramTimeout < time.Millisecond*100 {
+		return fmt.Errorf("configuration error: DatagramTimeout too short, minimum 100ms")
+	}
+	
+	return nil
+}
+
+// UnixSockAPIDatagramClient creates a new datagram API client
+func UnixSockAPIDatagramClient(socketPath, channelID string, apiSpec *specification.APISpecification, config ...UnixSockAPIDatagramClientConfig) (*UnixSockAPIDatagramClient, error) {
 	cfg := DefaultUnixSockAPIDatagramClientConfig()
 	if len(config) > 0 {
 		cfg = config[0]
+	}
+	
+	// Validate inputs
+	if err := validateConstructorInputs(socketPath, channelID, apiSpec, cfg); err != nil {
+		return nil, err
 	}
 	
 	// Create datagram client
@@ -292,9 +352,18 @@ func (client *UnixSockAPIDatagramClient) SocketPathString() string {
 	return client.socketPath
 }
 
-// RegisterCommandHandler is a no-op for backward compatibility (SOCK_DGRAM doesn't use handlers)
+// RegisterCommandHandler validates command exists in specification (SOCK_DGRAM compatibility)
 func (client *UnixSockAPIDatagramClient) RegisterCommandHandler(command string, handler interface{}) error {
-	// SOCK_DGRAM doesn't use command handlers - this is for backward compatibility only
+	// Validate command exists in the API specification for the client's channel
+	if client.apiSpec != nil {
+		if channel, exists := client.apiSpec.Channels[client.channelID]; exists {
+			if _, commandExists := channel.Commands[command]; !commandExists {
+				return fmt.Errorf("command '%s' not found in channel '%s'", command, client.channelID)
+			}
+		}
+	}
+	
+	// SOCK_DGRAM doesn't actually use handlers, but validation passed
 	return nil
 }
 

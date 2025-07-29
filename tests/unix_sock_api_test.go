@@ -336,31 +336,33 @@ func TestAnyCodableArrayValue(t *testing.T) {
 	}
 }
 
-// TestUnixSocketClientInitialization tests basic Unix socket client creation
-// Matches Swift: testUnixSocketClientInitialization()
-func TestUnixSocketClientInitialization(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-core-test.sock"
+// TestUnixDatagramClientInitialization tests SOCK_DGRAM client creation
+// Matches Swift: testUnixDatagramClientInitialization()
+func TestUnixDatagramClientInitialization(t *testing.T) {
+	testSocketPath := "/tmp/gounixsocketapi-dgram-test.sock"
 	
 	// Clean up before test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath)
+	// Create test API spec and client for SOCK_DGRAM
+	spec := createTestAPISpec()
+	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "test-channel", spec)
 	if err != nil {
-		t.Fatalf("Failed to create Unix socket client: %v", err)
+		t.Fatalf("Failed to create SOCK_DGRAM client: %v", err)
 	}
-	defer client.Disconnect()
+	// Note: SOCK_DGRAM clients are stateless and don't need cleanup
 	
-	if client.SocketPath() != testSocketPath {
-		t.Errorf("Expected socket path '%s', got '%s'", testSocketPath, client.SocketPath())
-	}
-	
-	if client.MaximumMessageSize() != 10*1024*1024 { // Default 10MB
-		t.Errorf("Expected max message size 10MB, got %d", client.MaximumMessageSize())
+	if client.SocketPathString() != testSocketPath {
+		t.Errorf("Expected socket path '%s', got '%s'", testSocketPath, client.SocketPathString())
 	}
 	
-	if client.IsConnected() {
-		t.Error("Expected client to not be connected initially")
+	if client.ChannelIdentifier() != "test-channel" {
+		t.Errorf("Expected channel 'test-channel', got '%s'", client.ChannelIdentifier())
+	}
+	
+	if client.Specification() == nil {
+		t.Error("Expected specification to be set")
 	}
 }
 

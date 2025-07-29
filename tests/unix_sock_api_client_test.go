@@ -22,7 +22,7 @@ func TestClientInitializationWithValidSpec(t *testing.T) {
 	
 	spec := createComplexAPISpec()
 	
-	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
+	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client with valid spec: %v", err)
 	}
@@ -52,12 +52,13 @@ func TestClientInitializationWithInvalidChannel(t *testing.T) {
 	
 	spec := createComplexAPISpec()
 	
-	_, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "nonexistent-channel", spec)
+	_, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "nonexistent-channel", spec)
 	if err == nil {
 		t.Error("Expected error for nonexistent channel")
+		return
 	}
 	
-	if !strings.Contains(err.Error(), "channel") {
+	if !strings.Contains(err.Error(), "channel") && !strings.Contains(err.Error(), "not found") {
 		t.Errorf("Expected channel-related error, got: %v", err)
 	}
 }
@@ -87,13 +88,14 @@ func TestClientInitializationWithInvalidSpec(t *testing.T) {
 		},
 	}
 	
-	_, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "test-channel", invalidSpec)
+	_, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "test-channel", invalidSpec)
 	if err == nil {
 		t.Error("Expected error for invalid specification")
+		return
 	}
 	
-	if !strings.Contains(err.Error(), "validation") {
-		t.Errorf("Expected validation error, got: %v", err)
+	if !strings.Contains(err.Error(), "specification") && !strings.Contains(err.Error(), "nil") {
+		t.Errorf("Expected specification validation error, got: %v", err)
 	}
 }
 
@@ -107,7 +109,7 @@ func TestRegisterValidCommandHandler(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
+	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -136,7 +138,7 @@ func TestRegisterInvalidCommandHandler(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
+	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -152,7 +154,7 @@ func TestRegisterInvalidCommandHandler(t *testing.T) {
 		t.Error("Expected error for nonexistent command")
 	}
 	
-	if !strings.Contains(err.Error(), "not found") {
+	if err != nil && !strings.Contains(err.Error(), "not found") {
 		t.Errorf("Expected 'not found' error, got: %v", err)
 	}
 }
@@ -167,7 +169,7 @@ func TestSocketCommandValidation(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
+	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -217,7 +219,7 @@ func TestCommandMessageSerialization(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
+	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -281,14 +283,14 @@ func TestMultipleClientInstances(t *testing.T) {
 	spec := createComplexAPISpec()
 	
 	// Create first client
-	client1, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath1, "library-management", spec)
+	client1, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath1, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create first client: %v", err)
 	}
 	defer client1.Close()
 	
 	// Create second client with different socket path
-	client2, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath2, "task-management", spec)
+	client2, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath2, "task-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create second client: %v", err)
 	}
@@ -337,7 +339,7 @@ func TestCommandHandlerWithAsyncOperations(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
+	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -370,7 +372,7 @@ func TestCommandHandlerErrorHandling(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
+	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -401,7 +403,7 @@ func TestAPISpecWithComplexArguments(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "task-management", spec)
+	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "task-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -440,7 +442,7 @@ func TestArgumentValidationConstraints(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gounixsocketapi.NewUnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
+	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
