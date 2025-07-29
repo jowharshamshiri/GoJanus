@@ -286,7 +286,7 @@ func TestResourceExhaustionViaConnectionFlooding(t *testing.T) {
 	
 	// Test creating many clients rapidly
 	maxAttempts := 200 // More than default max connections (100)
-	clients := make([]*gounixsocketapi.UnixSockAPIDatagramClient, 0, maxAttempts)
+	clients := make([]*gounixsocketapi.DatagramClient, 0, maxAttempts)
 	
 	defer func() {
 		// Clean up all created clients

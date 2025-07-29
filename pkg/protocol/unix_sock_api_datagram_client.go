@@ -14,9 +14,9 @@ import (
 	"github.com/user/GoUnixSockAPI/pkg/specification"
 )
 
-// UnixSockAPIDatagramClient is the main client interface for SOCK_DGRAM Unix socket communication
+// DatagramClient is the main client interface for SOCK_DGRAM Unix socket communication
 // Connectionless implementation for cross-language compatibility
-type UnixSockAPIDatagramClient struct {
+type DatagramClient struct {
 	socketPath     string
 	channelID      string
 	apiSpec        *specification.APISpecification
@@ -106,7 +106,7 @@ func validateConstructorInputs(socketPath, channelID string, apiSpec *specificat
 }
 
 // UnixSockAPIDatagramClient creates a new datagram API client
-func UnixSockAPIDatagramClient(socketPath, channelID string, apiSpec *specification.APISpecification, config ...UnixSockAPIDatagramClientConfig) (*UnixSockAPIDatagramClient, error) {
+func UnixSockAPIDatagramClient(socketPath, channelID string, apiSpec *specification.APISpecification, config ...UnixSockAPIDatagramClientConfig) (*DatagramClient, error) {
 	cfg := DefaultUnixSockAPIDatagramClientConfig()
 	if len(config) > 0 {
 		cfg = config[0]
@@ -131,7 +131,7 @@ func UnixSockAPIDatagramClient(socketPath, channelID string, apiSpec *specificat
 	validator := core.NewSecurityValidator()
 	timeoutManager := NewTimeoutManager()
 	
-	return &UnixSockAPIDatagramClient{
+	return &DatagramClient{
 		socketPath:     socketPath,
 		channelID:      channelID,
 		apiSpec:        apiSpec,
@@ -144,7 +144,7 @@ func UnixSockAPIDatagramClient(socketPath, channelID string, apiSpec *specificat
 }
 
 // SendCommand sends a command via SOCK_DGRAM and waits for response
-func (client *UnixSockAPIDatagramClient) SendCommand(ctx context.Context, command string, args map[string]interface{}, options ...CommandOptions) (*models.SocketResponse, error) {
+func (client *DatagramClient) SendCommand(ctx context.Context, command string, args map[string]interface{}, options ...CommandOptions) (*models.SocketResponse, error) {
 	// Apply options
 	opts := mergeCommandOptions(options...)
 	
@@ -221,7 +221,7 @@ func (client *UnixSockAPIDatagramClient) SendCommand(ctx context.Context, comman
 }
 
 // SendCommandNoResponse sends a command without expecting a response (fire-and-forget)
-func (client *UnixSockAPIDatagramClient) SendCommandNoResponse(ctx context.Context, command string, args map[string]interface{}) error {
+func (client *DatagramClient) SendCommandNoResponse(ctx context.Context, command string, args map[string]interface{}) error {
 	// Generate command ID
 	commandID := generateUUID()
 	
@@ -262,12 +262,12 @@ func (client *UnixSockAPIDatagramClient) SendCommandNoResponse(ctx context.Conte
 }
 
 // TestConnection tests connectivity to the server
-func (client *UnixSockAPIDatagramClient) TestConnection(ctx context.Context) error {
+func (client *DatagramClient) TestConnection(ctx context.Context) error {
 	return client.datagramClient.TestDatagramSocket(ctx)
 }
 
 // Close cleans up client resources
-func (client *UnixSockAPIDatagramClient) Close() error {
+func (client *DatagramClient) Close() error {
 	// Clean up timeout manager
 	if client.timeoutManager != nil {
 		client.timeoutManager.Close()
@@ -282,17 +282,17 @@ func (client *UnixSockAPIDatagramClient) Close() error {
 }
 
 // GetChannelID returns the channel ID
-func (client *UnixSockAPIDatagramClient) GetChannelID() string {
+func (client *DatagramClient) GetChannelID() string {
 	return client.channelID
 }
 
 // GetSocketPath returns the socket path
-func (client *UnixSockAPIDatagramClient) GetSocketPath() string {
+func (client *DatagramClient) GetSocketPath() string {
 	return client.socketPath
 }
 
 // GetAPISpecification returns the API specification
-func (client *UnixSockAPIDatagramClient) GetAPISpecification() *specification.APISpecification {
+func (client *DatagramClient) GetAPISpecification() *specification.APISpecification {
 	return client.apiSpec
 }
 
@@ -328,17 +328,17 @@ func mergeCommandOptions(options ...CommandOptions) CommandOptions {
 // Backward compatibility methods for tests
 
 // ChannelIdentifier returns the channel ID for backward compatibility
-func (client *UnixSockAPIDatagramClient) ChannelIdentifier() string {
+func (client *DatagramClient) ChannelIdentifier() string {
 	return client.channelID
 }
 
 // Specification returns the API specification for backward compatibility  
-func (client *UnixSockAPIDatagramClient) Specification() *specification.APISpecification {
+func (client *DatagramClient) Specification() *specification.APISpecification {
 	return client.apiSpec
 }
 
 // PublishCommand sends a command without expecting response for backward compatibility
-func (client *UnixSockAPIDatagramClient) PublishCommand(ctx context.Context, command string, args map[string]interface{}) (string, error) {
+func (client *DatagramClient) PublishCommand(ctx context.Context, command string, args map[string]interface{}) (string, error) {
 	err := client.SendCommandNoResponse(ctx, command, args)
 	if err != nil {
 		return "", err
@@ -348,12 +348,12 @@ func (client *UnixSockAPIDatagramClient) PublishCommand(ctx context.Context, com
 }
 
 // SocketPathString returns the socket path for backward compatibility
-func (client *UnixSockAPIDatagramClient) SocketPathString() string {
+func (client *DatagramClient) SocketPathString() string {
 	return client.socketPath
 }
 
 // RegisterCommandHandler validates command exists in specification (SOCK_DGRAM compatibility)
-func (client *UnixSockAPIDatagramClient) RegisterCommandHandler(command string, handler interface{}) error {
+func (client *DatagramClient) RegisterCommandHandler(command string, handler interface{}) error {
 	// Validate command exists in the API specification for the client's channel
 	if client.apiSpec != nil {
 		if channel, exists := client.apiSpec.Channels[client.channelID]; exists {
@@ -368,13 +368,13 @@ func (client *UnixSockAPIDatagramClient) RegisterCommandHandler(command string, 
 }
 
 // Disconnect is a no-op for backward compatibility (SOCK_DGRAM doesn't have persistent connections)
-func (client *UnixSockAPIDatagramClient) Disconnect() error {
+func (client *DatagramClient) Disconnect() error {
 	// SOCK_DGRAM doesn't have persistent connections - this is for backward compatibility only
 	return nil
 }
 
 // IsConnected always returns true for backward compatibility (SOCK_DGRAM doesn't track connections)
-func (client *UnixSockAPIDatagramClient) IsConnected() bool {
+func (client *DatagramClient) IsConnected() bool {
 	// SOCK_DGRAM doesn't track connections - return true for backward compatibility
 	return true
 }

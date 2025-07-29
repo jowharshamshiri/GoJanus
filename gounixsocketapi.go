@@ -71,7 +71,7 @@ type (
 
 // Protocol layer types
 type (
-	UnixSockAPIDatagramClient       = protocol.UnixSockAPIDatagramClient
+	DatagramClient                  = protocol.DatagramClient
 	UnixSockAPIDatagramClientConfig = protocol.UnixSockAPIDatagramClientConfig
 	TimeoutManager                  = protocol.TimeoutManager
 )
@@ -111,12 +111,12 @@ func NewUnixDatagramClientWithConfig(socketPath string, config UnixDatagramClien
 }
 
 // UnixSockAPIDatagramClient creates a new Unix socket API datagram client with default configuration
-func UnixSockAPIDatagramClient(socketPath, channelID string, apiSpec *APISpecification) (*UnixSockAPIDatagramClient, error) {
+func UnixSockAPIDatagramClient(socketPath, channelID string, apiSpec *APISpecification) (*protocol.DatagramClient, error) {
 	return protocol.UnixSockAPIDatagramClient(socketPath, channelID, apiSpec)
 }
 
 // UnixSockAPIDatagramClientWithConfig creates a new Unix socket API datagram client with custom configuration
-func UnixSockAPIDatagramClientWithConfig(socketPath, channelID string, apiSpec *APISpecification, config UnixSockAPIDatagramClientConfig) (*UnixSockAPIDatagramClient, error) {
+func UnixSockAPIDatagramClientWithConfig(socketPath, channelID string, apiSpec *APISpecification, config UnixSockAPIDatagramClientConfig) (*protocol.DatagramClient, error) {
 	return protocol.UnixSockAPIDatagramClient(socketPath, channelID, apiSpec, config)
 }
 
