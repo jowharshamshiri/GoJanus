@@ -8,21 +8,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/user/GoUnixSockAPI"
-	"github.com/user/GoUnixSockAPI/pkg/protocol"
+	"github.com/user/GoJanus"
+	"github.com/user/GoJanus/pkg/protocol"
 )
 
 // TestCommandTimeoutConfiguration tests timeout configuration for commands
 // Matches Swift: testCommandTimeoutConfiguration()
 func TestCommandTimeoutConfiguration(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-timeout-test.sock"
+	testSocketPath := "/tmp/gojanus-timeout-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
 	spec := createTimeoutTestAPISpec()
-	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "timeout-channel", spec)
+	client, err := gojanus.JanusDatagramClient(testSocketPath, "timeout-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -69,14 +69,14 @@ func TestCommandTimeoutConfiguration(t *testing.T) {
 // TestTimeoutCallbackMechanisms tests timeout callback functionality
 // Matches Swift: testTimeoutCallbackMechanisms()
 func TestTimeoutCallbackMechanisms(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-timeout-test.sock"
+	testSocketPath := "/tmp/gojanus-timeout-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
 	spec := createTimeoutTestAPISpec()
-	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "timeout-channel", spec)
+	client, err := gojanus.JanusDatagramClient(testSocketPath, "timeout-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -107,14 +107,14 @@ func TestTimeoutCallbackMechanisms(t *testing.T) {
 // TestUUIDGeneration tests UUID generation for commands
 // Matches Swift: testUUIDGeneration()
 func TestUUIDGeneration(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-timeout-test.sock"
+	testSocketPath := "/tmp/gojanus-timeout-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
 	spec := createTimeoutTestAPISpec()
-	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "timeout-channel", spec)
+	client, err := gojanus.JanusDatagramClient(testSocketPath, "timeout-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -125,9 +125,9 @@ func TestUUIDGeneration(t *testing.T) {
 		"test_param": "value",
 	}
 	
-	command1 := gounixsocketapi.NewSocketCommand("timeout-channel", "timeout-command", args, nil)
-	command2 := gounixsocketapi.NewSocketCommand("timeout-channel", "timeout-command", args, nil)
-	command3 := gounixsocketapi.NewSocketCommand("timeout-channel", "timeout-command", args, nil)
+	command1 := gojanus.NewSocketCommand("timeout-channel", "timeout-command", args, nil)
+	command2 := gojanus.NewSocketCommand("timeout-channel", "timeout-command", args, nil)
+	command3 := gojanus.NewSocketCommand("timeout-channel", "timeout-command", args, nil)
 	
 	// Verify UUIDs are different
 	if command1.ID == command2.ID {
@@ -160,14 +160,14 @@ func TestUUIDGeneration(t *testing.T) {
 // TestMultipleConcurrentTimeouts tests handling multiple timeouts simultaneously
 // Matches Swift: testMultipleConcurrentTimeouts()
 func TestMultipleConcurrentTimeouts(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-timeout-test.sock"
+	testSocketPath := "/tmp/gojanus-timeout-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
 	spec := createTimeoutTestAPISpec()
-	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "timeout-channel", spec)
+	client, err := gojanus.JanusDatagramClient(testSocketPath, "timeout-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -206,14 +206,14 @@ func TestMultipleConcurrentTimeouts(t *testing.T) {
 // TestDefaultTimeoutBehavior tests default timeout behavior when not specified
 // Matches Swift: testDefaultTimeoutBehavior()
 func TestDefaultTimeoutBehavior(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-timeout-test.sock"
+	testSocketPath := "/tmp/gojanus-timeout-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
 	spec := createTimeoutTestAPISpec()
-	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "timeout-channel", spec)
+	client, err := gojanus.JanusDatagramClient(testSocketPath, "timeout-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -244,7 +244,7 @@ func TestDefaultTimeoutBehavior(t *testing.T) {
 // Matches Swift: testTimeoutErrorMessageFormatting()
 func TestTimeoutErrorMessageFormatting(t *testing.T) {
 	// Test creating timeout-related error messages
-	timeoutError := &gounixsocketapi.SocketError{
+	timeoutError := &gojanus.SocketError{
 		Code:    "COMMAND_TIMEOUT",
 		Message: "Command timed out after 30 seconds",
 		Details: "No response received within timeout period",
@@ -265,7 +265,7 @@ func TestTimeoutErrorMessageFormatting(t *testing.T) {
 	}
 	
 	// Test error without details
-	simpleTimeoutError := &gounixsocketapi.SocketError{
+	simpleTimeoutError := &gojanus.SocketError{
 		Code:    "TIMEOUT",
 		Message: "Operation timed out",
 	}
@@ -295,7 +295,7 @@ func TestSocketCommandTimeoutFieldSerialization(t *testing.T) {
 	
 	// Test command with timeout
 	timeout := 45.0
-	commandWithTimeout := gounixsocketapi.NewSocketCommand("timeout-channel", "timeout-command", args, &timeout)
+	commandWithTimeout := gojanus.NewSocketCommand("timeout-channel", "timeout-command", args, &timeout)
 	
 	// Serialize to JSON
 	jsonData, err := commandWithTimeout.ToJSON()
@@ -304,7 +304,7 @@ func TestSocketCommandTimeoutFieldSerialization(t *testing.T) {
 	}
 	
 	// Deserialize back
-	var deserializedCommand gounixsocketapi.SocketCommand
+	var deserializedCommand gojanus.SocketCommand
 	err = deserializedCommand.FromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize command with timeout: %v", err)
@@ -318,7 +318,7 @@ func TestSocketCommandTimeoutFieldSerialization(t *testing.T) {
 	}
 	
 	// Test command without timeout
-	commandWithoutTimeout := gounixsocketapi.NewSocketCommand("timeout-channel", "timeout-command", args, nil)
+	commandWithoutTimeout := gojanus.NewSocketCommand("timeout-channel", "timeout-command", args, nil)
 	
 	// Serialize to JSON
 	jsonData, err = commandWithoutTimeout.ToJSON()
@@ -327,7 +327,7 @@ func TestSocketCommandTimeoutFieldSerialization(t *testing.T) {
 	}
 	
 	// Deserialize back
-	var deserializedCommandNoTimeout gounixsocketapi.SocketCommand
+	var deserializedCommandNoTimeout gojanus.SocketCommand
 	err = deserializedCommandNoTimeout.FromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize command without timeout: %v", err)
@@ -342,14 +342,14 @@ func TestSocketCommandTimeoutFieldSerialization(t *testing.T) {
 // TestTimeoutValidation tests timeout value validation
 // Matches Swift timeout validation patterns
 func TestTimeoutValidation(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-timeout-test.sock"
+	testSocketPath := "/tmp/gojanus-timeout-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
 	spec := createTimeoutTestAPISpec()
-	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "timeout-channel", spec)
+	client, err := gojanus.JanusDatagramClient(testSocketPath, "timeout-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -398,7 +398,7 @@ func TestTimeoutValidation(t *testing.T) {
 // Tests internal timeout management functionality
 func TestTimeoutManagerFunctionality(t *testing.T) {
 	// Test timeout manager creation and basic operations
-	manager := gounixsocketapi.NewTimeoutManager()
+	manager := gojanus.NewTimeoutManager()
 	if manager == nil {
 		t.Fatal("Failed to create timeout manager")
 	}
@@ -460,20 +460,20 @@ func TestTimeoutManagerFunctionality(t *testing.T) {
 }
 
 // Helper function to create timeout test API specification
-func createTimeoutTestAPISpec() *gounixsocketapi.APISpecification {
-	return &gounixsocketapi.APISpecification{
+func createTimeoutTestAPISpec() *gojanus.APISpecification {
+	return &gojanus.APISpecification{
 		Version:     "1.0.0",
 		Name:        "Timeout Test API",
 		Description: "API specification for timeout testing",
-		Channels: map[string]*gounixsocketapi.ChannelSpec{
+		Channels: map[string]*gojanus.ChannelSpec{
 			"timeout-channel": {
 				Name:        "Timeout Channel",
 				Description: "Channel for timeout testing",
-				Commands: map[string]*gounixsocketapi.CommandSpec{
+				Commands: map[string]*gojanus.CommandSpec{
 					"timeout-command": {
 						Name:        "Timeout Command",
 						Description: "Command for timeout testing",
-						Args: map[string]*gounixsocketapi.ArgumentSpec{
+						Args: map[string]*gojanus.ArgumentSpec{
 							"test_param": {
 								Name:        "Test Parameter",
 								Type:        "string",
@@ -481,7 +481,7 @@ func createTimeoutTestAPISpec() *gounixsocketapi.APISpecification {
 								Required:    true,
 							},
 						},
-						Response: &gounixsocketapi.ResponseSpec{
+						Response: &gojanus.ResponseSpec{
 							Type:        "object",
 							Description: "Timeout test response",
 						},

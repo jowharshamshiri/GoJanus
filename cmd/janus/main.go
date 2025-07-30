@@ -10,14 +10,14 @@ import (
 	"os"
 	"time"
 
-	"github.com/user/GoUnixSockAPI/pkg/core"
-	"github.com/user/GoUnixSockAPI/pkg/models"
-	"github.com/user/GoUnixSockAPI/pkg/specification"
+	"github.com/user/GoJanus/pkg/core"
+	"github.com/user/GoJanus/pkg/models"
+	"github.com/user/GoJanus/pkg/specification"
 )
 
 func main() {
 	var (
-		socketPath = flag.String("socket", "/tmp/go-unixsock.sock", "Unix socket path")
+		socketPath = flag.String("socket", "/tmp/go-janus.sock", "Unix socket path")
 		listen     = flag.Bool("listen", false, "Listen for datagrams on socket")
 		sendTo     = flag.String("send-to", "", "Send datagram to socket path")
 		command    = flag.String("command", "ping", "Command to send")

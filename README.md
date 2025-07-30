@@ -1,4 +1,4 @@
-# GoUnixSockAPI
+# GoJanus
 
 A production-ready Unix domain socket communication library for Go with **async response tracking** and cross-language compatibility.
 
@@ -17,7 +17,7 @@ A production-ready Unix domain socket communication library for Go with **async 
 
 ```bash
 go mod init your-project
-go get github.com/user/GoUnixSockAPI
+go get github.com/user/GoJanus
 ```
 
 ## Quick Start
@@ -31,8 +31,8 @@ import (
     "context"
     "fmt"
     "time"
-    "github.com/user/GoUnixSockAPI/pkg/protocol"
-    "github.com/user/GoUnixSockAPI/pkg/specification"
+    "github.com/user/GoJanus/pkg/protocol"
+    "github.com/user/GoJanus/pkg/specification"
 )
 
 func main() {
@@ -44,7 +44,7 @@ func main() {
     }
     
     // Create async client with proper configuration
-    client, err := protocol.NewUnixSockAPIClient(
+    client, err := protocol.NewJanusClient(
         "/tmp/my_socket.sock",
         "my_channel", 
         spec,
@@ -83,13 +83,13 @@ package main
 import (
     "context"
     "fmt"
-    "github.com/user/GoUnixSockAPI/pkg/protocol"
-    "github.com/user/GoUnixSockAPI/pkg/models"
+    "github.com/user/GoJanus/pkg/protocol"
+    "github.com/user/GoJanus/pkg/models"
 )
 
 func main() {
     // Create server client for handling commands
-    client, err := protocol.NewUnixSockAPIClient(
+    client, err := protocol.NewJanusClient(
         "/tmp/my_socket.sock",
         "my_channel",
         spec,
@@ -161,7 +161,7 @@ Cross-platform integration testing:
 ## Configuration
 
 ```go
-config := protocol.UnixSockAPIClientConfig{
+config := protocol.JanusClientConfig{
     MaxConcurrentConnections: 100,
     MaxMessageSize:          10 * 1024 * 1024, // 10MB
     ConnectionTimeout:       30 * time.Second,

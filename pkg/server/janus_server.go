@@ -8,14 +8,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/user/GoUnixSockAPI/pkg/models"
+	"github.com/user/GoJanus/pkg/models"
 )
 
 // CommandHandler defines the function signature for command handlers
 type CommandHandler func(*models.SocketCommand) (interface{}, *models.SocketError)
 
-// UnixSocketServer provides a high-level API for listening on Unix sockets
-type UnixSocketServer struct {
+// JanusServer provides a high-level API for listening on Unix sockets
+type JanusServer struct {
 	handlers   map[string]CommandHandler
 	socketPath string
 	listener   net.Listener
@@ -23,9 +23,9 @@ type UnixSocketServer struct {
 	mutex      sync.RWMutex
 }
 
-// NewUnixSocketServer creates a new server instance (DEPRECATED: use UnixSocketServer{} directly)
-func NewUnixSocketServer() *UnixSocketServer {
-	return &UnixSocketServer{
+// NewJanusServer creates a new server instance (DEPRECATED: use JanusServer{} directly)
+func NewJanusServer() *JanusServer {
+	return &JanusServer{
 		handlers: make(map[string]CommandHandler),
 		running:  false,
 	}
@@ -37,7 +37,7 @@ func NewUnixSocketServer() *UnixSocketServer {
 //   server.RegisterHandler("ping", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
 //       return map[string]interface{}{"message": "pong", "timestamp": time.Now().Unix()}, nil
 //   })
-func (s *UnixSocketServer) RegisterHandler(command string, handler CommandHandler) {
+func (s *JanusServer) RegisterHandler(command string, handler CommandHandler) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	
@@ -51,10 +51,10 @@ func (s *UnixSocketServer) RegisterHandler(command string, handler CommandHandle
 // This method blocks until the server is stopped
 //
 // Example:
-//   server := &UnixSocketServer{}
+//   server := &JanusServer{}
 //   server.RegisterHandler("ping", pingHandler)
 //   err := server.StartListening("/tmp/my-server.sock")
-func (s *UnixSocketServer) StartListening(socketPath string) error {
+func (s *JanusServer) StartListening(socketPath string) error {
 	s.mutex.Lock()
 	s.socketPath = socketPath
 	s.running = true
@@ -103,7 +103,7 @@ func (s *UnixSocketServer) StartListening(socketPath string) error {
 }
 
 // Stop stops the server
-func (s *UnixSocketServer) Stop() {
+func (s *JanusServer) Stop() {
 	s.mutex.Lock()
 	s.running = false
 	s.mutex.Unlock()
@@ -115,14 +115,14 @@ func (s *UnixSocketServer) Stop() {
 }
 
 // isRunning checks if server is running (thread-safe)
-func (s *UnixSocketServer) isRunning() bool {
+func (s *JanusServer) isRunning() bool {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	return s.running
 }
 
 // handleConnection processes a single connection
-func (s *UnixSocketServer) handleConnection(conn net.Conn) {
+func (s *JanusServer) handleConnection(conn net.Conn) {
 	defer conn.Close()
 
 	// Set read timeout
@@ -149,7 +149,7 @@ func (s *UnixSocketServer) handleConnection(conn net.Conn) {
 }
 
 // processCommand executes the appropriate handler for a command
-func (s *UnixSocketServer) processCommand(cmd *models.SocketCommand) *models.SocketResponse {
+func (s *JanusServer) processCommand(cmd *models.SocketCommand) *models.SocketResponse {
 	s.mutex.RLock()
 	handler, exists := s.handlers[cmd.Command]
 	s.mutex.RUnlock()

@@ -7,21 +7,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/user/GoUnixSockAPI"
-	"github.com/user/GoUnixSockAPI/pkg/protocol"
+	"github.com/user/GoJanus"
+	"github.com/user/GoJanus/pkg/protocol"
 )
 
 // TestCommandValidationWithoutConnection tests command validation without requiring a connection
 // Matches Swift: testCommandValidationWithoutConnection()
 func TestCommandValidationWithoutConnection(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-stateless-test.sock"
+	testSocketPath := "/tmp/gojanus-stateless-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
 	spec := createStatelessTestAPISpec()
-	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "stateless-channel", spec)
+	client, err := gojanus.JanusDatagramClient(testSocketPath, "stateless-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -63,14 +63,14 @@ func TestCommandValidationWithoutConnection(t *testing.T) {
 // TestIndependentCommandExecution tests that commands execute independently
 // Matches Swift: testIndependentCommandExecution()
 func TestIndependentCommandExecution(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-stateless-test.sock"
+	testSocketPath := "/tmp/gojanus-stateless-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
 	spec := createStatelessTestAPISpec()
-	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "stateless-channel", spec)
+	client, err := gojanus.JanusDatagramClient(testSocketPath, "stateless-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -105,8 +105,8 @@ func TestIndependentCommandExecution(t *testing.T) {
 // TestChannelIsolationBetweenClients tests that clients remain isolated by channel
 // Matches Swift: testChannelIsolationBetweenClients()
 func TestChannelIsolationBetweenClients(t *testing.T) {
-	testSocketPath1 := "/tmp/gounixsocketapi-stateless1-test.sock"
-	testSocketPath2 := "/tmp/gounixsocketapi-stateless2-test.sock"
+	testSocketPath1 := "/tmp/gojanus-stateless1-test.sock"
+	testSocketPath2 := "/tmp/gojanus-stateless2-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath1)
@@ -119,13 +119,13 @@ func TestChannelIsolationBetweenClients(t *testing.T) {
 	spec := createMultiChannelAPISpec()
 	
 	// Create clients for different channels
-	client1, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath1, "channel-1", spec)
+	client1, err := gojanus.JanusDatagramClient(testSocketPath1, "channel-1", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client1: %v", err)
 	}
 	defer client1.Close()
 	
-	client2, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath2, "channel-2", spec)
+	client2, err := gojanus.JanusDatagramClient(testSocketPath2, "channel-2", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client2: %v", err)
 	}
@@ -168,14 +168,14 @@ func TestChannelIsolationBetweenClients(t *testing.T) {
 // TestArgumentValidationInStatelessMode tests argument validation without persistent state
 // Matches Swift: testArgumentValidationInStatelessMode()
 func TestArgumentValidationInStatelessMode(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-stateless-test.sock"
+	testSocketPath := "/tmp/gojanus-stateless-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
 	spec := createStatelessTestAPISpec()
-	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "stateless-channel", spec)
+	client, err := gojanus.JanusDatagramClient(testSocketPath, "stateless-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -232,14 +232,14 @@ func TestArgumentValidationInStatelessMode(t *testing.T) {
 // TestMessageSerializationForStatelessOperations tests message serialization in stateless mode
 // Matches Swift: testMessageSerializationForStatelessOperations()
 func TestMessageSerializationForStatelessOperations(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-stateless-test.sock"
+	testSocketPath := "/tmp/gojanus-stateless-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
 	spec := createStatelessTestAPISpec()
-	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "stateless-channel", spec)
+	client, err := gojanus.JanusDatagramClient(testSocketPath, "stateless-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -272,7 +272,7 @@ func TestMessageSerializationForStatelessOperations(t *testing.T) {
 // TestMultiChannelAPISpecificationHandling tests handling of multi-channel specifications
 // Matches Swift: testMultiChannelAPISpecificationHandling()
 func TestMultiChannelAPISpecificationHandling(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-stateless-test.sock"
+	testSocketPath := "/tmp/gojanus-stateless-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
@@ -281,13 +281,13 @@ func TestMultiChannelAPISpecificationHandling(t *testing.T) {
 	spec := createMultiChannelAPISpec()
 	
 	// Test creating clients for different channels
-	client1, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "channel-1", spec)
+	client1, err := gojanus.JanusDatagramClient(testSocketPath, "channel-1", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client for channel-1: %v", err)
 	}
 	defer client1.Close()
 	
-	client2, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "channel-2", spec)
+	client2, err := gojanus.JanusDatagramClient(testSocketPath, "channel-2", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client for channel-2: %v", err)
 	}
@@ -330,14 +330,14 @@ func TestMultiChannelAPISpecificationHandling(t *testing.T) {
 // TestStatelessCommandUUIDGeneration tests that each stateless command gets unique UUID
 // Matches Swift stateless UUID generation patterns
 func TestStatelessCommandUUIDGeneration(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-stateless-test.sock"
+	testSocketPath := "/tmp/gojanus-stateless-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
 	spec := createStatelessTestAPISpec()
-	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "stateless-channel", spec)
+	client, err := gojanus.JanusDatagramClient(testSocketPath, "stateless-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -353,9 +353,9 @@ func TestStatelessCommandUUIDGeneration(t *testing.T) {
 		"test_param": "value",
 	}
 	
-	command1 := gounixsocketapi.NewSocketCommand("stateless-channel", "stateless-command", args, nil)
-	command2 := gounixsocketapi.NewSocketCommand("stateless-channel", "stateless-command", args, nil)
-	command3 := gounixsocketapi.NewSocketCommand("stateless-channel", "stateless-command", args, nil)
+	command1 := gojanus.NewSocketCommand("stateless-channel", "stateless-command", args, nil)
+	command2 := gojanus.NewSocketCommand("stateless-channel", "stateless-command", args, nil)
+	command3 := gojanus.NewSocketCommand("stateless-channel", "stateless-command", args, nil)
 	
 	// Verify UUIDs are different
 	if command1.ID == command2.ID {
@@ -384,14 +384,14 @@ func TestStatelessCommandUUIDGeneration(t *testing.T) {
 // TestChannelIsolationValidation tests channel isolation at the validation level
 // Matches Swift channel isolation security testing
 func TestChannelIsolationValidation(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-stateless-test.sock"
+	testSocketPath := "/tmp/gojanus-stateless-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
 	spec := createMultiChannelAPISpec()
-	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "channel-1", spec)
+	client, err := gojanus.JanusDatagramClient(testSocketPath, "channel-1", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -416,20 +416,20 @@ func TestChannelIsolationValidation(t *testing.T) {
 }
 
 // Helper function to create a stateless test API specification
-func createStatelessTestAPISpec() *gounixsocketapi.APISpecification {
-	return &gounixsocketapi.APISpecification{
+func createStatelessTestAPISpec() *gojanus.APISpecification {
+	return &gojanus.APISpecification{
 		Version:     "1.0.0",
 		Name:        "Stateless Test API",
 		Description: "API specification for stateless communication testing",
-		Channels: map[string]*gounixsocketapi.ChannelSpec{
+		Channels: map[string]*gojanus.ChannelSpec{
 			"stateless-channel": {
 				Name:        "Stateless Channel",
 				Description: "Channel for stateless testing",
-				Commands: map[string]*gounixsocketapi.CommandSpec{
+				Commands: map[string]*gojanus.CommandSpec{
 					"stateless-command": {
 						Name:        "Stateless Command",
 						Description: "Command for stateless testing",
-						Args: map[string]*gounixsocketapi.ArgumentSpec{
+						Args: map[string]*gojanus.ArgumentSpec{
 							"test_param": {
 								Name:        "Test Parameter",
 								Type:        "string",
@@ -437,7 +437,7 @@ func createStatelessTestAPISpec() *gounixsocketapi.APISpecification {
 								Required:    true,
 							},
 						},
-						Response: &gounixsocketapi.ResponseSpec{
+						Response: &gojanus.ResponseSpec{
 							Type:        "object",
 							Description: "Test response",
 						},
@@ -445,7 +445,7 @@ func createStatelessTestAPISpec() *gounixsocketapi.APISpecification {
 					"validation-command": {
 						Name:        "Validation Command",
 						Description: "Command for validation testing",
-						Args: map[string]*gounixsocketapi.ArgumentSpec{
+						Args: map[string]*gojanus.ArgumentSpec{
 							"required_param": {
 								Name:        "Required Parameter",
 								Type:        "string",
@@ -459,7 +459,7 @@ func createStatelessTestAPISpec() *gounixsocketapi.APISpecification {
 								Required:    false,
 							},
 						},
-						Response: &gounixsocketapi.ResponseSpec{
+						Response: &gojanus.ResponseSpec{
 							Type:        "object",
 							Description: "Validation response",
 						},
@@ -471,20 +471,20 @@ func createStatelessTestAPISpec() *gounixsocketapi.APISpecification {
 }
 
 // Helper function to create a multi-channel API specification
-func createMultiChannelAPISpec() *gounixsocketapi.APISpecification {
-	return &gounixsocketapi.APISpecification{
+func createMultiChannelAPISpec() *gojanus.APISpecification {
+	return &gojanus.APISpecification{
 		Version:     "1.0.0",
 		Name:        "Multi-Channel Test API",
 		Description: "API specification with multiple channels",
-		Channels: map[string]*gounixsocketapi.ChannelSpec{
+		Channels: map[string]*gojanus.ChannelSpec{
 			"channel-1": {
 				Name:        "Channel 1",
 				Description: "First test channel",
-				Commands: map[string]*gounixsocketapi.CommandSpec{
+				Commands: map[string]*gojanus.CommandSpec{
 					"command-1": {
 						Name:        "Command 1",
 						Description: "First channel command",
-						Args: map[string]*gounixsocketapi.ArgumentSpec{
+						Args: map[string]*gojanus.ArgumentSpec{
 							"param1": {
 								Name:        "Parameter 1",
 								Type:        "string",
@@ -492,7 +492,7 @@ func createMultiChannelAPISpec() *gounixsocketapi.APISpecification {
 								Required:    true,
 							},
 						},
-						Response: &gounixsocketapi.ResponseSpec{
+						Response: &gojanus.ResponseSpec{
 							Type:        "object",
 							Description: "Response from channel 1",
 						},
@@ -502,11 +502,11 @@ func createMultiChannelAPISpec() *gounixsocketapi.APISpecification {
 			"channel-2": {
 				Name:        "Channel 2",
 				Description: "Second test channel",
-				Commands: map[string]*gounixsocketapi.CommandSpec{
+				Commands: map[string]*gojanus.CommandSpec{
 					"command-2": {
 						Name:        "Command 2",
 						Description: "Second channel command",
-						Args: map[string]*gounixsocketapi.ArgumentSpec{
+						Args: map[string]*gojanus.ArgumentSpec{
 							"param2": {
 								Name:        "Parameter 2",
 								Type:        "string",
@@ -514,7 +514,7 @@ func createMultiChannelAPISpec() *gounixsocketapi.APISpecification {
 								Required:    true,
 							},
 						},
-						Response: &gounixsocketapi.ResponseSpec{
+						Response: &gojanus.ResponseSpec{
 							Type:        "object",
 							Description: "Response from channel 2",
 						},

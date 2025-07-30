@@ -5,27 +5,27 @@ import (
 	"testing"
 	"time"
 
-	"github.com/user/GoUnixSockAPI/pkg/client"
-	"github.com/user/GoUnixSockAPI/pkg/server"
-	"github.com/user/GoUnixSockAPI/pkg/models"
+	"github.com/user/GoJanus/pkg/client"
+	"github.com/user/GoJanus/pkg/server"
+	"github.com/user/GoJanus/pkg/models"
 )
 
 func TestServerCreation(t *testing.T) {
-	server := &server.UnixSocketServer{}
+	server := &server.JanusServer{}
 	if server == nil {
 		t.Fatal("Failed to create server")
 	}
 }
 
 func TestClientCreation(t *testing.T) {
-	client := &client.UnixSocketClient{}
+	client := &client.JanusClient{}
 	if client == nil {
 		t.Fatal("Failed to create client")
 	}
 }
 
 func TestServerRegisterHandler(t *testing.T) {
-	server := &server.UnixSocketServer{}
+	server := &server.JanusServer{}
 	
 	server.RegisterHandler("test", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
 		return map[string]interface{}{"echo": cmd.Command}, nil
@@ -40,7 +40,7 @@ func TestClientServerCommunication(t *testing.T) {
 	defer os.Remove(socketPath)
 	
 	// Start server
-	server := &server.UnixSocketServer{}
+	server := &server.JanusServer{}
 	server.RegisterHandler("ping", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
 		return map[string]interface{}{
 			"message":   "pong",
@@ -58,7 +58,7 @@ func TestClientServerCommunication(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	
 	// Test client communication
-	client := client.NewUnixSocketClient("test", 5*time.Second)
+	client := client.NewJanusClient("test", 5*time.Second)
 	
 	response, err := client.SendCommand(socketPath, "ping", nil)
 	
@@ -85,7 +85,7 @@ func TestClientServerWithArgs(t *testing.T) {
 	defer os.Remove(socketPath)
 	
 	// Start server with echo handler
-	server := &server.UnixSocketServer{}
+	server := &server.JanusServer{}
 	server.RegisterHandler("echo", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
 		if cmd.Args == nil {
 			return nil, &models.SocketError{
@@ -120,7 +120,7 @@ func TestClientServerWithArgs(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	
 	// Test client with arguments
-	client := client.NewUnixSocketClient("test", 5*time.Second)
+	client := client.NewJanusClient("test", 5*time.Second)
 	
 	args := map[string]interface{}{
 		"message": "Hello, Server!",
@@ -162,7 +162,7 @@ func TestClientCommandNotFound(t *testing.T) {
 	defer os.Remove(socketPath)
 	
 	// Start server without handlers
-	server := &server.UnixSocketServer{}
+	server := &server.JanusServer{}
 	
 	// Start server in goroutine
 	serverDone := make(chan error, 1)
@@ -174,7 +174,7 @@ func TestClientCommandNotFound(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	
 	// Test client with non-existent command
-	client := client.NewUnixSocketClient("test", 5*time.Second)
+	client := client.NewJanusClient("test", 5*time.Second)
 	
 	response, err := client.SendCommand(socketPath, "nonexistent", nil)
 	
@@ -206,7 +206,7 @@ func TestClientFireAndForget(t *testing.T) {
 	defer os.Remove(socketPath)
 	
 	// Start server with logging handler
-	server := &server.UnixSocketServer{}
+	server := &server.JanusServer{}
 	server.RegisterHandler("log", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
 		// Simulate logging
 		t.Logf("Logged: %v", cmd.Args)
@@ -223,7 +223,7 @@ func TestClientFireAndForget(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	
 	// Test fire-and-forget
-	client := client.NewUnixSocketClient("test", 5*time.Second)
+	client := client.NewJanusClient("test", 5*time.Second)
 	
 	args := map[string]interface{}{
 		"level":   "info",
@@ -247,7 +247,7 @@ func TestClientTimeout(t *testing.T) {
 	defer os.Remove(socketPath)
 	
 	// Start server with slow handler
-	server := &server.UnixSocketServer{}
+	server := &server.JanusServer{}
 	server.RegisterHandler("slow", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
 		// Simulate slow processing
 		time.Sleep(10 * time.Second)
@@ -264,7 +264,7 @@ func TestClientTimeout(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	
 	// Test client with short timeout
-	client := client.NewUnixSocketClient("test", 1*time.Second)
+	client := client.NewJanusClient("test", 1*time.Second)
 	
 	_, err := client.SendCommand(socketPath, "slow", nil)
 	
@@ -283,7 +283,7 @@ func TestClientPing(t *testing.T) {
 	defer os.Remove(socketPath)
 	
 	// Start server with ping handler
-	server := &server.UnixSocketServer{}
+	server := &server.JanusServer{}
 	server.RegisterHandler("ping", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
 		return map[string]interface{}{"message": "pong"}, nil
 	})
@@ -298,7 +298,7 @@ func TestClientPing(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	
 	// Test ping
-	client := client.NewUnixSocketClient("test", 5*time.Second)
+	client := client.NewJanusClient("test", 5*time.Second)
 	
 	success := client.Ping(socketPath)
 	
@@ -317,7 +317,7 @@ func TestMultipleHandlers(t *testing.T) {
 	defer os.Remove(socketPath)
 	
 	// Start server with multiple handlers
-	server := &server.UnixSocketServer{}
+	server := &server.JanusServer{}
 	
 	server.RegisterHandler("add", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
 		if cmd.Args == nil {
@@ -374,7 +374,7 @@ func TestMultipleHandlers(t *testing.T) {
 	// Give server time to start
 	time.Sleep(100 * time.Millisecond)
 	
-	client := client.NewUnixSocketClient("test", 5*time.Second)
+	client := client.NewJanusClient("test", 5*time.Second)
 	
 	args := map[string]interface{}{
 		"a": 5.0,

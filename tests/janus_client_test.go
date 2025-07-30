@@ -7,14 +7,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/user/GoUnixSockAPI"
-	"github.com/user/GoUnixSockAPI/pkg/protocol"
+	"github.com/user/GoJanus"
+	"github.com/user/GoJanus/pkg/protocol"
 )
 
 // TestClientInitializationWithValidSpec tests client creation with valid specification
 // Matches Swift: testClientInitializationWithValidSpec()
 func TestClientInitializationWithValidSpec(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-client-test.sock"
+	testSocketPath := "/tmp/gojanus-client-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
@@ -22,7 +22,7 @@ func TestClientInitializationWithValidSpec(t *testing.T) {
 	
 	spec := createComplexAPISpec()
 	
-	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
+	client, err := gojanus.JanusDatagramClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client with valid spec: %v", err)
 	}
@@ -44,7 +44,7 @@ func TestClientInitializationWithValidSpec(t *testing.T) {
 // TestClientInitializationWithInvalidChannel tests client creation failure with invalid channel
 // Matches Swift: testClientInitializationWithInvalidChannel()
 func TestClientInitializationWithInvalidChannel(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-client-test.sock"
+	testSocketPath := "/tmp/gojanus-client-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
@@ -52,7 +52,7 @@ func TestClientInitializationWithInvalidChannel(t *testing.T) {
 	
 	spec := createComplexAPISpec()
 	
-	_, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "nonexistent-channel", spec)
+	_, err := gojanus.JanusDatagramClient(testSocketPath, "nonexistent-channel", spec)
 	if err == nil {
 		t.Error("Expected error for nonexistent channel")
 		return
@@ -66,20 +66,20 @@ func TestClientInitializationWithInvalidChannel(t *testing.T) {
 // TestClientInitializationWithInvalidSpec tests client creation failure with invalid specification
 // Matches Swift: testClientInitializationWithInvalidSpec()
 func TestClientInitializationWithInvalidSpec(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-client-test.sock"
+	testSocketPath := "/tmp/gojanus-client-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
 	// Create invalid spec (empty version)
-	invalidSpec := &gounixsocketapi.APISpecification{
+	invalidSpec := &gojanus.APISpecification{
 		Version: "", // Empty version should cause validation error
 		Name:    "Invalid API",
-		Channels: map[string]*gounixsocketapi.ChannelSpec{
+		Channels: map[string]*gojanus.ChannelSpec{
 			"test-channel": {
 				Name: "Test Channel",
-				Commands: map[string]*gounixsocketapi.CommandSpec{
+				Commands: map[string]*gojanus.CommandSpec{
 					"test-command": {
 						Name: "Test Command",
 					},
@@ -88,7 +88,7 @@ func TestClientInitializationWithInvalidSpec(t *testing.T) {
 		},
 	}
 	
-	_, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "test-channel", invalidSpec)
+	_, err := gojanus.JanusDatagramClient(testSocketPath, "test-channel", invalidSpec)
 	if err == nil {
 		t.Error("Expected error for invalid specification")
 		return
@@ -102,22 +102,22 @@ func TestClientInitializationWithInvalidSpec(t *testing.T) {
 // TestRegisterValidCommandHandler tests registering a valid command handler
 // Matches Swift: testRegisterValidCommandHandler()
 func TestRegisterValidCommandHandler(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-client-test.sock"
+	testSocketPath := "/tmp/gojanus-client-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
+	client, err := gojanus.JanusDatagramClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
 	// Register handler for existing command
-	handler := func(command *gounixsocketapi.SocketCommand) (*gounixsocketapi.SocketResponse, error) {
-		return gounixsocketapi.NewSuccessResponse(command.ID, command.ChannelID, map[string]interface{}{
+	handler := func(command *gojanus.SocketCommand) (*gojanus.SocketResponse, error) {
+		return gojanus.NewSuccessResponse(command.ID, command.ChannelID, map[string]interface{}{
 			"message": "Handler executed successfully",
 		}), nil
 	}
@@ -131,22 +131,22 @@ func TestRegisterValidCommandHandler(t *testing.T) {
 // TestRegisterInvalidCommandHandler tests registering handler for nonexistent command
 // Matches Swift: testRegisterInvalidCommandHandler()
 func TestRegisterInvalidCommandHandler(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-client-test.sock"
+	testSocketPath := "/tmp/gojanus-client-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
+	client, err := gojanus.JanusDatagramClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
 	// Try to register handler for nonexistent command
-	handler := func(command *gounixsocketapi.SocketCommand) (*gounixsocketapi.SocketResponse, error) {
-		return gounixsocketapi.NewSuccessResponse(command.ID, command.ChannelID, nil), nil
+	handler := func(command *gojanus.SocketCommand) (*gojanus.SocketResponse, error) {
+		return gojanus.NewSuccessResponse(command.ID, command.ChannelID, nil), nil
 	}
 	
 	err = client.RegisterCommandHandler("nonexistent-command", handler)
@@ -162,14 +162,14 @@ func TestRegisterInvalidCommandHandler(t *testing.T) {
 // TestSocketCommandValidation tests socket command validation against specification
 // Matches Swift: testSocketCommandValidation()
 func TestSocketCommandValidation(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-client-test.sock"
+	testSocketPath := "/tmp/gojanus-client-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
+	client, err := gojanus.JanusDatagramClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -212,14 +212,14 @@ func TestSocketCommandValidation(t *testing.T) {
 // TestCommandMessageSerialization tests command message serialization
 // Matches Swift: testCommandMessageSerialization()
 func TestCommandMessageSerialization(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-client-test.sock"
+	testSocketPath := "/tmp/gojanus-client-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
+	client, err := gojanus.JanusDatagramClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -237,7 +237,7 @@ func TestCommandMessageSerialization(t *testing.T) {
 	}
 	
 	// Create command directly for serialization testing
-	command := gounixsocketapi.NewSocketCommand("library-management", "add-book", args, nil)
+	command := gojanus.NewSocketCommand("library-management", "add-book", args, nil)
 	
 	// Test serialization
 	jsonData, err := command.ToJSON()
@@ -246,7 +246,7 @@ func TestCommandMessageSerialization(t *testing.T) {
 	}
 	
 	// Test deserialization
-	var deserializedCommand gounixsocketapi.SocketCommand
+	var deserializedCommand gojanus.SocketCommand
 	err = deserializedCommand.FromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize command: %v", err)
@@ -269,8 +269,8 @@ func TestCommandMessageSerialization(t *testing.T) {
 // TestMultipleClientInstances tests creating multiple independent client instances
 // Matches Swift: testMultipleClientInstances()
 func TestMultipleClientInstances(t *testing.T) {
-	testSocketPath1 := "/tmp/gounixsocketapi-client1-test.sock"
-	testSocketPath2 := "/tmp/gounixsocketapi-client2-test.sock"
+	testSocketPath1 := "/tmp/gojanus-client1-test.sock"
+	testSocketPath2 := "/tmp/gojanus-client2-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath1)
@@ -283,14 +283,14 @@ func TestMultipleClientInstances(t *testing.T) {
 	spec := createComplexAPISpec()
 	
 	// Create first client
-	client1, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath1, "library-management", spec)
+	client1, err := gojanus.JanusDatagramClient(testSocketPath1, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create first client: %v", err)
 	}
 	defer client1.Close()
 	
 	// Create second client with different socket path
-	client2, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath2, "task-management", spec)
+	client2, err := gojanus.JanusDatagramClient(testSocketPath2, "task-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create second client: %v", err)
 	}
@@ -306,14 +306,14 @@ func TestMultipleClientInstances(t *testing.T) {
 	}
 	
 	// Register different handlers on each client
-	handler1 := func(command *gounixsocketapi.SocketCommand) (*gounixsocketapi.SocketResponse, error) {
-		return gounixsocketapi.NewSuccessResponse(command.ID, command.ChannelID, map[string]interface{}{
+	handler1 := func(command *gojanus.SocketCommand) (*gojanus.SocketResponse, error) {
+		return gojanus.NewSuccessResponse(command.ID, command.ChannelID, map[string]interface{}{
 			"client": "client1",
 		}), nil
 	}
 	
-	handler2 := func(command *gounixsocketapi.SocketCommand) (*gounixsocketapi.SocketResponse, error) {
-		return gounixsocketapi.NewSuccessResponse(command.ID, command.ChannelID, map[string]interface{}{
+	handler2 := func(command *gojanus.SocketCommand) (*gojanus.SocketResponse, error) {
+		return gojanus.NewSuccessResponse(command.ID, command.ChannelID, map[string]interface{}{
 			"client": "client2",
 		}), nil
 	}
@@ -332,25 +332,25 @@ func TestMultipleClientInstances(t *testing.T) {
 // TestCommandHandlerWithAsyncOperations tests command handler with async operations
 // Matches Swift: testCommandHandlerWithAsyncOperations()
 func TestCommandHandlerWithAsyncOperations(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-client-test.sock"
+	testSocketPath := "/tmp/gojanus-client-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
+	client, err := gojanus.JanusDatagramClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
 	// Register async handler
-	asyncHandler := func(command *gounixsocketapi.SocketCommand) (*gounixsocketapi.SocketResponse, error) {
+	asyncHandler := func(command *gojanus.SocketCommand) (*gojanus.SocketResponse, error) {
 		// Simulate async operation
 		time.Sleep(10 * time.Millisecond)
 		
-		return gounixsocketapi.NewSuccessResponse(command.ID, command.ChannelID, map[string]interface{}{
+		return gojanus.NewSuccessResponse(command.ID, command.ChannelID, map[string]interface{}{
 			"processed": true,
 			"timestamp": time.Now().Unix(),
 		}), nil
@@ -365,22 +365,22 @@ func TestCommandHandlerWithAsyncOperations(t *testing.T) {
 // TestCommandHandlerErrorHandling tests command handler error handling
 // Matches Swift: testCommandHandlerErrorHandling()
 func TestCommandHandlerErrorHandling(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-client-test.sock"
+	testSocketPath := "/tmp/gojanus-client-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
+	client, err := gojanus.JanusDatagramClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
 	// Register error-producing handler
-	errorHandler := func(command *gounixsocketapi.SocketCommand) (*gounixsocketapi.SocketResponse, error) {
-		return nil, &gounixsocketapi.SocketError{
+	errorHandler := func(command *gojanus.SocketCommand) (*gojanus.SocketResponse, error) {
+		return nil, &gojanus.SocketError{
 			Code:    "HANDLER_ERROR",
 			Message: "Simulated handler error",
 			Details: "This is a test error",
@@ -396,14 +396,14 @@ func TestCommandHandlerErrorHandling(t *testing.T) {
 // TestAPISpecWithComplexArguments tests API specification with complex argument structures
 // Matches Swift: testAPISpecWithComplexArguments()
 func TestAPISpecWithComplexArguments(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-client-test.sock"
+	testSocketPath := "/tmp/gojanus-client-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "task-management", spec)
+	client, err := gojanus.JanusDatagramClient(testSocketPath, "task-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -435,14 +435,14 @@ func TestAPISpecWithComplexArguments(t *testing.T) {
 // TestArgumentValidationConstraints tests argument validation with various constraints
 // Matches Swift: testArgumentValidationConstraints()
 func TestArgumentValidationConstraints(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-client-test.sock"
+	testSocketPath := "/tmp/gojanus-client-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "library-management", spec)
+	client, err := gojanus.JanusDatagramClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -477,20 +477,20 @@ func TestArgumentValidationConstraints(t *testing.T) {
 
 // Helper function to create a complex API specification for testing
 // Matches Swift test helper patterns
-func createComplexAPISpec() *gounixsocketapi.APISpecification {
-	return &gounixsocketapi.APISpecification{
+func createComplexAPISpec() *gojanus.APISpecification {
+	return &gojanus.APISpecification{
 		Version:     "1.0.0",
 		Name:        "Complex Test API",
 		Description: "Complex API specification for testing",
-		Channels: map[string]*gounixsocketapi.ChannelSpec{
+		Channels: map[string]*gojanus.ChannelSpec{
 			"library-management": {
 				Name:        "Library Management",
 				Description: "Library management operations",
-				Commands: map[string]*gounixsocketapi.CommandSpec{
+				Commands: map[string]*gojanus.CommandSpec{
 					"get-book": {
 						Name:        "Get Book",
 						Description: "Retrieve a book by ID",
-						Args: map[string]*gounixsocketapi.ArgumentSpec{
+						Args: map[string]*gojanus.ArgumentSpec{
 							"id": {
 								Name:        "Book ID",
 								Type:        "string",
@@ -501,7 +501,7 @@ func createComplexAPISpec() *gounixsocketapi.APISpecification {
 								MaxLength:   &[]int{50}[0],
 							},
 						},
-						Response: &gounixsocketapi.ResponseSpec{
+						Response: &gojanus.ResponseSpec{
 							Type:        "object",
 							Description: "Book information",
 						},
@@ -510,7 +510,7 @@ func createComplexAPISpec() *gounixsocketapi.APISpecification {
 					"add-book": {
 						Name:        "Add Book",
 						Description: "Add a new book",
-						Args: map[string]*gounixsocketapi.ArgumentSpec{
+						Args: map[string]*gojanus.ArgumentSpec{
 							"title": {
 								Name:        "Title",
 								Type:        "string",
@@ -536,7 +536,7 @@ func createComplexAPISpec() *gounixsocketapi.APISpecification {
 								Maximum:     &[]float64{10000}[0],
 							},
 						},
-						Response: &gounixsocketapi.ResponseSpec{
+						Response: &gojanus.ResponseSpec{
 							Type:        "object",
 							Description: "Created book information",
 						},
@@ -547,11 +547,11 @@ func createComplexAPISpec() *gounixsocketapi.APISpecification {
 			"task-management": {
 				Name:        "Task Management",
 				Description: "Task management operations",
-				Commands: map[string]*gounixsocketapi.CommandSpec{
+				Commands: map[string]*gojanus.CommandSpec{
 					"create-task": {
 						Name:        "Create Task",
 						Description: "Create a new task",
-						Args: map[string]*gounixsocketapi.ArgumentSpec{
+						Args: map[string]*gojanus.ArgumentSpec{
 							"title": {
 								Name:        "Title",
 								Type:        "string",
@@ -582,7 +582,7 @@ func createComplexAPISpec() *gounixsocketapi.APISpecification {
 								Pattern:     "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
 							},
 						},
-						Response: &gounixsocketapi.ResponseSpec{
+						Response: &gojanus.ResponseSpec{
 							Type:        "object",
 							Description: "Created task information",
 						},
@@ -591,12 +591,12 @@ func createComplexAPISpec() *gounixsocketapi.APISpecification {
 				},
 			},
 		},
-		Models: map[string]*gounixsocketapi.ModelDefinition{
+		Models: map[string]*gojanus.ModelDefinition{
 			"Book": {
 				Name:        "Book",
 				Type:        "object",
 				Description: "Book model",
-				Properties: map[string]*gounixsocketapi.ArgumentSpec{
+				Properties: map[string]*gojanus.ArgumentSpec{
 					"id": {
 						Name:        "ID",
 						Type:        "string",

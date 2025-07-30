@@ -6,18 +6,18 @@ import (
 	"net"
 	"time"
 
-	"github.com/user/GoUnixSockAPI/pkg/models"
+	"github.com/user/GoJanus/pkg/models"
 	"github.com/google/uuid"
 )
 
-// UnixSocketClient provides a high-level API for sending commands to Unix socket servers
-type UnixSocketClient struct {
+// JanusClient provides a high-level API for sending commands to Unix socket servers
+type JanusClient struct {
 	timeout   time.Duration
 	channelID string
 }
 
-// NewUnixSocketClient creates a new client instance (DEPRECATED: use UnixSocketClient{} directly)
-func NewUnixSocketClient(channelID string, timeout time.Duration) *UnixSocketClient {
+// NewJanusClient creates a new client instance (DEPRECATED: use JanusClient{} directly)
+func NewJanusClient(channelID string, timeout time.Duration) *JanusClient {
 	if channelID == "" {
 		channelID = "default"
 	}
@@ -25,7 +25,7 @@ func NewUnixSocketClient(channelID string, timeout time.Duration) *UnixSocketCli
 		timeout = 30 * time.Second
 	}
 	
-	return &UnixSocketClient{
+	return &JanusClient{
 		timeout:   timeout,
 		channelID: channelID,
 	}
@@ -42,18 +42,18 @@ func NewUnixSocketClient(channelID string, timeout time.Duration) *UnixSocketCli
 //   The server's response
 //
 // Example:
-//   client := &UnixSocketClient{channelID: "default", timeout: 30 * time.Second}
+//   client := &JanusClient{channelID: "default", timeout: 30 * time.Second}
 //   args := map[string]interface{}{"message": "Hello"}
 //   response, err := client.SendCommand("/tmp/server.sock", "ping", args)
 //   if err == nil && response.Success {
 //       fmt.Printf("Success: %v\n", response.Result)
 //   }
-func (c *UnixSocketClient) SendCommand(targetSocket, command string, args map[string]interface{}) (*models.SocketResponse, error) {
+func (c *JanusClient) SendCommand(targetSocket, command string, args map[string]interface{}) (*models.SocketResponse, error) {
 	return c.SendCommandWithTimeout(targetSocket, command, args, 0)
 }
 
 // SendCommandWithTimeout sends a command with a custom timeout
-func (c *UnixSocketClient) SendCommandWithTimeout(targetSocket, command string, args map[string]interface{}, timeout time.Duration) (*models.SocketResponse, error) {
+func (c *JanusClient) SendCommandWithTimeout(targetSocket, command string, args map[string]interface{}, timeout time.Duration) (*models.SocketResponse, error) {
 	if timeout == 0 {
 		timeout = c.timeout
 	}
@@ -97,7 +97,7 @@ func (c *UnixSocketClient) SendCommandWithTimeout(targetSocket, command string, 
 }
 
 // SendCommandNoResponse sends a fire-and-forget command (no response expected)
-func (c *UnixSocketClient) SendCommandNoResponse(targetSocket, command string, args map[string]interface{}) error {
+func (c *JanusClient) SendCommandNoResponse(targetSocket, command string, args map[string]interface{}) error {
 	// For fire-and-forget, we still need to connect briefly
 	timeout := 5 * time.Second
 	
@@ -124,27 +124,27 @@ func (c *UnixSocketClient) SendCommandNoResponse(targetSocket, command string, a
 }
 
 // Ping tests connectivity to a server
-func (c *UnixSocketClient) Ping(targetSocket string) bool {
+func (c *JanusClient) Ping(targetSocket string) bool {
 	_, err := c.SendCommandWithTimeout(targetSocket, "ping", nil, 5*time.Second)
 	return err == nil
 }
 
 // SetChannelID sets the default channel ID for this client
-func (c *UnixSocketClient) SetChannelID(channelID string) {
+func (c *JanusClient) SetChannelID(channelID string) {
 	c.channelID = channelID
 }
 
 // SetTimeout sets the default timeout for this client
-func (c *UnixSocketClient) SetTimeout(timeout time.Duration) {
+func (c *JanusClient) SetTimeout(timeout time.Duration) {
 	c.timeout = timeout
 }
 
 // GetChannelID returns the current channel ID
-func (c *UnixSocketClient) GetChannelID() string {
+func (c *JanusClient) GetChannelID() string {
 	return c.channelID
 }
 
 // GetTimeout returns the current timeout
-func (c *UnixSocketClient) GetTimeout() time.Duration {
+func (c *JanusClient) GetTimeout() time.Duration {
 	return c.timeout
 }

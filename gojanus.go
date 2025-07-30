@@ -1,5 +1,5 @@
-// Package gounixsocketapi provides a Go implementation of Unix socket API communication
-// with 100% feature and protocol compatibility with SwiftUnixSockAPI and RustUnixSockAPI
+// Package gojanus provides a Go implementation of Unix socket API communication
+// with 100% feature and protocol compatibility with SwiftJanus and RustJanus
 //
 // This package implements SOCK_DGRAM connectionless Unix domain socket communication:
 // - Core Layer: Low-level Unix datagram socket communication with security validation
@@ -24,7 +24,7 @@
 //	}
 //
 //	// Create client
-//	client, err := protocol.NewUnixSockAPIClient(
+//	client, err := protocol.NewJanusClient(
 //		"/tmp/my-service.sock",
 //		"library-management",
 //		spec,
@@ -48,13 +48,13 @@
 //
 //	fmt.Printf("Response: %+v\n", response)
 //
-package gounixsocketapi
+package gojanus
 
 import (
-	"github.com/user/GoUnixSockAPI/pkg/core"
-	"github.com/user/GoUnixSockAPI/pkg/models"
-	"github.com/user/GoUnixSockAPI/pkg/protocol"
-	"github.com/user/GoUnixSockAPI/pkg/specification"
+	"github.com/user/GoJanus/pkg/core"
+	"github.com/user/GoJanus/pkg/models"
+	"github.com/user/GoJanus/pkg/protocol"
+	"github.com/user/GoJanus/pkg/specification"
 )
 
 // Version represents the library version
@@ -72,7 +72,7 @@ type (
 // Protocol layer types
 type (
 	DatagramClient                  = protocol.DatagramClient
-	UnixSockAPIDatagramClientConfig = protocol.UnixSockAPIDatagramClientConfig
+	JanusDatagramClientConfig = protocol.JanusDatagramClientConfig
 	TimeoutManager                  = protocol.TimeoutManager
 )
 
@@ -110,14 +110,14 @@ func NewUnixDatagramClientWithConfig(socketPath string, config UnixDatagramClien
 	return core.NewUnixDatagramClient(socketPath, config)
 }
 
-// UnixSockAPIDatagramClient creates a new Unix socket API datagram client with default configuration
-func UnixSockAPIDatagramClient(socketPath, channelID string, apiSpec *APISpecification) (*protocol.DatagramClient, error) {
-	return protocol.UnixSockAPIDatagramClient(socketPath, channelID, apiSpec)
+// JanusDatagramClient creates a new Unix socket API datagram client with default configuration
+func JanusDatagramClient(socketPath, channelID string, apiSpec *APISpecification) (*protocol.DatagramClient, error) {
+	return protocol.JanusDatagramClient(socketPath, channelID, apiSpec)
 }
 
-// UnixSockAPIDatagramClientWithConfig creates a new Unix socket API datagram client with custom configuration
-func UnixSockAPIDatagramClientWithConfig(socketPath, channelID string, apiSpec *APISpecification, config UnixSockAPIDatagramClientConfig) (*protocol.DatagramClient, error) {
-	return protocol.UnixSockAPIDatagramClient(socketPath, channelID, apiSpec, config)
+// JanusDatagramClientWithConfig creates a new Unix socket API datagram client with custom configuration
+func JanusDatagramClientWithConfig(socketPath, channelID string, apiSpec *APISpecification, config JanusDatagramClientConfig) (*protocol.DatagramClient, error) {
+	return protocol.JanusDatagramClient(socketPath, channelID, apiSpec, config)
 }
 
 // NewAPISpecificationParser creates a new API specification parser
@@ -180,9 +180,9 @@ func DefaultUnixDatagramClientConfig() UnixDatagramClientConfig {
 	return core.DefaultUnixDatagramClientConfig()
 }
 
-// DefaultUnixSockAPIDatagramClientConfig returns the default Unix socket API datagram client configuration
-func DefaultUnixSockAPIDatagramClientConfig() UnixSockAPIDatagramClientConfig {
-	return protocol.DefaultUnixSockAPIDatagramClientConfig()
+// DefaultJanusDatagramClientConfig returns the default Unix socket API datagram client configuration
+func DefaultJanusDatagramClientConfig() JanusDatagramClientConfig {
+	return protocol.DefaultJanusDatagramClientConfig()
 }
 
 // Library information

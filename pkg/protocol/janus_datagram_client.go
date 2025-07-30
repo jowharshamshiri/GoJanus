@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/user/GoUnixSockAPI/pkg/core"
-	"github.com/user/GoUnixSockAPI/pkg/models"
-	"github.com/user/GoUnixSockAPI/pkg/specification"
+	"github.com/user/GoJanus/pkg/core"
+	"github.com/user/GoJanus/pkg/models"
+	"github.com/user/GoJanus/pkg/specification"
 )
 
 // DatagramClient is the main client interface for SOCK_DGRAM Unix socket communication
@@ -20,7 +20,7 @@ type DatagramClient struct {
 	socketPath     string
 	channelID      string
 	apiSpec        *specification.APISpecification
-	config         UnixSockAPIDatagramClientConfig
+	config         JanusDatagramClientConfig
 	
 	datagramClient *core.UnixDatagramClient
 	validator      *core.SecurityValidator
@@ -33,17 +33,17 @@ type DatagramClient struct {
 	timeoutManager *TimeoutManager
 }
 
-// UnixSockAPIDatagramClientConfig holds configuration for the datagram client
-type UnixSockAPIDatagramClientConfig struct {
+// JanusDatagramClientConfig holds configuration for the datagram client
+type JanusDatagramClientConfig struct {
 	MaxMessageSize   int
 	DefaultTimeout   time.Duration
 	DatagramTimeout  time.Duration
 	EnableValidation bool
 }
 
-// DefaultUnixSockAPIDatagramClientConfig returns default configuration for SOCK_DGRAM
-func DefaultUnixSockAPIDatagramClientConfig() UnixSockAPIDatagramClientConfig {
-	return UnixSockAPIDatagramClientConfig{
+// DefaultJanusDatagramClientConfig returns default configuration for SOCK_DGRAM
+func DefaultJanusDatagramClientConfig() JanusDatagramClientConfig {
+	return JanusDatagramClientConfig{
 		MaxMessageSize:   64 * 1024,      // 64KB datagram limit
 		DefaultTimeout:   30 * time.Second,
 		DatagramTimeout:  5 * time.Second,
@@ -52,7 +52,7 @@ func DefaultUnixSockAPIDatagramClientConfig() UnixSockAPIDatagramClientConfig {
 }
 
 // validateConstructorInputs validates constructor parameters
-func validateConstructorInputs(socketPath, channelID string, apiSpec *specification.APISpecification, config UnixSockAPIDatagramClientConfig) error {
+func validateConstructorInputs(socketPath, channelID string, apiSpec *specification.APISpecification, config JanusDatagramClientConfig) error {
 	// Validate socket path
 	if socketPath == "" {
 		return fmt.Errorf("socket path cannot be empty")
@@ -105,9 +105,9 @@ func validateConstructorInputs(socketPath, channelID string, apiSpec *specificat
 	return nil
 }
 
-// UnixSockAPIDatagramClient creates a new datagram API client
-func UnixSockAPIDatagramClient(socketPath, channelID string, apiSpec *specification.APISpecification, config ...UnixSockAPIDatagramClientConfig) (*DatagramClient, error) {
-	cfg := DefaultUnixSockAPIDatagramClientConfig()
+// JanusDatagramClient creates a new datagram API client
+func JanusDatagramClient(socketPath, channelID string, apiSpec *specification.APISpecification, config ...JanusDatagramClientConfig) (*DatagramClient, error) {
+	cfg := DefaultJanusDatagramClientConfig()
 	if len(config) > 0 {
 		cfg = config[0]
 	}

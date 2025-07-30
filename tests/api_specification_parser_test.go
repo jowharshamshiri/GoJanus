@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/user/GoUnixSockAPI"
+	"github.com/user/GoJanus"
 )
 
 // TestParseJSONSpecification tests parsing a valid JSON API specification
@@ -42,7 +42,7 @@ func TestParseJSONSpecification(t *testing.T) {
 		}
 	}`
 	
-	spec, err := gounixsocketapi.ParseAPISpecFromJSON([]byte(jsonData))
+	spec, err := gojanus.ParseAPISpecFromJSON([]byte(jsonData))
 	if err != nil {
 		t.Fatalf("Failed to parse JSON specification: %v", err)
 	}
@@ -117,7 +117,7 @@ channels:
           description: "Test response"
 `
 	
-	spec, err := gounixsocketapi.ParseAPISpecFromYAML([]byte(yamlData))
+	spec, err := gojanus.ParseAPISpecFromYAML([]byte(yamlData))
 	if err != nil {
 		t.Fatalf("Failed to parse YAML specification: %v", err)
 	}
@@ -159,7 +159,7 @@ channels:
 func TestValidateValidSpecification(t *testing.T) {
 	spec := createValidAPISpecification()
 	
-	err := gounixsocketapi.ValidateAPISpec(spec)
+	err := gojanus.ValidateAPISpec(spec)
 	if err != nil {
 		t.Errorf("Valid specification should not produce validation error: %v", err)
 	}
@@ -171,7 +171,7 @@ func TestValidateSpecificationWithEmptyVersion(t *testing.T) {
 	spec := createValidAPISpecification()
 	spec.Version = ""
 	
-	err := gounixsocketapi.ValidateAPISpec(spec)
+	err := gojanus.ValidateAPISpec(spec)
 	if err == nil {
 		t.Error("Expected validation error for empty version")
 	}
@@ -185,9 +185,9 @@ func TestValidateSpecificationWithEmptyVersion(t *testing.T) {
 // Matches Swift: testValidateSpecificationWithNoChannels()
 func TestValidateSpecificationWithNoChannels(t *testing.T) {
 	spec := createValidAPISpecification()
-	spec.Channels = make(map[string]*gounixsocketapi.ChannelSpec)
+	spec.Channels = make(map[string]*gojanus.ChannelSpec)
 	
-	err := gounixsocketapi.ValidateAPISpec(spec)
+	err := gojanus.ValidateAPISpec(spec)
 	if err == nil {
 		t.Error("Expected validation error for no channels")
 	}
@@ -207,7 +207,7 @@ func TestValidateSpecificationWithEmptyChannelId(t *testing.T) {
 	delete(spec.Channels, "test-channel")
 	spec.Channels[""] = channelSpec
 	
-	err := gounixsocketapi.ValidateAPISpec(spec)
+	err := gojanus.ValidateAPISpec(spec)
 	if err == nil {
 		t.Error("Expected validation error for empty channel ID")
 	}
@@ -221,9 +221,9 @@ func TestValidateSpecificationWithEmptyChannelId(t *testing.T) {
 // Matches Swift: testValidateSpecificationWithNoCommands()
 func TestValidateSpecificationWithNoCommands(t *testing.T) {
 	spec := createValidAPISpecification()
-	spec.Channels["test-channel"].Commands = make(map[string]*gounixsocketapi.CommandSpec)
+	spec.Channels["test-channel"].Commands = make(map[string]*gojanus.CommandSpec)
 	
-	err := gounixsocketapi.ValidateAPISpec(spec)
+	err := gojanus.ValidateAPISpec(spec)
 	if err == nil {
 		t.Error("Expected validation error for no commands")
 	}
@@ -243,7 +243,7 @@ func TestValidateSpecificationWithEmptyCommandName(t *testing.T) {
 	delete(spec.Channels["test-channel"].Commands, "test-command")
 	spec.Channels["test-channel"].Commands[""] = commandSpec
 	
-	err := gounixsocketapi.ValidateAPISpec(spec)
+	err := gojanus.ValidateAPISpec(spec)
 	if err == nil {
 		t.Error("Expected validation error for empty command name")
 	}
@@ -259,14 +259,14 @@ func TestValidateSpecificationWithInvalidValidation(t *testing.T) {
 	spec := createValidAPISpecification()
 	
 	// Add invalid argument specification (empty type)
-	spec.Channels["test-channel"].Commands["test-command"].Args["invalid_arg"] = &gounixsocketapi.ArgumentSpec{
+	spec.Channels["test-channel"].Commands["test-command"].Args["invalid_arg"] = &gojanus.ArgumentSpec{
 		Name:        "Invalid Argument",
 		Type:        "", // Empty type should cause validation error
 		Description: "Invalid argument",
 		Required:    true,
 	}
 	
-	err := gounixsocketapi.ValidateAPISpec(spec)
+	err := gojanus.ValidateAPISpec(spec)
 	if err == nil {
 		t.Error("Expected validation error for invalid argument specification")
 	}
@@ -282,7 +282,7 @@ func TestValidateSpecificationWithInvalidRegexPattern(t *testing.T) {
 	spec := createValidAPISpecification()
 	
 	// Add argument with invalid regex pattern
-	spec.Channels["test-channel"].Commands["test-command"].Args["regex_arg"] = &gounixsocketapi.ArgumentSpec{
+	spec.Channels["test-channel"].Commands["test-command"].Args["regex_arg"] = &gojanus.ArgumentSpec{
 		Name:        "Regex Argument",
 		Type:        "string",
 		Description: "Argument with invalid regex",
@@ -290,7 +290,7 @@ func TestValidateSpecificationWithInvalidRegexPattern(t *testing.T) {
 		Pattern:     "[invalid-regex(", // Invalid regex pattern
 	}
 	
-	err := gounixsocketapi.ValidateAPISpec(spec)
+	err := gojanus.ValidateAPISpec(spec)
 	if err == nil {
 		t.Error("Expected validation error for invalid regex pattern")
 	}
@@ -317,7 +317,7 @@ func TestParseInvalidJSON(t *testing.T) {
 		}
 	}` // Missing closing brace
 	
-	_, err := gounixsocketapi.ParseAPISpecFromJSON([]byte(invalidJSON))
+	_, err := gojanus.ParseAPISpecFromJSON([]byte(invalidJSON))
 	if err == nil {
 		t.Error("Expected parsing error for invalid JSON")
 	}
@@ -331,7 +331,7 @@ func TestParseInvalidJSON(t *testing.T) {
 // Matches Swift: testParseUnsupportedFileFormat() 
 func TestParseUnsupportedFileFormat(t *testing.T) {
 	// Create temporary file with unsupported extension
-	tempDir, err := os.MkdirTemp("", "gounixsocketapi-test")
+	tempDir, err := os.MkdirTemp("", "gojanus-test")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -346,7 +346,7 @@ func TestParseUnsupportedFileFormat(t *testing.T) {
 	}
 	
 	// Try to parse as JSON (should fail)
-	_, err = gounixsocketapi.ParseAPISpecFromFile(unsupportedFile)
+	_, err = gojanus.ParseAPISpecFromFile(unsupportedFile)
 	if err == nil {
 		t.Error("Expected parsing error for unsupported file format")
 	}
@@ -356,7 +356,7 @@ func TestParseUnsupportedFileFormat(t *testing.T) {
 // Matches Swift: testParseFromJSONFile()
 func TestParseFromJSONFile(t *testing.T) {
 	// Create temporary JSON file
-	tempDir, err := os.MkdirTemp("", "gounixsocketapi-test")
+	tempDir, err := os.MkdirTemp("", "gojanus-test")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -386,7 +386,7 @@ func TestParseFromJSONFile(t *testing.T) {
 		t.Fatalf("Failed to write JSON file: %v", err)
 	}
 	
-	spec, err := gounixsocketapi.ParseAPISpecFromFile(jsonFile)
+	spec, err := gojanus.ParseAPISpecFromFile(jsonFile)
 	if err != nil {
 		t.Fatalf("Failed to parse JSON file: %v", err)
 	}
@@ -413,7 +413,7 @@ func TestParseFromJSONFile(t *testing.T) {
 // Matches Swift: testParseFromYAMLFile()
 func TestParseFromYAMLFile(t *testing.T) {
 	// Create temporary YAML file
-	tempDir, err := os.MkdirTemp("", "gounixsocketapi-test")
+	tempDir, err := os.MkdirTemp("", "gojanus-test")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -439,7 +439,7 @@ channels:
 		t.Fatalf("Failed to write YAML file: %v", err)
 	}
 	
-	spec, err := gounixsocketapi.ParseAPISpecFromFile(yamlFile)
+	spec, err := gojanus.ParseAPISpecFromFile(yamlFile)
 	if err != nil {
 		t.Fatalf("Failed to parse YAML file: %v", err)
 	}
@@ -464,20 +464,20 @@ channels:
 
 // Helper function to create a valid API specification
 // Matches Swift test helper patterns
-func createValidAPISpecification() *gounixsocketapi.APISpecification {
-	return &gounixsocketapi.APISpecification{
+func createValidAPISpecification() *gojanus.APISpecification {
+	return &gojanus.APISpecification{
 		Version:     "1.0.0",
 		Name:        "Valid Test API",
 		Description: "Valid test API specification",
-		Channels: map[string]*gounixsocketapi.ChannelSpec{
+		Channels: map[string]*gojanus.ChannelSpec{
 			"test-channel": {
 				Name:        "Test Channel",
 				Description: "Test channel description",
-				Commands: map[string]*gounixsocketapi.CommandSpec{
+				Commands: map[string]*gojanus.CommandSpec{
 					"test-command": {
 						Name:        "Test Command",
 						Description: "Test command description",
-						Args: map[string]*gounixsocketapi.ArgumentSpec{
+						Args: map[string]*gojanus.ArgumentSpec{
 							"test_arg": {
 								Name:        "Test Argument",
 								Type:        "string",
@@ -485,7 +485,7 @@ func createValidAPISpecification() *gounixsocketapi.APISpecification {
 								Required:    true,
 							},
 						},
-						Response: &gounixsocketapi.ResponseSpec{
+						Response: &gojanus.ResponseSpec{
 							Type:        "object",
 							Description: "Test response",
 						},
@@ -494,12 +494,12 @@ func createValidAPISpecification() *gounixsocketapi.APISpecification {
 				},
 			},
 		},
-		Models: map[string]*gounixsocketapi.ModelDefinition{
+		Models: map[string]*gojanus.ModelDefinition{
 			"TestModel": {
 				Name:        "Test Model",
 				Type:        "object",
 				Description: "Test model description",
-				Properties: map[string]*gounixsocketapi.ArgumentSpec{
+				Properties: map[string]*gojanus.ArgumentSpec{
 					"id": {
 						Name:        "ID",
 						Type:        "string",

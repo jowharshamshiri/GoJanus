@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/user/GoUnixSockAPI"
+	"github.com/user/GoJanus"
 )
 
 // TestPathTraversalAttackPrevention tests prevention of path traversal attacks
@@ -30,7 +30,7 @@ func TestPathTraversalAttackPrevention(t *testing.T) {
 	}
 	
 	for _, maliciousPath := range maliciousPaths {
-		_, err := gounixsocketapi.UnixSockAPIDatagramClient(maliciousPath, "security-channel", spec)
+		_, err := gojanus.JanusDatagramClient(maliciousPath, "security-channel", spec)
 		if err == nil {
 			t.Errorf("Expected security error for malicious path: %s", maliciousPath)
 		}
@@ -55,7 +55,7 @@ func TestNullByteInjectionDetection(t *testing.T) {
 	}
 	
 	for _, nullBytePath := range nullBytePaths {
-		_, err := gounixsocketapi.UnixSockAPIDatagramClient(nullBytePath, "security-channel", spec)
+		_, err := gojanus.JanusDatagramClient(nullBytePath, "security-channel", spec)
 		if err == nil {
 			t.Errorf("Expected security error for null byte injection: %s", nullBytePath)
 		}
@@ -69,7 +69,7 @@ func TestNullByteInjectionDetection(t *testing.T) {
 // TestChannelIDInjectionAttacks tests prevention of channel ID injection attacks
 // Matches Swift: testChannelIDInjectionAttacks()
 func TestChannelIDInjectionAttacks(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-security-test.sock"
+	testSocketPath := "/tmp/gojanus-security-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
@@ -93,7 +93,7 @@ func TestChannelIDInjectionAttacks(t *testing.T) {
 	}
 	
 	for _, maliciousChannelID := range maliciousChannelIDs {
-		_, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, maliciousChannelID, spec)
+		_, err := gojanus.JanusDatagramClient(testSocketPath, maliciousChannelID, spec)
 		if err == nil {
 			t.Errorf("Expected security error for malicious channel ID: %s", maliciousChannelID)
 			continue
@@ -109,14 +109,14 @@ func TestChannelIDInjectionAttacks(t *testing.T) {
 // TestCommandInjectionInArguments tests prevention of command injection in arguments
 // Matches Swift: testCommandInjectionInArguments()
 func TestCommandInjectionInArguments(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-security-test.sock"
+	testSocketPath := "/tmp/gojanus-security-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
 	spec := createSecurityTestAPISpec()
-	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "security-channel", spec)
+	client, err := gojanus.JanusDatagramClient(testSocketPath, "security-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -142,8 +142,8 @@ func TestCommandInjectionInArguments(t *testing.T) {
 		}
 		
 		// Test validation - should detect malicious content
-		validator := gounixsocketapi.NewSecurityValidator()
-		jsonData, _ := gounixsocketapi.NewSocketCommand("security-channel", "secure-command", args, nil).ToJSON()
+		validator := gojanus.NewSecurityValidator()
+		jsonData, _ := gojanus.NewSocketCommand("security-channel", "secure-command", args, nil).ToJSON()
 		
 		err := validator.ValidateMessageData(jsonData)
 		if err != nil && strings.Contains(injection, "\x00") {
@@ -174,7 +174,7 @@ func TestMalformedJSONAttackPrevention(t *testing.T) {
 	}
 	
 	for _, malformedData := range malformedJSONData {
-		_, err := gounixsocketapi.ParseAPISpecFromJSON(malformedData)
+		_, err := gojanus.ParseAPISpecFromJSON(malformedData)
 		if err == nil {
 			t.Errorf("Expected JSON parsing error for malformed data: %s", string(malformedData))
 		}
@@ -189,14 +189,14 @@ func TestMalformedJSONAttackPrevention(t *testing.T) {
 // TestUnicodeNormalizationAttacks tests prevention of Unicode normalization attacks
 // Matches Swift: testUnicodeNormalizationAttacks()
 func TestUnicodeNormalizationAttacks(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-security-test.sock"
+	testSocketPath := "/tmp/gojanus-security-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
 	spec := createSecurityTestAPISpec()
-	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "security-channel", spec)
+	client, err := gojanus.JanusDatagramClient(testSocketPath, "security-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -218,7 +218,7 @@ func TestUnicodeNormalizationAttacks(t *testing.T) {
 			"secure_param": unicodeText,
 		}
 		
-		command := gounixsocketapi.NewSocketCommand("security-channel", "secure-command", args, nil)
+		command := gojanus.NewSocketCommand("security-channel", "secure-command", args, nil)
 		jsonData, err := command.ToJSON()
 		if err != nil {
 			t.Errorf("Failed to serialize Unicode text %s: %v", unicodeText, err)
@@ -226,7 +226,7 @@ func TestUnicodeNormalizationAttacks(t *testing.T) {
 		}
 		
 		// Validate the data
-		validator := gounixsocketapi.NewSecurityValidator()
+		validator := gojanus.NewSecurityValidator()
 		err = validator.ValidateMessageData(jsonData)
 		if err != nil {
 			// If validation fails, it should be for a good reason
@@ -240,14 +240,14 @@ func TestUnicodeNormalizationAttacks(t *testing.T) {
 // TestMemoryExhaustionViaLargePayloads tests protection against memory exhaustion
 // Matches Swift: testMemoryExhaustionViaLargePayloads()
 func TestMemoryExhaustionViaLargePayloads(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-security-test.sock"
+	testSocketPath := "/tmp/gojanus-security-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
 	spec := createSecurityTestAPISpec()
-	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "security-channel", spec)
+	client, err := gojanus.JanusDatagramClient(testSocketPath, "security-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -260,7 +260,7 @@ func TestMemoryExhaustionViaLargePayloads(t *testing.T) {
 		"secure_param": largeString,
 	}
 	
-	command := gounixsocketapi.NewSocketCommand("security-channel", "secure-command", args, nil)
+	command := gojanus.NewSocketCommand("security-channel", "secure-command", args, nil)
 	jsonData, err := command.ToJSON()
 	if err != nil {
 		// Large serialization might fail, which is acceptable
@@ -268,7 +268,7 @@ func TestMemoryExhaustionViaLargePayloads(t *testing.T) {
 	}
 	
 	// Validate the large message
-	validator := gounixsocketapi.NewSecurityValidator()
+	validator := gojanus.NewSecurityValidator()
 	err = validator.ValidateMessageData(jsonData)
 	if err == nil {
 		t.Error("Expected validation error for overly large message data")
@@ -286,7 +286,7 @@ func TestResourceExhaustionViaConnectionFlooding(t *testing.T) {
 	
 	// Test creating many clients rapidly
 	maxAttempts := 200 // More than default max connections (100)
-	clients := make([]*gounixsocketapi.DatagramClient, 0, maxAttempts)
+	clients := make([]*gojanus.DatagramClient, 0, maxAttempts)
 	
 	defer func() {
 		// Clean up all created clients
@@ -300,8 +300,8 @@ func TestResourceExhaustionViaConnectionFlooding(t *testing.T) {
 	errorCount := 0
 	
 	for i := 0; i < maxAttempts; i++ {
-		testSocketPath := fmt.Sprintf("/tmp/gounixsocketapi-flood-%d.sock", i)
-		client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "security-channel", spec)
+		testSocketPath := fmt.Sprintf("/tmp/gojanus-flood-%d.sock", i)
+		client, err := gojanus.JanusDatagramClient(testSocketPath, "security-channel", spec)
 		
 		if err != nil {
 			errorCount++
@@ -329,7 +329,7 @@ func TestResourceExhaustionViaConnectionFlooding(t *testing.T) {
 // TestConfigurationSecurityValidation tests validation of security configuration
 // Matches Swift: testConfigurationSecurityValidation()
 func TestConfigurationSecurityValidation(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-security-test.sock"
+	testSocketPath := "/tmp/gojanus-security-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
@@ -338,7 +338,7 @@ func TestConfigurationSecurityValidation(t *testing.T) {
 	spec := createSecurityTestAPISpec()
 	
 	// Test insecure configurations
-	insecureConfigs := []gounixsocketapi.UnixSockAPIDatagramClientConfig{
+	insecureConfigs := []gojanus.JanusDatagramClientConfig{
 		{
 			MaxMessageSize:   100,    // Too small
 			DefaultTimeout:   1 * time.Nanosecond, // Too short
@@ -348,7 +348,7 @@ func TestConfigurationSecurityValidation(t *testing.T) {
 	}
 	
 	for i, config := range insecureConfigs {
-		_, err := gounixsocketapi.UnixSockAPIDatagramClientWithConfig(testSocketPath, "security-channel", spec, config)
+		_, err := gojanus.JanusDatagramClientWithConfig(testSocketPath, "security-channel", spec, config)
 		if err == nil {
 			t.Errorf("Expected configuration validation error for insecure config %d", i)
 			continue
@@ -364,14 +364,14 @@ func TestConfigurationSecurityValidation(t *testing.T) {
 // TestValidationBypassAttempts tests attempts to bypass validation
 // Matches Swift: testValidationBypassAttempts()
 func TestValidationBypassAttempts(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-security-test.sock"
+	testSocketPath := "/tmp/gojanus-security-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
 	spec := createSecurityTestAPISpec()
-	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "security-channel", spec)
+	client, err := gojanus.JanusDatagramClient(testSocketPath, "security-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -450,7 +450,7 @@ func TestSocketPathSecurityRestrictions(t *testing.T) {
 	}
 	
 	for _, restrictedPath := range restrictedPaths {
-		_, err := gounixsocketapi.UnixSockAPIDatagramClient(restrictedPath, "security-channel", spec)
+		_, err := gojanus.JanusDatagramClient(restrictedPath, "security-channel", spec)
 		if err == nil {
 			t.Errorf("Expected security error for restricted path: %s", restrictedPath)
 		}
@@ -468,7 +468,7 @@ func TestSocketPathSecurityRestrictions(t *testing.T) {
 	}
 	
 	for _, allowedPath := range allowedPaths {
-		client, err := gounixsocketapi.UnixSockAPIDatagramClient(allowedPath, "security-channel", spec)
+		client, err := gojanus.JanusDatagramClient(allowedPath, "security-channel", spec)
 		if err != nil {
 			t.Errorf("Expected allowed path to work: %s, got error: %v", allowedPath, err)
 		} else {
@@ -481,20 +481,20 @@ func TestSocketPathSecurityRestrictions(t *testing.T) {
 }
 
 // Helper function to create security test API specification
-func createSecurityTestAPISpec() *gounixsocketapi.APISpecification {
-	return &gounixsocketapi.APISpecification{
+func createSecurityTestAPISpec() *gojanus.APISpecification {
+	return &gojanus.APISpecification{
 		Version:     "1.0.0",
 		Name:        "Security Test API",
 		Description: "API specification for security testing",
-		Channels: map[string]*gounixsocketapi.ChannelSpec{
+		Channels: map[string]*gojanus.ChannelSpec{
 			"security-channel": {
 				Name:        "Security Channel",
 				Description: "Channel for security testing",
-				Commands: map[string]*gounixsocketapi.CommandSpec{
+				Commands: map[string]*gojanus.CommandSpec{
 					"secure-command": {
 						Name:        "Secure Command",
 						Description: "Command for security testing",
-						Args: map[string]*gounixsocketapi.ArgumentSpec{
+						Args: map[string]*gojanus.ArgumentSpec{
 							"secure_param": {
 								Name:        "Secure Parameter",
 								Type:        "string",
@@ -505,7 +505,7 @@ func createSecurityTestAPISpec() *gounixsocketapi.APISpecification {
 								Pattern:     "^[a-zA-Z0-9_-]+$",
 							},
 						},
-						Response: &gounixsocketapi.ResponseSpec{
+						Response: &gojanus.ResponseSpec{
 							Type:        "object",
 							Description: "Security test response",
 						},

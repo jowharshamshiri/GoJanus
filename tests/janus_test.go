@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/user/GoUnixSockAPI"
+	"github.com/user/GoJanus"
 )
 
 // TestAPISpecificationCreation tests basic API specification model creation
@@ -52,7 +52,7 @@ func TestAPISpecificationJSONSerialization(t *testing.T) {
 	}
 	
 	// Deserialize back
-	var deserializedSpec gounixsocketapi.APISpecification
+	var deserializedSpec gojanus.APISpecification
 	err = json.Unmarshal(jsonData, &deserializedSpec)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal spec from JSON: %v", err)
@@ -82,7 +82,7 @@ func TestSocketCommandSerialization(t *testing.T) {
 	}
 	timeout := 30.0
 	
-	command := gounixsocketapi.NewSocketCommand("test-channel", "test-command", args, &timeout)
+	command := gojanus.NewSocketCommand("test-channel", "test-command", args, &timeout)
 	
 	// Serialize to JSON
 	jsonData, err := command.ToJSON()
@@ -91,7 +91,7 @@ func TestSocketCommandSerialization(t *testing.T) {
 	}
 	
 	// Deserialize back
-	var deserializedCommand gounixsocketapi.SocketCommand
+	var deserializedCommand gojanus.SocketCommand
 	err = deserializedCommand.FromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize command from JSON: %v", err)
@@ -138,7 +138,7 @@ func TestSocketResponseSerialization(t *testing.T) {
 		"data":    []interface{}{"item1", "item2"},
 	}
 	
-	response := gounixsocketapi.NewSuccessResponse("test-command-id", "test-channel", result)
+	response := gojanus.NewSuccessResponse("test-command-id", "test-channel", result)
 	
 	// Serialize to JSON
 	jsonData, err := response.ToJSON()
@@ -147,7 +147,7 @@ func TestSocketResponseSerialization(t *testing.T) {
 	}
 	
 	// Deserialize back
-	var deserializedResponse gounixsocketapi.SocketResponse
+	var deserializedResponse gojanus.SocketResponse
 	err = deserializedResponse.FromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize response from JSON: %v", err)
@@ -193,7 +193,7 @@ func TestAnyCodableStringValue(t *testing.T) {
 		"string_value": "test string",
 	}
 	
-	command := gounixsocketapi.NewSocketCommand("test-channel", "test-command", args, nil)
+	command := gojanus.NewSocketCommand("test-channel", "test-command", args, nil)
 	
 	// Serialize and deserialize
 	jsonData, err := command.ToJSON()
@@ -201,7 +201,7 @@ func TestAnyCodableStringValue(t *testing.T) {
 		t.Fatalf("Failed to serialize command: %v", err)
 	}
 	
-	var deserializedCommand gounixsocketapi.SocketCommand
+	var deserializedCommand gojanus.SocketCommand
 	err = deserializedCommand.FromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize command: %v", err)
@@ -224,7 +224,7 @@ func TestAnyCodableIntegerValue(t *testing.T) {
 		"int_value": 42,
 	}
 	
-	command := gounixsocketapi.NewSocketCommand("test-channel", "test-command", args, nil)
+	command := gojanus.NewSocketCommand("test-channel", "test-command", args, nil)
 	
 	// Serialize and deserialize
 	jsonData, err := command.ToJSON()
@@ -232,7 +232,7 @@ func TestAnyCodableIntegerValue(t *testing.T) {
 		t.Fatalf("Failed to serialize command: %v", err)
 	}
 	
-	var deserializedCommand gounixsocketapi.SocketCommand
+	var deserializedCommand gojanus.SocketCommand
 	err = deserializedCommand.FromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize command: %v", err)
@@ -257,7 +257,7 @@ func TestAnyCodableBooleanValue(t *testing.T) {
 		"bool_false": false,
 	}
 	
-	command := gounixsocketapi.NewSocketCommand("test-channel", "test-command", args, nil)
+	command := gojanus.NewSocketCommand("test-channel", "test-command", args, nil)
 	
 	// Serialize and deserialize
 	jsonData, err := command.ToJSON()
@@ -265,7 +265,7 @@ func TestAnyCodableBooleanValue(t *testing.T) {
 		t.Fatalf("Failed to serialize command: %v", err)
 	}
 	
-	var deserializedCommand gounixsocketapi.SocketCommand
+	var deserializedCommand gojanus.SocketCommand
 	err = deserializedCommand.FromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize command: %v", err)
@@ -297,7 +297,7 @@ func TestAnyCodableArrayValue(t *testing.T) {
 		"array_value": []interface{}{"item1", 2, true, []interface{}{"nested", "array"}},
 	}
 	
-	command := gounixsocketapi.NewSocketCommand("test-channel", "test-command", args, nil)
+	command := gojanus.NewSocketCommand("test-channel", "test-command", args, nil)
 	
 	// Serialize and deserialize
 	jsonData, err := command.ToJSON()
@@ -305,7 +305,7 @@ func TestAnyCodableArrayValue(t *testing.T) {
 		t.Fatalf("Failed to serialize command: %v", err)
 	}
 	
-	var deserializedCommand gounixsocketapi.SocketCommand
+	var deserializedCommand gojanus.SocketCommand
 	err = deserializedCommand.FromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize command: %v", err)
@@ -349,7 +349,7 @@ func TestAnyCodableArrayValue(t *testing.T) {
 // TestUnixDatagramClientInitialization tests SOCK_DGRAM client creation
 // Matches Swift: testUnixDatagramClientInitialization()
 func TestUnixDatagramClientInitialization(t *testing.T) {
-	testSocketPath := "/tmp/gounixsocketapi-dgram-test.sock"
+	testSocketPath := "/tmp/gojanus-dgram-test.sock"
 	
 	// Clean up before test
 	os.Remove(testSocketPath)
@@ -357,7 +357,7 @@ func TestUnixDatagramClientInitialization(t *testing.T) {
 	
 	// Create test API spec and client for SOCK_DGRAM
 	spec := createTestAPISpec()
-	client, err := gounixsocketapi.UnixSockAPIDatagramClient(testSocketPath, "test-channel", spec)
+	client, err := gojanus.JanusDatagramClient(testSocketPath, "test-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create SOCK_DGRAM client: %v", err)
 	}
@@ -378,20 +378,20 @@ func TestUnixDatagramClientInitialization(t *testing.T) {
 
 // Helper function to create a test API specification
 // Matches Swift test helper patterns
-func createTestAPISpec() *gounixsocketapi.APISpecification {
-	return &gounixsocketapi.APISpecification{
+func createTestAPISpec() *gojanus.APISpecification {
+	return &gojanus.APISpecification{
 		Version:     "1.0.0",
 		Name:        "Test API",
 		Description: "Test API specification",
-		Channels: map[string]*gounixsocketapi.ChannelSpec{
+		Channels: map[string]*gojanus.ChannelSpec{
 			"test-channel": {
 				Name:        "Test Channel",
 				Description: "Test channel description",
-				Commands: map[string]*gounixsocketapi.CommandSpec{
+				Commands: map[string]*gojanus.CommandSpec{
 					"test-command": {
 						Name:        "Test Command",
 						Description: "Test command description",
-						Args: map[string]*gounixsocketapi.ArgumentSpec{
+						Args: map[string]*gojanus.ArgumentSpec{
 							"test_arg": {
 								Name:        "Test Argument",
 								Type:        "string",
@@ -399,7 +399,7 @@ func createTestAPISpec() *gounixsocketapi.APISpecification {
 								Required:    true,
 							},
 						},
-						Response: &gounixsocketapi.ResponseSpec{
+						Response: &gojanus.ResponseSpec{
 							Type:        "object",
 							Description: "Test response",
 						},
