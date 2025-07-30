@@ -114,7 +114,7 @@ func sendDatagram(targetSocket, command, message string, apiSpec *specification.
 	args := map[string]interface{}{}
 	
 	// Add arguments based on command type
-	if command == "echo" || command == "get_info" {
+	if command == "echo" || command == "get_info" || command == "validate" || command == "slow_process" {
 		args["message"] = message
 	}
 
@@ -216,6 +216,43 @@ func sendResponse(cmdID, channelID, command string, args map[string]interface{},
 			"implementation": "Go",
 			"version":        "1.0.0",
 			"protocol":       "SOCK_DGRAM",
+		}
+	case "validate":
+		// Validate JSON payload
+		if message, ok := args["message"]; ok {
+			if messageStr, ok := message.(string); ok {
+				var jsonData interface{}
+				if err := json.Unmarshal([]byte(messageStr), &jsonData); err != nil {
+					result = map[string]interface{}{
+						"valid":  false,
+						"error":  "Invalid JSON format",
+						"reason": err.Error(),
+					}
+				} else {
+					result = map[string]interface{}{
+						"valid": true,
+						"data":  jsonData,
+					}
+				}
+			} else {
+				result = map[string]interface{}{
+					"valid": false,
+					"error": "Message must be a string",
+				}
+			}
+		} else {
+			result = map[string]interface{}{
+				"valid": false,
+				"error": "No message provided for validation",
+			}
+		}
+	case "slow_process":
+		// Simulate a slow process that might timeout
+		time.Sleep(2 * time.Second) // 2 second delay
+		result = map[string]interface{}{
+			"processed": true,
+			"delay":     "2000ms",
+			"message":   args["message"],
 		}
 	default:
 		success = false

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -132,6 +133,10 @@ func (udc *UnixDatagramClient) SendDatagram(ctx context.Context, data []byte, re
 	
 	// Send datagram (no framing needed for SOCK_DGRAM)
 	if _, err := clientConn.Write(data); err != nil {
+		// Check for message too long error
+		if strings.Contains(err.Error(), "message too long") {
+			return nil, fmt.Errorf("payload too large for SOCK_DGRAM (size: %d bytes): Unix domain datagram sockets have system-imposed size limits, typically around 64KB. Consider reducing payload size or using chunked messages", len(data))
+		}
 		return nil, fmt.Errorf("failed to send datagram: %w", err)
 	}
 	
@@ -178,6 +183,10 @@ func (udc *UnixDatagramClient) SendDatagramNoResponse(ctx context.Context, data 
 	
 	// Send datagram (no framing needed for SOCK_DGRAM)
 	if _, err := clientConn.Write(data); err != nil {
+		// Check for message too long error
+		if strings.Contains(err.Error(), "message too long") {
+			return fmt.Errorf("payload too large for SOCK_DGRAM (size: %d bytes): Unix domain datagram sockets have system-imposed size limits, typically around 64KB. Consider reducing payload size or using chunked messages", len(data))
+		}
 		return fmt.Errorf("failed to send datagram: %w", err)
 	}
 	
