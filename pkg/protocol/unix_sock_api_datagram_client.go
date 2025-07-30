@@ -159,7 +159,7 @@ func (client *DatagramClient) SendCommand(ctx context.Context, command string, a
 		ID:        commandID,
 		ChannelID: client.channelID,
 		Command:   command,
-		ReplyTo:   responseSocketPath,
+		ReplyTo:   &responseSocketPath,
 		Args:      args,
 		Timeout:   func() *float64 { f := opts.Timeout.Seconds(); return &f }(),
 		Timestamp: float64(time.Now().Unix()),
@@ -377,4 +377,11 @@ func (client *DatagramClient) Disconnect() error {
 func (client *DatagramClient) IsConnected() bool {
 	// SOCK_DGRAM doesn't track connections - return true for backward compatibility
 	return true
+}
+
+// Ping sends a ping command and returns success/failure
+// Convenience method for testing connectivity with a simple ping command
+func (client *DatagramClient) Ping(ctx context.Context) bool {
+	_, err := client.SendCommand(ctx, "ping", nil)
+	return err == nil
 }

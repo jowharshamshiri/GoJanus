@@ -94,8 +94,8 @@ func listenForDatagrams(socketPath string, apiSpec *specification.APISpecificati
 		fmt.Printf("Received datagram: %s (ID: %s)\n", cmd.Command, cmd.ID)
 
 		// Send response via reply_to if specified
-		if cmd.ReplyTo != "" {
-			sendResponse(cmd.ID, cmd.ChannelID, cmd.Command, cmd.Args, cmd.ReplyTo, apiSpec)
+		if cmd.ReplyTo != nil && *cmd.ReplyTo != "" {
+			sendResponse(cmd.ID, cmd.ChannelID, cmd.Command, cmd.Args, *cmd.ReplyTo, apiSpec)
 		}
 	}
 }
@@ -140,7 +140,7 @@ func sendDatagram(targetSocket, command, message string, apiSpec *specification.
 		ID:        generateID(),
 		ChannelID: channelID,
 		Command:   command,
-		ReplyTo:   responseSocket,
+		ReplyTo:   &responseSocket,
 		Args:      args,
 		Timeout:   func() *float64 { f := 5.0; return &f }(),
 		Timestamp: float64(time.Now().Unix()) + float64(time.Now().Nanosecond())/1e9,

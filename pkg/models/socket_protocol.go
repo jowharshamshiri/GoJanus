@@ -14,7 +14,7 @@ type SocketCommand struct {
 	ID        string                 `json:"id"`
 	ChannelID string                 `json:"channelId"`
 	Command   string                 `json:"command"`
-	ReplyTo   string                 `json:"reply_to,omitempty"`
+	ReplyTo   *string                `json:"reply_to,omitempty"`
 	Args      map[string]interface{} `json:"args,omitempty"`
 	Timeout   *float64               `json:"timeout,omitempty"`
 	Timestamp float64                `json:"timestamp"`
@@ -26,7 +26,7 @@ type SocketResponse struct {
 	CommandID string                 `json:"commandId"`
 	ChannelID string                 `json:"channelId"`
 	Success   bool                   `json:"success"`
-	Result    map[string]interface{} `json:"result,omitempty"`
+	Result    interface{} `json:"result,omitempty"`
 	Error     *SocketError           `json:"error,omitempty"`
 	Timestamp float64                `json:"timestamp"`
 }

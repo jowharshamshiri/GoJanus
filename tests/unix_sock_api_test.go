@@ -166,13 +166,23 @@ func TestSocketResponseSerialization(t *testing.T) {
 		t.Errorf("Success mismatch: expected %t, got %t", response.Success, deserializedResponse.Success)
 	}
 	
-	// Verify result
-	if len(deserializedResponse.Result) != len(response.Result) {
-		t.Errorf("Result count mismatch: expected %d, got %d", len(response.Result), len(deserializedResponse.Result))
+	// Verify result - type assert to map for comparison
+	responseResultMap, ok := response.Result.(map[string]interface{})
+	if !ok {
+		t.Fatalf("response.Result is not a map[string]interface{}")
 	}
 	
-	if deserializedResponse.Result["message"] != result["message"] {
-		t.Errorf("Message mismatch: expected '%v', got '%v'", result["message"], deserializedResponse.Result["message"])
+	deserializedResultMap, ok := deserializedResponse.Result.(map[string]interface{})
+	if !ok {
+		t.Fatalf("deserializedResponse.Result is not a map[string]interface{}")
+	}
+	
+	if len(deserializedResultMap) != len(responseResultMap) {
+		t.Errorf("Result count mismatch: expected %d, got %d", len(responseResultMap), len(deserializedResultMap))
+	}
+	
+	if deserializedResultMap["message"] != result["message"] {
+		t.Errorf("Message mismatch: expected '%v', got '%v'", result["message"], deserializedResultMap["message"])
 	}
 }
 
