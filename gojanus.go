@@ -1,4 +1,4 @@
-// Package gojanus provides a Go implementation of Unix socket API communication
+// Package gojanus provides a Go implementation of Janus communication
 // with 100% feature and protocol compatibility with SwiftJanus and RustJanus
 //
 // This package implements SOCK_DGRAM connectionless Unix domain socket communication:
@@ -47,7 +47,6 @@
 //	}
 //
 //	fmt.Printf("Response: %+v\n", response)
-//
 package gojanus
 
 import (
@@ -64,38 +63,38 @@ const Version = "1.0.0"
 
 // Core layer types
 type (
-	UnixDatagramClient         = core.UnixDatagramClient
-	UnixDatagramClientConfig   = core.UnixDatagramClientConfig
-	SecurityValidator          = core.SecurityValidator
+	UnixDatagramClient       = core.UnixDatagramClient
+	UnixDatagramClientConfig = core.UnixDatagramClientConfig
+	SecurityValidator        = core.SecurityValidator
 )
 
 // Protocol layer types
 type (
-	DatagramClient                  = protocol.DatagramClient
+	DatagramClient            = protocol.DatagramClient
 	JanusDatagramClientConfig = protocol.JanusDatagramClientConfig
-	TimeoutManager                  = protocol.TimeoutManager
+	TimeoutManager            = protocol.TimeoutManager
 )
 
 // Model types
 type (
-	SocketCommand    = models.SocketCommand
-	SocketResponse   = models.SocketResponse
-	SocketError      = models.SocketError
-	SocketMessage    = models.SocketMessage
-	CommandHandler   = models.CommandHandler
-	TimeoutHandler   = models.TimeoutHandler
+	SocketCommand  = models.SocketCommand
+	SocketResponse = models.SocketResponse
+	SocketError    = models.SocketError
+	SocketMessage  = models.SocketMessage
+	CommandHandler = models.CommandHandler
+	TimeoutHandler = models.TimeoutHandler
 )
 
 // Specification types
 type (
 	APISpecification       = specification.APISpecification
 	APISpecificationParser = specification.APISpecificationParser
-	ChannelSpec           = specification.ChannelSpec
-	CommandSpec           = specification.CommandSpec
-	ArgumentSpec          = specification.ArgumentSpec
-	ResponseSpec          = specification.ResponseSpec
-	ModelDefinition       = specification.ModelDefinition
-	ValidationError       = specification.ValidationError
+	ChannelSpec            = specification.ChannelSpec
+	CommandSpec            = specification.CommandSpec
+	ArgumentSpec           = specification.ArgumentSpec
+	ResponseSpec           = specification.ResponseSpec
+	ModelDefinition        = specification.ModelDefinition
+	ValidationError        = specification.ValidationError
 )
 
 // Convenience constructors
@@ -110,12 +109,12 @@ func NewUnixDatagramClientWithConfig(socketPath string, config UnixDatagramClien
 	return core.NewUnixDatagramClient(socketPath, config)
 }
 
-// JanusDatagramClient creates a new Unix socket API datagram client with default configuration
+// JanusDatagramClient creates a new Janus datagram client with default configuration
 func JanusDatagramClient(socketPath, channelID string, apiSpec *APISpecification) (*protocol.DatagramClient, error) {
 	return protocol.JanusDatagramClient(socketPath, channelID, apiSpec)
 }
 
-// JanusDatagramClientWithConfig creates a new Unix socket API datagram client with custom configuration
+// JanusDatagramClientWithConfig creates a new Janus datagram client with custom configuration
 func JanusDatagramClientWithConfig(socketPath, channelID string, apiSpec *APISpecification, config JanusDatagramClientConfig) (*protocol.DatagramClient, error) {
 	return protocol.JanusDatagramClient(socketPath, channelID, apiSpec, config)
 }
@@ -129,7 +128,6 @@ func NewAPISpecificationParser() *APISpecificationParser {
 func NewSecurityValidator() *SecurityValidator {
 	return core.NewSecurityValidator()
 }
-
 
 // NewTimeoutManager creates a new timeout manager
 func NewTimeoutManager() *TimeoutManager {
@@ -180,7 +178,7 @@ func DefaultUnixDatagramClientConfig() UnixDatagramClientConfig {
 	return core.DefaultUnixDatagramClientConfig()
 }
 
-// DefaultJanusDatagramClientConfig returns the default Unix socket API datagram client configuration
+// DefaultJanusDatagramClientConfig returns the default Janus datagram client configuration
 func DefaultJanusDatagramClientConfig() JanusDatagramClientConfig {
 	return protocol.DefaultJanusDatagramClientConfig()
 }
