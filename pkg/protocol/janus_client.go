@@ -105,8 +105,8 @@ func validateConstructorInputs(socketPath, channelID string, apiSpec *specificat
 	return nil
 }
 
-// JanusClient creates a new datagram API client
-func JanusClient(socketPath, channelID string, apiSpec *specification.APISpecification, config ...JanusClientConfig) (*JanusClient, error) {
+// New creates a new datagram API client
+func New(socketPath, channelID string, apiSpec *specification.APISpecification, config ...JanusClientConfig) (*JanusClient, error) {
 	cfg := DefaultJanusClientConfig()
 	if len(config) > 0 {
 		cfg = config[0]
