@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/user/GoJanus/pkg/client"
 	"github.com/user/GoJanus/pkg/server"
 	"github.com/user/GoJanus/pkg/models"
 )
@@ -18,10 +17,8 @@ func TestServerCreation(t *testing.T) {
 }
 
 func TestClientCreation(t *testing.T) {
-	client := &client.JanusClient{}
-	if client == nil {
-		t.Fatal("Failed to create client")
-	}
+	// Legacy client removed - use protocol client instead
+	t.Skip("Legacy client test removed - see janus_client_test.go for protocol client tests")
 }
 
 func TestServerRegisterHandler(t *testing.T) {

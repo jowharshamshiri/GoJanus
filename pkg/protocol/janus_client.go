@@ -70,23 +70,21 @@ func validateConstructorInputs(socketPath, channelID string, apiSpec *specificat
 		return fmt.Errorf("invalid channel ID: contains forbidden characters")
 	}
 	
-	// Validate API specification
-	if apiSpec == nil {
-		return fmt.Errorf("API specification cannot be nil")
-	}
-	
-	// Validate specification content
-	if apiSpec.Version == "" {
-		return fmt.Errorf("API specification validation error: version cannot be empty")
-	}
-	
-	if apiSpec.Channels == nil || len(apiSpec.Channels) == 0 {
-		return fmt.Errorf("API specification validation error: no channels defined")
-	}
-	
-	// Validate channel exists in specification
-	if _, exists := apiSpec.Channels[channelID]; !exists {
-		return fmt.Errorf("channel '%s' not found in API specification", channelID)
+	// API specification can be nil (will be fetched from server)
+	if apiSpec != nil {
+		// Validate specification content if provided
+		if apiSpec.Version == "" {
+			return fmt.Errorf("API specification validation error: version cannot be empty")
+		}
+		
+		if apiSpec.Channels == nil || len(apiSpec.Channels) == 0 {
+			return fmt.Errorf("API specification validation error: no channels defined")
+		}
+		
+		// Validate channel exists in specification
+		if _, exists := apiSpec.Channels[channelID]; !exists {
+			return fmt.Errorf("channel '%s' not found in API specification", channelID)
+		}
 	}
 	
 	// Validate configuration security
@@ -105,14 +103,83 @@ func validateConstructorInputs(socketPath, channelID string, apiSpec *specificat
 	return nil
 }
 
+// fetchSpecificationFromServer fetches the API specification from the server
+func fetchSpecificationFromServer(janusClient *core.JanusClient, socketPath string, cfg JanusClientConfig) (*specification.APISpecification, error) {
+	// Generate response socket path
+	responseSocketPath := fmt.Sprintf("/tmp/janus_spec_%d_%s.sock", time.Now().UnixNano(), generateRandomID())
+	
+	// Create spec command JSON
+	specCommand := map[string]interface{}{
+		"command":  "spec",
+		"reply_to": responseSocketPath,
+	}
+	
+	commandJSON, err := json.Marshal(specCommand)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal spec command: %w", err)
+	}
+	
+	// Send spec command to server with timeout context
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.DefaultTimeout)
+	defer cancel()
+	
+	responseData, err := janusClient.SendDatagram(ctx, commandJSON, responseSocketPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch specification from server: %w", err)
+	}
+	
+	// Parse the response JSON
+	var response map[string]interface{}
+	if err := json.Unmarshal(responseData, &response); err != nil {
+		return nil, fmt.Errorf("failed to parse server response: %w", err)
+	}
+	
+	// Check for error in response
+	if errorMsg, exists := response["error"]; exists {
+		return nil, fmt.Errorf("server returned error: %v", errorMsg)
+	}
+	
+	// Extract specification from response
+	specData, exists := response["result"]
+	if !exists {
+		return nil, fmt.Errorf("server response missing 'result' field")
+	}
+	
+	// Convert spec data to JSON and parse
+	specJSON, err := json.Marshal(specData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal specification data: %w", err)
+	}
+	
+	parser := specification.NewAPISpecificationParser()
+	apiSpec, err := parser.ParseJSON(specJSON)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse server specification: %w", err)
+	}
+	
+	return apiSpec, nil
+}
+
+// generateRandomID generates a random ID for unique socket paths
+func generateRandomID() string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, 8)
+	rand.Read(b)
+	for i := range b {
+		b[i] = charset[b[i]%byte(len(charset))]
+	}
+	return string(b)
+}
+
 // New creates a new datagram API client
+// If apiSpec is nil, automatically fetches specification from server
 func New(socketPath, channelID string, apiSpec *specification.APISpecification, config ...JanusClientConfig) (*JanusClient, error) {
 	cfg := DefaultJanusClientConfig()
 	if len(config) > 0 {
 		cfg = config[0]
 	}
 	
-	// Validate inputs
+	// Validate inputs (apiSpec can be nil)
 	if err := validateConstructorInputs(socketPath, channelID, apiSpec, cfg); err != nil {
 		return nil, err
 	}
@@ -126,6 +193,20 @@ func New(socketPath, channelID string, apiSpec *specification.APISpecification, 
 	janusClient, err := core.NewJanusClient(socketPath, datagramConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create datagram client: %w", err)
+	}
+	
+	// If no API specification provided, fetch from server
+	if apiSpec == nil {
+		fetchedSpec, err := fetchSpecificationFromServer(janusClient, socketPath, cfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch specification from server: %w", err)
+		}
+		apiSpec = fetchedSpec
+		
+		// Validate channel exists in fetched specification
+		if _, exists := apiSpec.Channels[channelID]; !exists {
+			return nil, fmt.Errorf("channel '%s' not found in server specification", channelID)
+		}
 	}
 	
 	validator := core.NewSecurityValidator()

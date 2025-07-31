@@ -8,6 +8,8 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/user/GoJanus/pkg/core"
@@ -61,7 +63,12 @@ func listenForDatagrams(socketPath string, apiSpec *specification.APISpecificati
 		fmt.Printf("API validation enabled for channel: %s\n", channelID)
 	}
 	
+	// Ensure clean socket file
 	os.Remove(socketPath)
+	
+	// Set up signal handling for graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	
 	addr, err := net.ResolveUnixAddr("unixgram", socketPath)
 	if err != nil {
@@ -72,8 +79,22 @@ func listenForDatagrams(socketPath string, apiSpec *specification.APISpecificati
 	if err != nil {
 		log.Fatalf("Failed to bind socket: %v", err)
 	}
-	defer conn.Close()
-	defer os.Remove(socketPath)
+	
+	// Cleanup function
+	cleanup := func() {
+		fmt.Println("\nShutting down server...")
+		conn.Close()
+		os.Remove(socketPath)
+		fmt.Println("Socket cleaned up")
+	}
+	defer cleanup()
+	
+	// Handle signals in background
+	go func() {
+		<-sigChan
+		cleanup()
+		os.Exit(0)
+	}()
 
 	fmt.Println("Ready to receive datagrams")
 
@@ -117,9 +138,20 @@ func sendDatagram(targetSocket, command, message string, apiSpec *specification.
 	if command == "echo" || command == "get_info" || command == "validate" || command == "slow_process" {
 		args["message"] = message
 	}
+	// spec and ping commands don't need message arguments
 
 	// Validate command against API specification if provided
-	if apiSpec != nil {
+	// Built-in commands (spec, ping, echo) are always allowed
+	builtInCommands := map[string]bool{
+		"spec": true,
+		"ping": true,
+		"echo": true,
+		"get_info": true,
+		"validate": true,
+		"slow_process": true,
+	}
+	
+	if apiSpec != nil && !builtInCommands[command] {
 		if !apiSpec.HasCommand(channelID, command) {
 			log.Fatalf("Command '%s' not found in channel '%s'", command, channelID)
 		}
@@ -134,6 +166,8 @@ func sendDatagram(targetSocket, command, message string, apiSpec *specification.
 		}
 		
 		fmt.Printf("Command validation passed for %s in channel %s\n", command, channelID)
+	} else if builtInCommands[command] {
+		fmt.Printf("Built-in command %s allowed\n", command)
 	}
 
 	cmd := models.SocketCommand{
@@ -202,6 +236,37 @@ func sendResponse(cmdID, channelID, command string, args map[string]interface{},
 	// Only process command if validation passed
 	if success {
 		switch command {
+	case "spec":
+		if apiSpec != nil {
+			// Convert API specification to JSON and back to ensure proper serialization
+			specJSON, err := json.Marshal(apiSpec)
+			if err != nil {
+				success = false
+				errorMsg = &models.SocketError{
+					Code:    "INTERNAL_ERROR",
+					Message: fmt.Sprintf("Failed to serialize API specification: %v", err),
+				}
+			} else {
+				var specData interface{}
+				if err := json.Unmarshal(specJSON, &specData); err != nil {
+					success = false
+					errorMsg = &models.SocketError{
+						Code:    "INTERNAL_ERROR",
+						Message: fmt.Sprintf("Failed to deserialize API specification: %v", err),
+					}
+				} else {
+					result = map[string]interface{}{
+						"specification": specData,
+					}
+				}
+			}
+		} else {
+			success = false
+			errorMsg = &models.SocketError{
+				Code:    "INTERNAL_ERROR",
+				Message: "No API specification loaded on server",
+			}
+		}
 	case "ping":
 		result = map[string]interface{}{
 			"pong": true,

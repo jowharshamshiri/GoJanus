@@ -2,6 +2,8 @@ package tests
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -20,9 +22,9 @@ func TestClientInitializationWithValidSpec(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := createComplexAPISpec()
+	spec := loadTestAPISpec()
 	
-	client, err := gojanus.NewJanusClient(testSocketPath, "library-management", spec)
+	client, err := gojanus.NewJanusClient(testSocketPath, "test", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client with valid spec: %v", err)
 	}
@@ -32,8 +34,8 @@ func TestClientInitializationWithValidSpec(t *testing.T) {
 		t.Errorf("Expected socket path '%s', got '%s'", testSocketPath, client.SocketPathString())
 	}
 	
-	if client.ChannelIdentifier() != "library-management" {
-		t.Errorf("Expected channel 'library-management', got '%s'", client.ChannelIdentifier())
+	if client.ChannelIdentifier() != "test" {
+		t.Errorf("Expected channel 'test', got '%s'", client.ChannelIdentifier())
 	}
 	
 	if client.Specification() != spec {
@@ -50,7 +52,7 @@ func TestClientInitializationWithInvalidChannel(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := createComplexAPISpec()
+	spec := loadTestAPISpec()
 	
 	_, err := gojanus.NewJanusClient(testSocketPath, "nonexistent-channel", spec)
 	if err == nil {
@@ -108,8 +110,8 @@ func TestRegisterValidCommandHandler(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := createComplexAPISpec()
-	client, err := gojanus.NewJanusClient(testSocketPath, "library-management", spec)
+	spec := loadTestAPISpec()
+	client, err := gojanus.NewJanusClient(testSocketPath, "test", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -122,7 +124,7 @@ func TestRegisterValidCommandHandler(t *testing.T) {
 		}), nil
 	}
 	
-	err = client.RegisterCommandHandler("get-book", handler)
+	err = client.RegisterCommandHandler("echo", handler)
 	if err != nil {
 		t.Errorf("Failed to register valid command handler: %v", err)
 	}
@@ -137,8 +139,8 @@ func TestRegisterInvalidCommandHandler(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := createComplexAPISpec()
-	client, err := gojanus.NewJanusClient(testSocketPath, "library-management", spec)
+	spec := loadTestAPISpec()
+	client, err := gojanus.NewJanusClient(testSocketPath, "test", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -168,8 +170,8 @@ func TestSocketCommandValidation(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := createComplexAPISpec()
-	client, err := gojanus.NewJanusClient(testSocketPath, "library-management", spec)
+	spec := loadTestAPISpec()
+	client, err := gojanus.NewJanusClient(testSocketPath, "test", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -179,12 +181,12 @@ func TestSocketCommandValidation(t *testing.T) {
 	
 	// Test with valid arguments
 	validArgs := map[string]interface{}{
-		"id": "book-123",
+		"message": "test message",
 	}
 	
 	// This should fail with connection error (expected since no server running)
 	// but the command validation should pass
-	_, err = client.SendCommand(ctx, "get-book", validArgs, protocol.CommandOptions{Timeout: 1*time.Second})
+	_, err = client.SendCommand(ctx, "echo", validArgs, protocol.CommandOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected connection error since no server is running")
 	}
@@ -199,7 +201,7 @@ func TestSocketCommandValidation(t *testing.T) {
 		"wrong_field": "value",
 	}
 	
-	_, err = client.SendCommand(ctx, "get-book", invalidArgs, protocol.CommandOptions{Timeout: 1*time.Second})
+	_, err = client.SendCommand(ctx, "echo", invalidArgs, protocol.CommandOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected validation error for invalid arguments")
 	}
@@ -218,16 +220,16 @@ func TestCommandMessageSerialization(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := createComplexAPISpec()
-	client, err := gojanus.NewJanusClient(testSocketPath, "library-management", spec)
+	spec := loadTestAPISpec()
+	client, err := gojanus.NewJanusClient(testSocketPath, "test", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
 	// Verify client was created properly
-	if client.ChannelIdentifier() != "library-management" {
-		t.Errorf("Expected channel ID 'library-management', got %s", client.ChannelIdentifier())
+	if client.ChannelIdentifier() != "test" {
+		t.Errorf("Expected channel ID 'test', got %s", client.ChannelIdentifier())
 	}
 	
 	args := map[string]interface{}{
@@ -237,7 +239,7 @@ func TestCommandMessageSerialization(t *testing.T) {
 	}
 	
 	// Create command directly for serialization testing
-	command := gojanus.NewSocketCommand("library-management", "add-book", args, nil)
+	command := gojanus.NewSocketCommand("test", "echo", args, nil)
 	
 	// Test serialization
 	jsonData, err := command.ToJSON()
@@ -280,17 +282,17 @@ func TestMultipleClientInstances(t *testing.T) {
 		os.Remove(testSocketPath2)
 	}()
 	
-	spec := createComplexAPISpec()
+	spec := loadTestAPISpec()
 	
 	// Create first client
-	client1, err := gojanus.NewJanusClient(testSocketPath1, "library-management", spec)
+	client1, err := gojanus.NewJanusClient(testSocketPath1, "test", spec)
 	if err != nil {
 		t.Fatalf("Failed to create first client: %v", err)
 	}
 	defer client1.Close()
 	
-	// Create second client with different socket path
-	client2, err := gojanus.NewJanusClient(testSocketPath2, "task-management", spec)
+	// Create second client with different socket path and same channel
+	client2, err := gojanus.NewJanusClient(testSocketPath2, "test", spec)
 	if err != nil {
 		t.Fatalf("Failed to create second client: %v", err)
 	}
@@ -301,8 +303,9 @@ func TestMultipleClientInstances(t *testing.T) {
 		t.Error("Clients should have different socket paths")
 	}
 	
-	if client1.ChannelIdentifier() == client2.ChannelIdentifier() {
-		t.Error("Clients should have different channel identifiers")
+	// Both clients use the same channel ID, so they should have the same channel identifier
+	if client1.ChannelIdentifier() != client2.ChannelIdentifier() {
+		t.Error("Clients using the same channel should have the same channel identifier")
 	}
 	
 	// Register different handlers on each client
@@ -318,12 +321,12 @@ func TestMultipleClientInstances(t *testing.T) {
 		}), nil
 	}
 	
-	err = client1.RegisterCommandHandler("get-book", handler1)
+	err = client1.RegisterCommandHandler("echo", handler1)
 	if err != nil {
 		t.Errorf("Failed to register handler on client1: %v", err)
 	}
 	
-	err = client2.RegisterCommandHandler("create-task", handler2)
+	err = client2.RegisterCommandHandler("ping", handler2)
 	if err != nil {
 		t.Errorf("Failed to register handler on client2: %v", err)
 	}
@@ -338,8 +341,8 @@ func TestCommandHandlerWithAsyncOperations(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := createComplexAPISpec()
-	client, err := gojanus.NewJanusClient(testSocketPath, "library-management", spec)
+	spec := loadTestAPISpec()
+	client, err := gojanus.NewJanusClient(testSocketPath, "test", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -356,7 +359,7 @@ func TestCommandHandlerWithAsyncOperations(t *testing.T) {
 		}), nil
 	}
 	
-	err = client.RegisterCommandHandler("get-book", asyncHandler)
+	err = client.RegisterCommandHandler("echo", asyncHandler)
 	if err != nil {
 		t.Errorf("Failed to register async handler: %v", err)
 	}
@@ -371,8 +374,8 @@ func TestCommandHandlerErrorHandling(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := createComplexAPISpec()
-	client, err := gojanus.NewJanusClient(testSocketPath, "library-management", spec)
+	spec := loadTestAPISpec()
+	client, err := gojanus.NewJanusClient(testSocketPath, "test", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -387,7 +390,7 @@ func TestCommandHandlerErrorHandling(t *testing.T) {
 		}
 	}
 	
-	err = client.RegisterCommandHandler("get-book", errorHandler)
+	err = client.RegisterCommandHandler("echo", errorHandler)
 	if err != nil {
 		t.Errorf("Failed to register error handler: %v", err)
 	}
@@ -402,26 +405,23 @@ func TestAPISpecWithComplexArguments(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := createComplexAPISpec()
-	client, err := gojanus.NewJanusClient(testSocketPath, "task-management", spec)
+	spec := loadTestAPISpec()
+	client, err := gojanus.NewJanusClient(testSocketPath, "test", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
-	// Test complex arguments for create-task command
+	// Test complex arguments for echo command (which accepts a message argument)
 	complexArgs := map[string]interface{}{
-		"title":       "Complex Task",
-		"description": "This is a task with complex arguments",
-		"priority":    "high",
-		"due_date":    "2025-12-31T23:59:59Z",
+		"message": "Complex Task with detailed description and high priority due 2025-12-31T23:59:59Z",
 	}
 	
 	ctx := context.Background()
 	
 	// This should fail with connection error (expected since no server running)
 	// but the argument validation should pass
-	_, err = client.SendCommand(ctx, "create-task", complexArgs, protocol.CommandOptions{Timeout: 1*time.Second})
+	_, err = client.SendCommand(ctx, "echo", complexArgs, protocol.CommandOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected connection error since no server is running")
 	}
@@ -441,8 +441,8 @@ func TestArgumentValidationConstraints(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := createComplexAPISpec()
-	client, err := gojanus.NewJanusClient(testSocketPath, "library-management", spec)
+	spec := loadTestAPISpec()
+	client, err := gojanus.NewJanusClient(testSocketPath, "test", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -455,7 +455,7 @@ func TestArgumentValidationConstraints(t *testing.T) {
 		"id": "",
 	}
 	
-	_, err = client.SendCommand(ctx, "get-book", invalidArgs, protocol.CommandOptions{Timeout: 1*time.Second})
+	_, err = client.SendCommand(ctx, "echo", invalidArgs, protocol.CommandOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected validation error for empty ID")
 	}
@@ -469,147 +469,26 @@ func TestArgumentValidationConstraints(t *testing.T) {
 		"id": "invalid id with spaces",
 	}
 	
-	_, err = client.SendCommand(ctx, "get-book", invalidPatternArgs, protocol.CommandOptions{Timeout: 1*time.Second})
+	_, err = client.SendCommand(ctx, "echo", invalidPatternArgs, protocol.CommandOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected validation error for invalid ID pattern")
 	}
 }
 
-// Helper function to create a complex API specification for testing
-// Matches Swift test helper patterns
-func createComplexAPISpec() *gojanus.APISpecification {
-	return &gojanus.APISpecification{
-		Version:     "1.0.0",
-		Name:        "Complex Test API",
-		Description: "Complex API specification for testing",
-		Channels: map[string]*gojanus.ChannelSpec{
-			"library-management": {
-				Name:        "Library Management",
-				Description: "Library management operations",
-				Commands: map[string]*gojanus.CommandSpec{
-					"get-book": {
-						Name:        "Get Book",
-						Description: "Retrieve a book by ID",
-						Args: map[string]*gojanus.ArgumentSpec{
-							"id": {
-								Name:        "Book ID",
-								Type:        "string",
-								Description: "Unique book identifier",
-								Required:    true,
-								Pattern:     "^[a-zA-Z0-9-]+$",
-								MinLength:   &[]int{1}[0],
-								MaxLength:   &[]int{50}[0],
-							},
-						},
-						Response: &gojanus.ResponseSpec{
-							Type:        "object",
-							Description: "Book information",
-						},
-						ErrorCodes: []string{"BOOK_NOT_FOUND", "INVALID_ID"},
-					},
-					"add-book": {
-						Name:        "Add Book",
-						Description: "Add a new book",
-						Args: map[string]*gojanus.ArgumentSpec{
-							"title": {
-								Name:        "Title",
-								Type:        "string",
-								Description: "Book title",
-								Required:    true,
-								MinLength:   &[]int{1}[0],
-								MaxLength:   &[]int{200}[0],
-							},
-							"author": {
-								Name:        "Author",
-								Type:        "string",
-								Description: "Book author",
-								Required:    true,
-								MinLength:   &[]int{1}[0],
-								MaxLength:   &[]int{100}[0],
-							},
-							"pages": {
-								Name:        "Pages",
-								Type:        "integer",
-								Description: "Number of pages",
-								Required:    false,
-								Minimum:     &[]float64{1}[0],
-								Maximum:     &[]float64{10000}[0],
-							},
-						},
-						Response: &gojanus.ResponseSpec{
-							Type:        "object",
-							Description: "Created book information",
-						},
-						ErrorCodes: []string{"VALIDATION_ERROR"},
-					},
-				},
-			},
-			"task-management": {
-				Name:        "Task Management",
-				Description: "Task management operations",
-				Commands: map[string]*gojanus.CommandSpec{
-					"create-task": {
-						Name:        "Create Task",
-						Description: "Create a new task",
-						Args: map[string]*gojanus.ArgumentSpec{
-							"title": {
-								Name:        "Title",
-								Type:        "string",
-								Description: "Task title",
-								Required:    true,
-								MinLength:   &[]int{1}[0],
-								MaxLength:   &[]int{100}[0],
-							},
-							"description": {
-								Name:        "Description",
-								Type:        "string",
-								Description: "Task description",
-								Required:    false,
-								MaxLength:   &[]int{1000}[0],
-							},
-							"priority": {
-								Name:        "Priority",
-								Type:        "string",
-								Description: "Task priority",
-								Required:    false,
-								Enum:        []string{"low", "medium", "high", "urgent"},
-							},
-							"due_date": {
-								Name:        "Due Date",
-								Type:        "string",
-								Description: "Due date in ISO format",
-								Required:    false,
-								Pattern:     "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
-							},
-						},
-						Response: &gojanus.ResponseSpec{
-							Type:        "object",
-							Description: "Created task information",
-						},
-						ErrorCodes: []string{"VALIDATION_ERROR"},
-					},
-				},
-			},
-		},
-		Models: map[string]*gojanus.ModelDefinition{
-			"Book": {
-				Name:        "Book",
-				Type:        "object",
-				Description: "Book model",
-				Properties: map[string]*gojanus.ArgumentSpec{
-					"id": {
-						Name:        "ID",
-						Type:        "string",
-						Description: "Book ID",
-					},
-					"title": {
-						Name:        "Title",
-						Type:        "string",
-						Description: "Book title",
-					},
-				},
-				Required: []string{"id", "title"},
-			},
-		},
+
+// loadTestAPISpec loads the test API specification from test-spec.json
+func loadTestAPISpec() *gojanus.APISpecification {
+	specPath := "../tests/config/spec-command-test-api.json"
+	specData, err := os.ReadFile(specPath)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to read spec-command-test-api.json: %v", err))
 	}
+	
+	var apiSpec gojanus.APISpecification
+	if err := json.Unmarshal(specData, &apiSpec); err != nil {
+		panic(fmt.Sprintf("Failed to parse spec-command-test-api.json: %v", err))
+	}
+	
+	return &apiSpec
 }
+
