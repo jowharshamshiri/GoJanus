@@ -14,15 +14,15 @@ import (
 	"github.com/user/GoJanus/pkg/specification"
 )
 
-// DatagramClient is the main client interface for SOCK_DGRAM Unix socket communication
+// JanusClient is the main client interface for SOCK_DGRAM Unix socket communication
 // Connectionless implementation for cross-language compatibility
-type DatagramClient struct {
+type JanusClient struct {
 	socketPath     string
 	channelID      string
 	apiSpec        *specification.APISpecification
-	config         JanusDatagramClientConfig
+	config         JanusClientConfig
 	
-	datagramClient *core.UnixDatagramClient
+	janusClient *core.JanusClient
 	validator      *core.SecurityValidator
 	
 	// Command handler registry (thread-safe)
@@ -33,17 +33,17 @@ type DatagramClient struct {
 	timeoutManager *TimeoutManager
 }
 
-// JanusDatagramClientConfig holds configuration for the datagram client
-type JanusDatagramClientConfig struct {
+// JanusClientConfig holds configuration for the datagram client
+type JanusClientConfig struct {
 	MaxMessageSize   int
 	DefaultTimeout   time.Duration
 	DatagramTimeout  time.Duration
 	EnableValidation bool
 }
 
-// DefaultJanusDatagramClientConfig returns default configuration for SOCK_DGRAM
-func DefaultJanusDatagramClientConfig() JanusDatagramClientConfig {
-	return JanusDatagramClientConfig{
+// DefaultJanusClientConfig returns default configuration for SOCK_DGRAM
+func DefaultJanusClientConfig() JanusClientConfig {
+	return JanusClientConfig{
 		MaxMessageSize:   64 * 1024,      // 64KB datagram limit
 		DefaultTimeout:   30 * time.Second,
 		DatagramTimeout:  5 * time.Second,
@@ -52,7 +52,7 @@ func DefaultJanusDatagramClientConfig() JanusDatagramClientConfig {
 }
 
 // validateConstructorInputs validates constructor parameters
-func validateConstructorInputs(socketPath, channelID string, apiSpec *specification.APISpecification, config JanusDatagramClientConfig) error {
+func validateConstructorInputs(socketPath, channelID string, apiSpec *specification.APISpecification, config JanusClientConfig) error {
 	// Validate socket path
 	if socketPath == "" {
 		return fmt.Errorf("socket path cannot be empty")
@@ -105,9 +105,9 @@ func validateConstructorInputs(socketPath, channelID string, apiSpec *specificat
 	return nil
 }
 
-// JanusDatagramClient creates a new datagram API client
-func JanusDatagramClient(socketPath, channelID string, apiSpec *specification.APISpecification, config ...JanusDatagramClientConfig) (*DatagramClient, error) {
-	cfg := DefaultJanusDatagramClientConfig()
+// JanusClient creates a new datagram API client
+func JanusClient(socketPath, channelID string, apiSpec *specification.APISpecification, config ...JanusClientConfig) (*JanusClient, error) {
+	cfg := DefaultJanusClientConfig()
 	if len(config) > 0 {
 		cfg = config[0]
 	}
@@ -118,12 +118,12 @@ func JanusDatagramClient(socketPath, channelID string, apiSpec *specification.AP
 	}
 	
 	// Create datagram client
-	datagramConfig := core.UnixDatagramClientConfig{
+	datagramConfig := core.JanusClientConfig{
 		MaxMessageSize:  cfg.MaxMessageSize,
 		DatagramTimeout: cfg.DatagramTimeout,
 	}
 	
-	datagramClient, err := core.NewUnixDatagramClient(socketPath, datagramConfig)
+	janusClient, err := core.NewJanusClient(socketPath, datagramConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create datagram client: %w", err)
 	}
@@ -131,12 +131,12 @@ func JanusDatagramClient(socketPath, channelID string, apiSpec *specification.AP
 	validator := core.NewSecurityValidator()
 	timeoutManager := NewTimeoutManager()
 	
-	return &DatagramClient{
+	return &JanusClient{
 		socketPath:     socketPath,
 		channelID:      channelID,
 		apiSpec:        apiSpec,
 		config:         cfg,
-		datagramClient: datagramClient,
+		janusClient: janusClient,
 		validator:      validator,
 		handlers:       make(map[string]models.CommandHandler),
 		timeoutManager: timeoutManager,
@@ -144,7 +144,7 @@ func JanusDatagramClient(socketPath, channelID string, apiSpec *specification.AP
 }
 
 // SendCommand sends a command via SOCK_DGRAM and waits for response
-func (client *DatagramClient) SendCommand(ctx context.Context, command string, args map[string]interface{}, options ...CommandOptions) (*models.SocketResponse, error) {
+func (client *JanusClient) SendCommand(ctx context.Context, command string, args map[string]interface{}, options ...CommandOptions) (*models.SocketResponse, error) {
 	// Apply options
 	opts := mergeCommandOptions(options...)
 	
@@ -152,7 +152,7 @@ func (client *DatagramClient) SendCommand(ctx context.Context, command string, a
 	commandID := generateUUID()
 	
 	// Generate response socket path
-	responseSocketPath := client.datagramClient.GenerateResponseSocketPath()
+	responseSocketPath := client.janusClient.GenerateResponseSocketPath()
 	
 	// Create socket command
 	socketCommand := models.SocketCommand{
@@ -197,7 +197,7 @@ func (client *DatagramClient) SendCommand(ctx context.Context, command string, a
 	}
 	
 	// Send datagram and wait for response
-	responseData, err := client.datagramClient.SendDatagram(commandCtx, commandData, responseSocketPath)
+	responseData, err := client.janusClient.SendDatagram(commandCtx, commandData, responseSocketPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send command datagram: %w", err)
 	}
@@ -221,7 +221,7 @@ func (client *DatagramClient) SendCommand(ctx context.Context, command string, a
 }
 
 // SendCommandNoResponse sends a command without expecting a response (fire-and-forget)
-func (client *DatagramClient) SendCommandNoResponse(ctx context.Context, command string, args map[string]interface{}) error {
+func (client *JanusClient) SendCommandNoResponse(ctx context.Context, command string, args map[string]interface{}) error {
 	// Generate command ID
 	commandID := generateUUID()
 	
@@ -258,16 +258,16 @@ func (client *DatagramClient) SendCommandNoResponse(ctx context.Context, command
 	}
 	
 	// Send datagram without waiting for response
-	return client.datagramClient.SendDatagramNoResponse(ctx, commandData)
+	return client.janusClient.SendDatagramNoResponse(ctx, commandData)
 }
 
 // TestConnection tests connectivity to the server
-func (client *DatagramClient) TestConnection(ctx context.Context) error {
-	return client.datagramClient.TestDatagramSocket(ctx)
+func (client *JanusClient) TestConnection(ctx context.Context) error {
+	return client.janusClient.TestDatagramSocket(ctx)
 }
 
 // Close cleans up client resources
-func (client *DatagramClient) Close() error {
+func (client *JanusClient) Close() error {
 	// Clean up timeout manager
 	if client.timeoutManager != nil {
 		client.timeoutManager.Close()
@@ -282,17 +282,17 @@ func (client *DatagramClient) Close() error {
 }
 
 // GetChannelID returns the channel ID
-func (client *DatagramClient) GetChannelID() string {
+func (client *JanusClient) GetChannelID() string {
 	return client.channelID
 }
 
 // GetSocketPath returns the socket path
-func (client *DatagramClient) GetSocketPath() string {
+func (client *JanusClient) GetSocketPath() string {
 	return client.socketPath
 }
 
 // GetAPISpecification returns the API specification
-func (client *DatagramClient) GetAPISpecification() *specification.APISpecification {
+func (client *JanusClient) GetAPISpecification() *specification.APISpecification {
 	return client.apiSpec
 }
 
@@ -328,17 +328,17 @@ func mergeCommandOptions(options ...CommandOptions) CommandOptions {
 // Backward compatibility methods for tests
 
 // ChannelIdentifier returns the channel ID for backward compatibility
-func (client *DatagramClient) ChannelIdentifier() string {
+func (client *JanusClient) ChannelIdentifier() string {
 	return client.channelID
 }
 
 // Specification returns the API specification for backward compatibility  
-func (client *DatagramClient) Specification() *specification.APISpecification {
+func (client *JanusClient) Specification() *specification.APISpecification {
 	return client.apiSpec
 }
 
 // PublishCommand sends a command without expecting response for backward compatibility
-func (client *DatagramClient) PublishCommand(ctx context.Context, command string, args map[string]interface{}) (string, error) {
+func (client *JanusClient) PublishCommand(ctx context.Context, command string, args map[string]interface{}) (string, error) {
 	err := client.SendCommandNoResponse(ctx, command, args)
 	if err != nil {
 		return "", err
@@ -348,12 +348,12 @@ func (client *DatagramClient) PublishCommand(ctx context.Context, command string
 }
 
 // SocketPathString returns the socket path for backward compatibility
-func (client *DatagramClient) SocketPathString() string {
+func (client *JanusClient) SocketPathString() string {
 	return client.socketPath
 }
 
 // RegisterCommandHandler validates command exists in specification (SOCK_DGRAM compatibility)
-func (client *DatagramClient) RegisterCommandHandler(command string, handler interface{}) error {
+func (client *JanusClient) RegisterCommandHandler(command string, handler interface{}) error {
 	// Validate command exists in the API specification for the client's channel
 	if client.apiSpec != nil {
 		if channel, exists := client.apiSpec.Channels[client.channelID]; exists {
@@ -368,20 +368,20 @@ func (client *DatagramClient) RegisterCommandHandler(command string, handler int
 }
 
 // Disconnect is a no-op for backward compatibility (SOCK_DGRAM doesn't have persistent connections)
-func (client *DatagramClient) Disconnect() error {
+func (client *JanusClient) Disconnect() error {
 	// SOCK_DGRAM doesn't have persistent connections - this is for backward compatibility only
 	return nil
 }
 
 // IsConnected always returns true for backward compatibility (SOCK_DGRAM doesn't track connections)
-func (client *DatagramClient) IsConnected() bool {
+func (client *JanusClient) IsConnected() bool {
 	// SOCK_DGRAM doesn't track connections - return true for backward compatibility
 	return true
 }
 
 // Ping sends a ping command and returns success/failure
 // Convenience method for testing connectivity with a simple ping command
-func (client *DatagramClient) Ping(ctx context.Context) bool {
+func (client *JanusClient) Ping(ctx context.Context) bool {
 	_, err := client.SendCommand(ctx, "ping", nil)
 	return err == nil
 }

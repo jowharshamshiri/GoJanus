@@ -22,7 +22,7 @@ func TestClientInitializationWithValidSpec(t *testing.T) {
 	
 	spec := createComplexAPISpec()
 	
-	client, err := gojanus.JanusDatagramClient(testSocketPath, "library-management", spec)
+	client, err := gojanus.JanusClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client with valid spec: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestClientInitializationWithInvalidChannel(t *testing.T) {
 	
 	spec := createComplexAPISpec()
 	
-	_, err := gojanus.JanusDatagramClient(testSocketPath, "nonexistent-channel", spec)
+	_, err := gojanus.JanusClient(testSocketPath, "nonexistent-channel", spec)
 	if err == nil {
 		t.Error("Expected error for nonexistent channel")
 		return
@@ -88,7 +88,7 @@ func TestClientInitializationWithInvalidSpec(t *testing.T) {
 		},
 	}
 	
-	_, err := gojanus.JanusDatagramClient(testSocketPath, "test-channel", invalidSpec)
+	_, err := gojanus.JanusClient(testSocketPath, "test-channel", invalidSpec)
 	if err == nil {
 		t.Error("Expected error for invalid specification")
 		return
@@ -109,7 +109,7 @@ func TestRegisterValidCommandHandler(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gojanus.JanusDatagramClient(testSocketPath, "library-management", spec)
+	client, err := gojanus.JanusClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -138,7 +138,7 @@ func TestRegisterInvalidCommandHandler(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gojanus.JanusDatagramClient(testSocketPath, "library-management", spec)
+	client, err := gojanus.JanusClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -169,7 +169,7 @@ func TestSocketCommandValidation(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gojanus.JanusDatagramClient(testSocketPath, "library-management", spec)
+	client, err := gojanus.JanusClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -219,7 +219,7 @@ func TestCommandMessageSerialization(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gojanus.JanusDatagramClient(testSocketPath, "library-management", spec)
+	client, err := gojanus.JanusClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -283,14 +283,14 @@ func TestMultipleClientInstances(t *testing.T) {
 	spec := createComplexAPISpec()
 	
 	// Create first client
-	client1, err := gojanus.JanusDatagramClient(testSocketPath1, "library-management", spec)
+	client1, err := gojanus.JanusClient(testSocketPath1, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create first client: %v", err)
 	}
 	defer client1.Close()
 	
 	// Create second client with different socket path
-	client2, err := gojanus.JanusDatagramClient(testSocketPath2, "task-management", spec)
+	client2, err := gojanus.JanusClient(testSocketPath2, "task-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create second client: %v", err)
 	}
@@ -339,7 +339,7 @@ func TestCommandHandlerWithAsyncOperations(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gojanus.JanusDatagramClient(testSocketPath, "library-management", spec)
+	client, err := gojanus.JanusClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -372,7 +372,7 @@ func TestCommandHandlerErrorHandling(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gojanus.JanusDatagramClient(testSocketPath, "library-management", spec)
+	client, err := gojanus.JanusClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -403,7 +403,7 @@ func TestAPISpecWithComplexArguments(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gojanus.JanusDatagramClient(testSocketPath, "task-management", spec)
+	client, err := gojanus.JanusClient(testSocketPath, "task-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -442,7 +442,7 @@ func TestArgumentValidationConstraints(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createComplexAPISpec()
-	client, err := gojanus.JanusDatagramClient(testSocketPath, "library-management", spec)
+	client, err := gojanus.JanusClient(testSocketPath, "library-management", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}

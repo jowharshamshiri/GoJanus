@@ -37,29 +37,32 @@ type CommandSpec struct {
 }
 
 // ArgumentSpec represents an argument specification for a command
-// Matches Swift ArgumentSpec structure
+// Matches Swift ArgumentSpec structure with ResponseValidator extensions
 type ArgumentSpec struct {
-	Name        string      `json:"name"`
-	Type        string      `json:"type"`
-	Description string      `json:"description"`
-	Required    bool        `json:"required"`
-	Default     interface{} `json:"default,omitempty"`
-	Pattern     string      `json:"pattern,omitempty"`
-	MinLength   *int        `json:"minLength,omitempty"`
-	MaxLength   *int        `json:"maxLength,omitempty"`
-	Minimum     *float64    `json:"minimum,omitempty"`
-	Maximum     *float64    `json:"maximum,omitempty"`
-	Enum        []string    `json:"enum,omitempty"`
-	ModelRef    string      `json:"modelRef,omitempty"`
+	Name        string                   `json:"name"`
+	Type        string                   `json:"type"`
+	Description string                   `json:"description"`
+	Required    bool                     `json:"required"`
+	Default     interface{}              `json:"default,omitempty"`
+	Pattern     string                   `json:"pattern,omitempty"`
+	MinLength   *int                     `json:"minLength,omitempty"`
+	MaxLength   *int                     `json:"maxLength,omitempty"`
+	Minimum     *float64                 `json:"minimum,omitempty"`
+	Maximum     *float64                 `json:"maximum,omitempty"`
+	Enum        []string                 `json:"enum,omitempty"`
+	ModelRef    string                   `json:"modelRef,omitempty"`
+	Items       *ArgumentSpec            `json:"items,omitempty"`       // For array types
+	Properties  map[string]*ArgumentSpec `json:"properties,omitempty"` // For object types
 }
 
 // ResponseSpec represents a response specification for a command
-// Matches Swift ResponseSpec structure
+// Matches Swift ResponseSpec structure with ResponseValidator extensions
 type ResponseSpec struct {
 	Type        string                   `json:"type"`
 	Description string                   `json:"description"`
 	Properties  map[string]*ArgumentSpec `json:"properties,omitempty"`
 	ModelRef    string                   `json:"modelRef,omitempty"`
+	Items       *ArgumentSpec            `json:"items,omitempty"` // For array response types
 }
 
 // ModelDefinition represents a reusable data model
@@ -74,12 +77,19 @@ type ModelDefinition struct {
 
 // ValidationError represents a validation error with context
 type ValidationError struct {
-	Field   string
-	Message string
-	Value   interface{}
+	Field    string      `json:"field"`
+	Message  string      `json:"message"`
+	Value    interface{} `json:"value,omitempty"`    // Legacy field for backward compatibility
+	Expected string      `json:"expected,omitempty"` // Expected value/type for ResponseValidator
+	Actual   interface{} `json:"actual,omitempty"`   // Actual value for ResponseValidator
+	Context  string      `json:"context,omitempty"`  // Additional context for ResponseValidator
 }
 
 func (ve *ValidationError) Error() string {
+	if ve.Expected != "" && ve.Actual != nil {
+		return fmt.Sprintf("validation error for field '%s': %s (expected: %s, actual: %v)", 
+			ve.Field, ve.Message, ve.Expected, ve.Actual)
+	}
 	return fmt.Sprintf("validation error for field '%s': %s (value: %v)", ve.Field, ve.Message, ve.Value)
 }
 

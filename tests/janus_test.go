@@ -346,9 +346,9 @@ func TestAnyCodableArrayValue(t *testing.T) {
 	}
 }
 
-// TestUnixDatagramClientInitialization tests SOCK_DGRAM client creation
-// Matches Swift: testUnixDatagramClientInitialization()
-func TestUnixDatagramClientInitialization(t *testing.T) {
+// TestJanusClientInitialization tests SOCK_DGRAM client creation
+// Matches Swift: testJanusClientInitialization()
+func TestJanusClientInitialization(t *testing.T) {
 	testSocketPath := "/tmp/gojanus-dgram-test.sock"
 	
 	// Clean up before test
@@ -357,7 +357,7 @@ func TestUnixDatagramClientInitialization(t *testing.T) {
 	
 	// Create test API spec and client for SOCK_DGRAM
 	spec := createTestAPISpec()
-	client, err := gojanus.JanusDatagramClient(testSocketPath, "test-channel", spec)
+	client, err := gojanus.JanusClient(testSocketPath, "test-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create SOCK_DGRAM client: %v", err)
 	}

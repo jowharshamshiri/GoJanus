@@ -30,7 +30,7 @@ func TestPathTraversalAttackPrevention(t *testing.T) {
 	}
 	
 	for _, maliciousPath := range maliciousPaths {
-		_, err := gojanus.JanusDatagramClient(maliciousPath, "security-channel", spec)
+		_, err := gojanus.JanusClient(maliciousPath, "security-channel", spec)
 		if err == nil {
 			t.Errorf("Expected security error for malicious path: %s", maliciousPath)
 		}
@@ -55,7 +55,7 @@ func TestNullByteInjectionDetection(t *testing.T) {
 	}
 	
 	for _, nullBytePath := range nullBytePaths {
-		_, err := gojanus.JanusDatagramClient(nullBytePath, "security-channel", spec)
+		_, err := gojanus.JanusClient(nullBytePath, "security-channel", spec)
 		if err == nil {
 			t.Errorf("Expected security error for null byte injection: %s", nullBytePath)
 		}
@@ -93,7 +93,7 @@ func TestChannelIDInjectionAttacks(t *testing.T) {
 	}
 	
 	for _, maliciousChannelID := range maliciousChannelIDs {
-		_, err := gojanus.JanusDatagramClient(testSocketPath, maliciousChannelID, spec)
+		_, err := gojanus.JanusClient(testSocketPath, maliciousChannelID, spec)
 		if err == nil {
 			t.Errorf("Expected security error for malicious channel ID: %s", maliciousChannelID)
 			continue
@@ -116,7 +116,7 @@ func TestCommandInjectionInArguments(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createSecurityTestAPISpec()
-	client, err := gojanus.JanusDatagramClient(testSocketPath, "security-channel", spec)
+	client, err := gojanus.JanusClient(testSocketPath, "security-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -196,7 +196,7 @@ func TestUnicodeNormalizationAttacks(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createSecurityTestAPISpec()
-	client, err := gojanus.JanusDatagramClient(testSocketPath, "security-channel", spec)
+	client, err := gojanus.JanusClient(testSocketPath, "security-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -247,7 +247,7 @@ func TestMemoryExhaustionViaLargePayloads(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createSecurityTestAPISpec()
-	client, err := gojanus.JanusDatagramClient(testSocketPath, "security-channel", spec)
+	client, err := gojanus.JanusClient(testSocketPath, "security-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -286,7 +286,7 @@ func TestResourceExhaustionViaConnectionFlooding(t *testing.T) {
 	
 	// Test creating many clients rapidly
 	maxAttempts := 200 // More than default max connections (100)
-	clients := make([]*gojanus.DatagramClient, 0, maxAttempts)
+	clients := make([]*gojanus.JanusClient, 0, maxAttempts)
 	
 	defer func() {
 		// Clean up all created clients
@@ -301,7 +301,7 @@ func TestResourceExhaustionViaConnectionFlooding(t *testing.T) {
 	
 	for i := 0; i < maxAttempts; i++ {
 		testSocketPath := fmt.Sprintf("/tmp/gojanus-flood-%d.sock", i)
-		client, err := gojanus.JanusDatagramClient(testSocketPath, "security-channel", spec)
+		client, err := gojanus.JanusClient(testSocketPath, "security-channel", spec)
 		
 		if err != nil {
 			errorCount++
@@ -338,7 +338,7 @@ func TestConfigurationSecurityValidation(t *testing.T) {
 	spec := createSecurityTestAPISpec()
 	
 	// Test insecure configurations
-	insecureConfigs := []gojanus.JanusDatagramClientConfig{
+	insecureConfigs := []gojanus.JanusClientConfig{
 		{
 			MaxMessageSize:   100,    // Too small
 			DefaultTimeout:   1 * time.Nanosecond, // Too short
@@ -348,7 +348,7 @@ func TestConfigurationSecurityValidation(t *testing.T) {
 	}
 	
 	for i, config := range insecureConfigs {
-		_, err := gojanus.JanusDatagramClientWithConfig(testSocketPath, "security-channel", spec, config)
+		_, err := gojanus.JanusClientWithConfig(testSocketPath, "security-channel", spec, config)
 		if err == nil {
 			t.Errorf("Expected configuration validation error for insecure config %d", i)
 			continue
@@ -371,7 +371,7 @@ func TestValidationBypassAttempts(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createSecurityTestAPISpec()
-	client, err := gojanus.JanusDatagramClient(testSocketPath, "security-channel", spec)
+	client, err := gojanus.JanusClient(testSocketPath, "security-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -450,7 +450,7 @@ func TestSocketPathSecurityRestrictions(t *testing.T) {
 	}
 	
 	for _, restrictedPath := range restrictedPaths {
-		_, err := gojanus.JanusDatagramClient(restrictedPath, "security-channel", spec)
+		_, err := gojanus.JanusClient(restrictedPath, "security-channel", spec)
 		if err == nil {
 			t.Errorf("Expected security error for restricted path: %s", restrictedPath)
 		}
@@ -468,7 +468,7 @@ func TestSocketPathSecurityRestrictions(t *testing.T) {
 	}
 	
 	for _, allowedPath := range allowedPaths {
-		client, err := gojanus.JanusDatagramClient(allowedPath, "security-channel", spec)
+		client, err := gojanus.JanusClient(allowedPath, "security-channel", spec)
 		if err != nil {
 			t.Errorf("Expected allowed path to work: %s, got error: %v", allowedPath, err)
 		} else {

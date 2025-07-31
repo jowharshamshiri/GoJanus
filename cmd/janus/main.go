@@ -103,7 +103,7 @@ func listenForDatagrams(socketPath string, apiSpec *specification.APISpecificati
 func sendDatagram(targetSocket, command, message string, apiSpec *specification.APISpecification, channelID string) {
 	fmt.Printf("Sending SOCK_DGRAM to: %s\n", targetSocket)
 
-	client, err := core.NewUnixDatagramClient(targetSocket)
+	client, err := core.NewJanusClient(targetSocket)
 	if err != nil {
 		log.Fatalf("Failed to create datagram client: %v", err)
 	}

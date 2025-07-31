@@ -10,9 +10,9 @@ import (
 	"time"
 )
 
-// UnixDatagramClient provides low-level Unix domain datagram socket communication  
+// JanusClient provides low-level Unix domain datagram socket communication  
 // SOCK_DGRAM connectionless implementation for cross-language compatibility
-type UnixDatagramClient struct {
+type JanusClient struct {
 	socketPath        string
 	maxMessageSize    int
 	datagramTimeout   time.Duration
@@ -21,25 +21,25 @@ type UnixDatagramClient struct {
 	handlerMutex     sync.RWMutex
 }
 
-// UnixDatagramClientConfig holds configuration options for the datagram client
+// JanusClientConfig holds configuration options for the datagram client
 // SOCK_DGRAM configuration structure
-type UnixDatagramClientConfig struct {
+type JanusClientConfig struct {
 	MaxMessageSize   int
 	DatagramTimeout  time.Duration
 }
 
-// DefaultUnixDatagramClientConfig returns default configuration for SOCK_DGRAM
-func DefaultUnixDatagramClientConfig() UnixDatagramClientConfig {
-	return UnixDatagramClientConfig{
+// DefaultJanusClientConfig returns default configuration for SOCK_DGRAM
+func DefaultJanusClientConfig() JanusClientConfig {
+	return JanusClientConfig{
 		MaxMessageSize:  64 * 1024,       // 64KB datagram limit
 		DatagramTimeout: 5 * time.Second, // 5s timeout
 	}
 }
 
-// NewUnixDatagramClient creates a new Unix datagram client
+// NewJanusClient creates a new Unix datagram client
 // SOCK_DGRAM connectionless implementation
-func NewUnixDatagramClient(socketPath string, config ...UnixDatagramClientConfig) (*UnixDatagramClient, error) {
-	cfg := DefaultUnixDatagramClientConfig()
+func NewJanusClient(socketPath string, config ...JanusClientConfig) (*JanusClient, error) {
+	cfg := DefaultJanusClientConfig()
 	if len(config) > 0 {
 		cfg = config[0]
 	}
@@ -51,7 +51,7 @@ func NewUnixDatagramClient(socketPath string, config ...UnixDatagramClientConfig
 		return nil, fmt.Errorf("invalid socket path: %w", err)
 	}
 	
-	return &UnixDatagramClient{
+	return &JanusClient{
 		socketPath:        socketPath,
 		maxMessageSize:    cfg.MaxMessageSize,
 		datagramTimeout:   cfg.DatagramTimeout,
@@ -62,7 +62,7 @@ func NewUnixDatagramClient(socketPath string, config ...UnixDatagramClientConfig
 
 // BindResponseSocket creates a datagram socket for receiving responses
 // Connectionless SOCK_DGRAM implementation
-func (udc *UnixDatagramClient) BindResponseSocket(ctx context.Context, responsePath string) (net.Conn, error) {
+func (udc *JanusClient) BindResponseSocket(ctx context.Context, responsePath string) (net.Conn, error) {
 	
 	// Create UDP-style Unix datagram socket
 	addr, err := net.ResolveUnixAddr("unixgram", responsePath)
@@ -81,7 +81,7 @@ func (udc *UnixDatagramClient) BindResponseSocket(ctx context.Context, responseP
 
 // CloseSocket closes a datagram socket and cleans up the socket file
 // Connectionless SOCK_DGRAM implementation
-func (udc *UnixDatagramClient) CloseSocket(conn net.Conn, socketPath string) error {
+func (udc *JanusClient) CloseSocket(conn net.Conn, socketPath string) error {
 	
 	if conn == nil {
 		return nil // Already closed
@@ -100,7 +100,7 @@ func (udc *UnixDatagramClient) CloseSocket(conn net.Conn, socketPath string) err
 
 // SendDatagram sends data via connectionless Unix datagram socket
 // SOCK_DGRAM implementation for connectionless communication
-func (udc *UnixDatagramClient) SendDatagram(ctx context.Context, data []byte, responsePath string) ([]byte, error) {
+func (udc *JanusClient) SendDatagram(ctx context.Context, data []byte, responsePath string) ([]byte, error) {
 	// Validate message data using security validator
 	if err := udc.validator.ValidateMessageData(data); err != nil {
 		return nil, fmt.Errorf("message validation failed: %w", err)
@@ -157,7 +157,7 @@ func (udc *UnixDatagramClient) SendDatagram(ctx context.Context, data []byte, re
 
 // SendDatagramNoResponse sends datagram without expecting a response
 // Fire-and-forget pattern for SOCK_DGRAM
-func (udc *UnixDatagramClient) SendDatagramNoResponse(ctx context.Context, data []byte) error {
+func (udc *JanusClient) SendDatagramNoResponse(ctx context.Context, data []byte) error {
 	// Validate message data using security validator
 	if err := udc.validator.ValidateMessageData(data); err != nil {
 		return fmt.Errorf("message validation failed: %w", err)
@@ -195,7 +195,7 @@ func (udc *UnixDatagramClient) SendDatagramNoResponse(ctx context.Context, data 
 
 // TestDatagramSocket tests the datagram socket connectivity
 // SOCK_DGRAM connectivity test
-func (udc *UnixDatagramClient) TestDatagramSocket(ctx context.Context) error {
+func (udc *JanusClient) TestDatagramSocket(ctx context.Context) error {
 	// Resolve server socket address
 	serverAddr, err := net.ResolveUnixAddr("unixgram", udc.socketPath)
 	if err != nil {
@@ -214,7 +214,7 @@ func (udc *UnixDatagramClient) TestDatagramSocket(ctx context.Context) error {
 
 // AddMessageHandler adds a handler for incoming messages
 // SOCK_DGRAM message handler pattern
-func (udc *UnixDatagramClient) AddMessageHandler(handler func([]byte)) {
+func (udc *JanusClient) AddMessageHandler(handler func([]byte)) {
 	udc.handlerMutex.Lock()
 	defer udc.handlerMutex.Unlock()
 	
@@ -223,7 +223,7 @@ func (udc *UnixDatagramClient) AddMessageHandler(handler func([]byte)) {
 
 // RemoveAllMessageHandlers removes all message handlers
 // SOCK_DGRAM handler cleanup
-func (udc *UnixDatagramClient) RemoveAllMessageHandlers() {
+func (udc *JanusClient) RemoveAllMessageHandlers() {
 	udc.handlerMutex.Lock()
 	defer udc.handlerMutex.Unlock()
 	
@@ -232,19 +232,19 @@ func (udc *UnixDatagramClient) RemoveAllMessageHandlers() {
 
 // GenerateResponseSocketPath generates a unique response socket path
 // Used for SOCK_DGRAM reply-to mechanism
-func (udc *UnixDatagramClient) GenerateResponseSocketPath() string {
+func (udc *JanusClient) GenerateResponseSocketPath() string {
 	timestamp := time.Now().UnixNano()
 	pid := os.Getpid()
-	return fmt.Sprintf("/tmp/go_datagram_client_%d_%d.sock", pid, timestamp)
+	return fmt.Sprintf("/tmp/go_janus_client_%d_%d.sock", pid, timestamp)
 }
 
 // MaximumMessageSize returns the maximum message size (read-only property)
 // SOCK_DGRAM datagram size limit
-func (udc *UnixDatagramClient) MaximumMessageSize() int {
+func (udc *JanusClient) MaximumMessageSize() int {
 	return udc.maxMessageSize
 }
 
 // SocketPath returns the socket path (read-only property)
-func (udc *UnixDatagramClient) SocketPath() string {
+func (udc *JanusClient) SocketPath() string {
 	return udc.socketPath
 }

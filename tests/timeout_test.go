@@ -22,7 +22,7 @@ func TestCommandTimeoutConfiguration(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createTimeoutTestAPISpec()
-	client, err := gojanus.JanusDatagramClient(testSocketPath, "timeout-channel", spec)
+	client, err := gojanus.JanusClient(testSocketPath, "timeout-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestTimeoutCallbackMechanisms(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createTimeoutTestAPISpec()
-	client, err := gojanus.JanusDatagramClient(testSocketPath, "timeout-channel", spec)
+	client, err := gojanus.JanusClient(testSocketPath, "timeout-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -114,7 +114,7 @@ func TestUUIDGeneration(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createTimeoutTestAPISpec()
-	client, err := gojanus.JanusDatagramClient(testSocketPath, "timeout-channel", spec)
+	client, err := gojanus.JanusClient(testSocketPath, "timeout-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -167,7 +167,7 @@ func TestMultipleConcurrentTimeouts(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createTimeoutTestAPISpec()
-	client, err := gojanus.JanusDatagramClient(testSocketPath, "timeout-channel", spec)
+	client, err := gojanus.JanusClient(testSocketPath, "timeout-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestDefaultTimeoutBehavior(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createTimeoutTestAPISpec()
-	client, err := gojanus.JanusDatagramClient(testSocketPath, "timeout-channel", spec)
+	client, err := gojanus.JanusClient(testSocketPath, "timeout-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -349,7 +349,7 @@ func TestTimeoutValidation(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createTimeoutTestAPISpec()
-	client, err := gojanus.JanusDatagramClient(testSocketPath, "timeout-channel", spec)
+	client, err := gojanus.JanusClient(testSocketPath, "timeout-channel", spec)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}

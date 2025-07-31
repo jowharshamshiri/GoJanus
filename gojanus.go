@@ -63,15 +63,15 @@ const Version = "1.0.0"
 
 // Core layer types
 type (
-	UnixDatagramClient       = core.UnixDatagramClient
-	UnixDatagramClientConfig = core.UnixDatagramClientConfig
+	JanusClient       = core.JanusClient
+	JanusClientConfig = core.JanusClientConfig
 	SecurityValidator        = core.SecurityValidator
 )
 
 // Protocol layer types
 type (
-	DatagramClient            = protocol.DatagramClient
-	JanusDatagramClientConfig = protocol.JanusDatagramClientConfig
+	JanusClient            = protocol.JanusClient
+	JanusClientConfig = protocol.JanusClientConfig
 	TimeoutManager            = protocol.TimeoutManager
 )
 
@@ -99,24 +99,24 @@ type (
 
 // Convenience constructors
 
-// NewUnixDatagramClient creates a new Unix datagram client with default configuration
-func NewUnixDatagramClient(socketPath string) (*UnixDatagramClient, error) {
-	return core.NewUnixDatagramClient(socketPath)
+// NewJanusClient creates a new Unix datagram client with default configuration
+func NewJanusClient(socketPath string) (*JanusClient, error) {
+	return core.NewJanusClient(socketPath)
 }
 
-// NewUnixDatagramClientWithConfig creates a new Unix datagram client with custom configuration
-func NewUnixDatagramClientWithConfig(socketPath string, config UnixDatagramClientConfig) (*UnixDatagramClient, error) {
-	return core.NewUnixDatagramClient(socketPath, config)
+// NewJanusClientWithConfig creates a new Unix datagram client with custom configuration
+func NewJanusClientWithConfig(socketPath string, config JanusClientConfig) (*JanusClient, error) {
+	return core.NewJanusClient(socketPath, config)
 }
 
-// JanusDatagramClient creates a new Janus datagram client with default configuration
-func JanusDatagramClient(socketPath, channelID string, apiSpec *APISpecification) (*protocol.DatagramClient, error) {
-	return protocol.JanusDatagramClient(socketPath, channelID, apiSpec)
+// JanusClient creates a new Janus datagram client with default configuration
+func JanusClient(socketPath, channelID string, apiSpec *APISpecification) (*protocol.JanusClient, error) {
+	return protocol.JanusClient(socketPath, channelID, apiSpec)
 }
 
-// JanusDatagramClientWithConfig creates a new Janus datagram client with custom configuration
-func JanusDatagramClientWithConfig(socketPath, channelID string, apiSpec *APISpecification, config JanusDatagramClientConfig) (*protocol.DatagramClient, error) {
-	return protocol.JanusDatagramClient(socketPath, channelID, apiSpec, config)
+// JanusClientWithConfig creates a new Janus datagram client with custom configuration
+func JanusClientWithConfig(socketPath, channelID string, apiSpec *APISpecification, config JanusClientConfig) (*protocol.JanusClient, error) {
+	return protocol.JanusClient(socketPath, channelID, apiSpec, config)
 }
 
 // NewAPISpecificationParser creates a new API specification parser
@@ -173,14 +173,14 @@ func NewErrorResponse(commandID, channelID string, err *SocketError) *SocketResp
 
 // Default configuration getters
 
-// DefaultUnixDatagramClientConfig returns the default Unix datagram client configuration
-func DefaultUnixDatagramClientConfig() UnixDatagramClientConfig {
-	return core.DefaultUnixDatagramClientConfig()
+// DefaultJanusClientConfig returns the default Unix datagram client configuration
+func DefaultJanusClientConfig() JanusClientConfig {
+	return core.DefaultJanusClientConfig()
 }
 
-// DefaultJanusDatagramClientConfig returns the default Janus datagram client configuration
-func DefaultJanusDatagramClientConfig() JanusDatagramClientConfig {
-	return protocol.DefaultJanusDatagramClientConfig()
+// DefaultJanusClientConfig returns the default Janus datagram client configuration
+func DefaultJanusClientConfig() JanusClientConfig {
+	return protocol.DefaultJanusClientConfig()
 }
 
 // Library information
