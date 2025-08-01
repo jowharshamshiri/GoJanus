@@ -21,7 +21,7 @@ func TestCommandValidationWithoutConnection(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createStatelessTestAPISpec()
-	client, err := gojanus.NewJanusClient(testSocketPath, "stateless-channel", spec)
+	client, err := gojanus.NewJanusClient(testSocketPath, "stateless-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -70,7 +70,7 @@ func TestIndependentCommandExecution(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createStatelessTestAPISpec()
-	client, err := gojanus.NewJanusClient(testSocketPath, "stateless-channel", spec)
+	client, err := gojanus.NewJanusClient(testSocketPath, "stateless-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -119,13 +119,13 @@ func TestChannelIsolationBetweenClients(t *testing.T) {
 	spec := createMultiChannelAPISpec()
 	
 	// Create clients for different channels
-	client1, err := gojanus.NewJanusClient(testSocketPath1, "channel-1", spec)
+	client1, err := gojanus.NewJanusClient(testSocketPath1, "channel-1")
 	if err != nil {
 		t.Fatalf("Failed to create client1: %v", err)
 	}
 	defer client1.Close()
 	
-	client2, err := gojanus.NewJanusClient(testSocketPath2, "channel-2", spec)
+	client2, err := gojanus.NewJanusClient(testSocketPath2, "channel-2")
 	if err != nil {
 		t.Fatalf("Failed to create client2: %v", err)
 	}
@@ -175,7 +175,7 @@ func TestArgumentValidationInStatelessMode(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createStatelessTestAPISpec()
-	client, err := gojanus.NewJanusClient(testSocketPath, "stateless-channel", spec)
+	client, err := gojanus.NewJanusClient(testSocketPath, "stateless-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -239,7 +239,7 @@ func TestMessageSerializationForStatelessOperations(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createStatelessTestAPISpec()
-	client, err := gojanus.NewJanusClient(testSocketPath, "stateless-channel", spec)
+	client, err := gojanus.NewJanusClient(testSocketPath, "stateless-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -337,7 +337,7 @@ func TestStatelessCommandUUIDGeneration(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createStatelessTestAPISpec()
-	client, err := gojanus.NewJanusClient(testSocketPath, "stateless-channel", spec)
+	client, err := gojanus.NewJanusClient(testSocketPath, "stateless-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -391,7 +391,7 @@ func TestChannelIsolationValidation(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createMultiChannelAPISpec()
-	client, err := gojanus.NewJanusClient(testSocketPath, "channel-1", spec)
+	client, err := gojanus.NewJanusClient(testSocketPath, "channel-1")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}

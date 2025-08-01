@@ -9,6 +9,8 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -96,11 +98,14 @@ func listenForDatagrams(socketPath string, apiSpec *specification.APISpecificati
 		os.Exit(0)
 	}()
 
+	// Initialize server state for client tracking
+	serverState := NewServerState()
+	
 	fmt.Println("Ready to receive datagrams")
 
 	for {
 		buffer := make([]byte, 64*1024)
-		n, _, err := conn.ReadFromUnix(buffer)
+		n, clientAddr, err := conn.ReadFromUnix(buffer)
 		if err != nil {
 			log.Printf("Read error: %v", err)
 			continue
@@ -112,11 +117,15 @@ func listenForDatagrams(socketPath string, apiSpec *specification.APISpecificati
 			continue
 		}
 
-		fmt.Printf("Received datagram: %s (ID: %s)\n", cmd.Command, cmd.ID)
+		// Track client activity
+		clientID := serverState.AddClient(clientAddr.String())
+		
+		fmt.Printf("Received datagram: %s (ID: %s) from client %s [Total clients: %d]\n", 
+			cmd.Command, cmd.ID, clientID, serverState.GetClientCount())
 
 		// Send response via reply_to if specified
 		if cmd.ReplyTo != nil && *cmd.ReplyTo != "" {
-			sendResponse(cmd.ID, cmd.ChannelID, cmd.Command, cmd.Args, *cmd.ReplyTo, apiSpec)
+			sendResponse(cmd.ID, cmd.ChannelID, cmd.Command, cmd.Args, *cmd.ReplyTo, apiSpec, serverState, clientID)
 		}
 	}
 }
@@ -201,7 +210,239 @@ func sendDatagram(targetSocket, command, message string, apiSpec *specification.
 	fmt.Printf("Response: Success=%v, Result=%+v\n", response.Success, response.Result)
 }
 
-func sendResponse(cmdID, channelID, command string, args map[string]interface{}, replyTo string, apiSpec *specification.APISpecification) {
+// ClientConnection tracks information about clients that have sent datagrams
+type ClientConnection struct {
+	ID           string
+	Address      string
+	CreatedAt    time.Time
+	LastActivity time.Time
+	MessageCount int
+}
+
+// ServerState manages client connections and server metrics
+type ServerState struct {
+	clients         map[string]*ClientConnection
+	clientIDCounter int
+	clientsMutex    sync.RWMutex
+}
+
+// NewServerState creates a new server state manager
+func NewServerState() *ServerState {
+	return &ServerState{
+		clients: make(map[string]*ClientConnection),
+	}
+}
+
+// AddClient adds or updates client information based on their source address
+func (s *ServerState) AddClient(addr string) string {
+	s.clientsMutex.Lock()
+	defer s.clientsMutex.Unlock()
+	
+	// Look for existing client by address
+	for _, client := range s.clients {
+		if client.Address == addr {
+			client.LastActivity = time.Now()
+			client.MessageCount++
+			return client.ID
+		}
+	}
+	
+	// Create new client
+	s.clientIDCounter++
+	clientID := fmt.Sprintf("client-%d", s.clientIDCounter)
+	
+	client := &ClientConnection{
+		ID:           clientID,
+		Address:      addr,
+		CreatedAt:    time.Now(),
+		LastActivity: time.Now(),
+		MessageCount: 1,
+	}
+	
+	s.clients[clientID] = client
+	return clientID
+}
+
+// GetClientCount returns the number of tracked clients
+func (s *ServerState) GetClientCount() int {
+	s.clientsMutex.RLock()
+	defer s.clientsMutex.RUnlock()
+	return len(s.clients)
+}
+
+// GetClientInfo returns information about a specific client
+func (s *ServerState) GetClientInfo(clientID string) *ClientConnection {
+	s.clientsMutex.RLock()
+	defer s.clientsMutex.RUnlock()
+	return s.clients[clientID]
+}
+
+// GetAllClients returns information about all clients
+func (s *ServerState) GetAllClients() map[string]*ClientConnection {
+	s.clientsMutex.RLock()
+	defer s.clientsMutex.RUnlock()
+	
+	result := make(map[string]*ClientConnection)
+	for id, client := range s.clients {
+		// Create a copy to avoid concurrent access issues
+		result[id] = &ClientConnection{
+			ID:           client.ID,
+			Address:      client.Address,
+			CreatedAt:    client.CreatedAt,
+			LastActivity: client.LastActivity,
+			MessageCount: client.MessageCount,
+		}
+	}
+	return result
+}
+
+// CommandHandler defines the function signature for command handlers
+type CommandHandler func(args map[string]interface{}) (map[string]interface{}, error)
+
+// executeWithTimeout executes a command handler with a timeout
+func executeWithTimeout(handler CommandHandler, args map[string]interface{}, timeoutSeconds int) (map[string]interface{}, error) {
+	result := make(chan map[string]interface{}, 1)
+	errChan := make(chan error, 1)
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				errChan <- fmt.Errorf("handler panicked: %v", r)
+			}
+		}()
+		
+		res, err := handler(args)
+		if err != nil {
+			errChan <- err
+		} else {
+			result <- res
+		}
+	}()
+
+	timeout := time.Duration(timeoutSeconds) * time.Second
+	select {
+	case res := <-result:
+		return res, nil
+	case err := <-errChan:
+		return nil, err
+	case <-time.After(timeout):
+		return nil, fmt.Errorf("handler execution timed out after %d seconds", timeoutSeconds)
+	}
+}
+
+// getBuiltinCommandHandler returns the handler for built-in commands
+func getBuiltinCommandHandler(command string, apiSpec *specification.APISpecification, serverState *ServerState, clientID string) CommandHandler {
+	switch command {
+	case "spec":
+		return func(args map[string]interface{}) (map[string]interface{}, error) {
+			if apiSpec != nil {
+				// Convert API specification to JSON and back to ensure proper serialization
+				specJSON, err := json.Marshal(apiSpec)
+				if err != nil {
+					return nil, fmt.Errorf("failed to serialize API specification: %v", err)
+				}
+				var specData interface{}
+				if err := json.Unmarshal(specJSON, &specData); err != nil {
+					return nil, fmt.Errorf("failed to deserialize API specification: %v", err)
+				}
+				return map[string]interface{}{
+					"specification": specData,
+				}, nil
+			}
+			return nil, fmt.Errorf("no API specification loaded on server")
+		}
+	case "ping":
+		return func(args map[string]interface{}) (map[string]interface{}, error) {
+			return map[string]interface{}{
+				"pong": true,
+				"echo": args,
+			}, nil
+		}
+	case "echo":
+		return func(args map[string]interface{}) (map[string]interface{}, error) {
+			return map[string]interface{}{
+				"echo": args["message"],
+			}, nil
+		}
+	case "get_info":
+		return func(args map[string]interface{}) (map[string]interface{}, error) {
+			return map[string]interface{}{
+				"implementation": "Go",
+				"version":        "1.0.0",
+				"protocol":       "SOCK_DGRAM",
+				"client_count":   serverState.GetClientCount(),
+				"client_id":      clientID,
+			}, nil
+		}
+	case "server_stats":
+		return func(args map[string]interface{}) (map[string]interface{}, error) {
+			clients := serverState.GetAllClients()
+			clientStats := make([]map[string]interface{}, 0, len(clients))
+			
+			for _, client := range clients {
+				clientStats = append(clientStats, map[string]interface{}{
+					"id":             client.ID,
+					"address":        client.Address,
+					"created_at":     client.CreatedAt.Unix(),
+					"last_activity":  client.LastActivity.Unix(),
+					"message_count":  client.MessageCount,
+				})
+			}
+			
+			return map[string]interface{}{
+				"total_clients": len(clients),
+				"clients":       clientStats,
+				"server_info": map[string]interface{}{
+					"implementation": "Go",
+					"version":        "1.0.0",
+					"protocol":       "SOCK_DGRAM",
+				},
+			}, nil
+		}
+	case "validate":
+		return func(args map[string]interface{}) (map[string]interface{}, error) {
+			// Validate JSON payload
+			if message, ok := args["message"]; ok {
+				if messageStr, ok := message.(string); ok {
+					var jsonData interface{}
+					if err := json.Unmarshal([]byte(messageStr), &jsonData); err != nil {
+						return map[string]interface{}{
+							"valid":  false,
+							"error":  "Invalid JSON format",
+							"reason": err.Error(),
+						}, nil
+					}
+					return map[string]interface{}{
+						"valid": true,
+						"data":  jsonData,
+					}, nil
+				}
+				return map[string]interface{}{
+					"valid": false,
+					"error": "Message must be a string",
+				}, nil
+			}
+			return map[string]interface{}{
+				"valid": false,
+				"error": "No message provided for validation",
+			}, nil
+		}
+	case "slow_process":
+		return func(args map[string]interface{}) (map[string]interface{}, error) {
+			// Simulate a slow process that might timeout
+			time.Sleep(2 * time.Second) // 2 second delay
+			return map[string]interface{}{
+				"processed": true,
+				"delay":     "2000ms",
+				"message":   args["message"],
+			}, nil
+		}
+	default:
+		return nil
+	}
+}
+
+func sendResponse(cmdID, channelID, command string, args map[string]interface{}, replyTo string, apiSpec *specification.APISpecification, serverState *ServerState, clientID string) {
 	var result map[string]interface{}
 	var success = true
 	var errorMsg *models.SocketError
@@ -235,97 +476,36 @@ func sendResponse(cmdID, channelID, command string, args map[string]interface{},
 
 	// Only process command if validation passed
 	if success {
-		switch command {
-	case "spec":
-		if apiSpec != nil {
-			// Convert API specification to JSON and back to ensure proper serialization
-			specJSON, err := json.Marshal(apiSpec)
+		// Get built-in command handler
+		handler := getBuiltinCommandHandler(command, apiSpec, serverState, clientID)
+		if handler != nil {
+			// Execute with timeout (default 30 seconds for built-in commands)
+			timeoutSeconds := 30
+			if command == "slow_process" {
+				timeoutSeconds = 5 // Allow more time for slow_process command
+			}
+			
+			handlerResult, err := executeWithTimeout(handler, args, timeoutSeconds)
 			if err != nil {
 				success = false
+				errorCode := "HANDLER_ERROR"
+				if strings.Contains(err.Error(), "timed out") {
+					errorCode = "HANDLER_TIMEOUT"
+				}
 				errorMsg = &models.SocketError{
-					Code:    "INTERNAL_ERROR",
-					Message: fmt.Sprintf("Failed to serialize API specification: %v", err),
+					Code:    errorCode,
+					Message: err.Error(),
 				}
 			} else {
-				var specData interface{}
-				if err := json.Unmarshal(specJSON, &specData); err != nil {
-					success = false
-					errorMsg = &models.SocketError{
-						Code:    "INTERNAL_ERROR",
-						Message: fmt.Sprintf("Failed to deserialize API specification: %v", err),
-					}
-				} else {
-					result = map[string]interface{}{
-						"specification": specData,
-					}
-				}
+				result = handlerResult
 			}
 		} else {
 			success = false
 			errorMsg = &models.SocketError{
-				Code:    "INTERNAL_ERROR",
-				Message: "No API specification loaded on server",
+				Code:    "UNKNOWN_COMMAND",
+				Message: fmt.Sprintf("Unknown command: %s", command),
 			}
 		}
-	case "ping":
-		result = map[string]interface{}{
-			"pong": true,
-			"echo": args,
-		}
-	case "echo":
-		result = map[string]interface{}{
-			"message": args["message"],
-		}
-	case "get_info":
-		result = map[string]interface{}{
-			"implementation": "Go",
-			"version":        "1.0.0",
-			"protocol":       "SOCK_DGRAM",
-		}
-	case "validate":
-		// Validate JSON payload
-		if message, ok := args["message"]; ok {
-			if messageStr, ok := message.(string); ok {
-				var jsonData interface{}
-				if err := json.Unmarshal([]byte(messageStr), &jsonData); err != nil {
-					result = map[string]interface{}{
-						"valid":  false,
-						"error":  "Invalid JSON format",
-						"reason": err.Error(),
-					}
-				} else {
-					result = map[string]interface{}{
-						"valid": true,
-						"data":  jsonData,
-					}
-				}
-			} else {
-				result = map[string]interface{}{
-					"valid": false,
-					"error": "Message must be a string",
-				}
-			}
-		} else {
-			result = map[string]interface{}{
-				"valid": false,
-				"error": "No message provided for validation",
-			}
-		}
-	case "slow_process":
-		// Simulate a slow process that might timeout
-		time.Sleep(2 * time.Second) // 2 second delay
-		result = map[string]interface{}{
-			"processed": true,
-			"delay":     "2000ms",
-			"message":   args["message"],
-		}
-	default:
-		success = false
-		errorMsg = &models.SocketError{
-			Code:    "UNKNOWN_COMMAND",
-			Message: fmt.Sprintf("Unknown command: %s", command),
-		}
-	}
 	}
 
 	response := models.SocketResponse{

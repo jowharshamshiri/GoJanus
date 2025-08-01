@@ -1,10 +1,12 @@
 package core
 
 import (
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 	"unicode/utf8"
 )
 
@@ -275,5 +277,279 @@ func (sv *SecurityValidator) ValidateTimeout(timeout float64) error {
 		return fmt.Errorf("timeout %.2f seconds exceeds maximum %.2f seconds", timeout, maxTimeout)
 	}
 	
+	return nil
+}
+
+// ValidateStringContent validates string content for UTF-8 and null bytes (matches Swift implementation)
+func (sv *SecurityValidator) ValidateStringContent(str string) error {
+	// Check for null bytes
+	if strings.Contains(str, "\000") {
+		return fmt.Errorf("string contains null bytes")
+	}
+	
+	// Validate UTF-8 encoding
+	if !utf8.ValidString(str) {
+		return fmt.Errorf("string contains invalid UTF-8")
+	}
+	
+	return nil
+}
+
+// ValidateCommandId validates command ID format and security (matches Swift implementation)
+func (sv *SecurityValidator) ValidateCommandId(commandId string) error {
+	if commandId == "" {
+		return fmt.Errorf("command ID cannot be empty")
+	}
+	
+	if len(commandId) > 64 {
+		return fmt.Errorf("command ID exceeds maximum length of 64 characters")
+	}
+	
+	// Must be alphanumeric or UUID-like format (matches Swift pattern)
+	uuidPattern := regexp.MustCompile(`^[a-zA-Z0-9-]+$`)
+	if !uuidPattern.MatchString(commandId) {
+		return fmt.Errorf("command ID contains invalid characters")
+	}
+	
+	return nil
+}
+
+// ValidateTimestamp validates timestamp for reasonableness (matches Swift implementation)
+func (sv *SecurityValidator) ValidateTimestamp(timestamp float64) error {
+	now := float64(time.Now().Unix())
+	timeDiff := timestamp - now
+	if timeDiff < 0 {
+		timeDiff = -timeDiff
+	}
+	
+	// Allow 5-minute clock skew (300 seconds)
+	if timeDiff > 300 {
+		return fmt.Errorf("command timestamp is too far from current time")
+	}
+	
+	return nil
+}
+
+// ValidateReservedChannelName validates channel names aren't reserved (matches Swift implementation)
+func (sv *SecurityValidator) ValidateReservedChannelName(channelName string) error {
+	reservedChannels := []string{"system", "admin", "root", "test"}
+	lowerChannelName := strings.ToLower(channelName)
+	
+	for _, reserved := range reservedChannels {
+		if lowerChannelName == reserved {
+			return fmt.Errorf("channel name '%s' is reserved", channelName)
+		}
+	}
+	
+	return nil
+}
+
+// ValidateDangerousCommandName validates command names don't contain dangerous patterns (matches Swift implementation)
+func (sv *SecurityValidator) ValidateDangerousCommandName(commandName string) error {
+	dangerousPatterns := []string{"eval", "exec", "system", "shell", "rm", "delete", "drop"}
+	lowerCommandName := strings.ToLower(commandName)
+	
+	for _, pattern := range dangerousPatterns {
+		if strings.Contains(lowerCommandName, pattern) {
+			return fmt.Errorf("command name contains dangerous pattern: %s", pattern)
+		}
+	}
+	
+	return nil
+}
+
+// ValidateArgumentValue validates argument values for injection attempts (matches Swift implementation)
+func (sv *SecurityValidator) ValidateArgumentValue(key string, value interface{}) error {
+	// Only validate string values for injection patterns
+	stringValue, ok := value.(string)
+	if !ok {
+		return nil
+	}
+	
+	lowerValue := strings.ToLower(stringValue)
+	
+	// Check for SQL injection patterns
+	sqlPatterns := []string{"'", "\"", "--", "/*", "*/", "union", "select", "drop", "delete", "insert", "update"}
+	for _, pattern := range sqlPatterns {
+		if strings.Contains(lowerValue, pattern) {
+			return fmt.Errorf("argument '%s' contains potentially dangerous pattern: %s", key, pattern)
+		}
+	}
+	
+	// Check for script injection patterns
+	scriptPatterns := []string{"<script", "javascript:", "vbscript:", "onload=", "onerror="}
+	for _, pattern := range scriptPatterns {
+		if strings.Contains(lowerValue, pattern) {
+			return fmt.Errorf("argument '%s' contains script injection pattern: %s", key, pattern)
+		}
+	}
+	
+	return nil
+}
+
+// ValidateDangerousArgumentName validates argument names aren't dangerous (matches Swift implementation)
+func (sv *SecurityValidator) ValidateDangerousArgumentName(argName string) error {
+	dangerousArgs := []string{"__proto__", "constructor", "prototype", "eval", "function"}
+	lowerArgName := strings.ToLower(argName)
+	
+	for _, dangerous := range dangerousArgs {
+		if lowerArgName == dangerous {
+			return fmt.Errorf("dangerous argument name: %s", argName)
+		}
+	}
+	
+	return nil
+}
+
+// ValidateSocketPathForResourceLimits validates socket path for resource exhaustion (matches Swift implementation)
+func (sv *SecurityValidator) ValidateSocketPathForResourceLimits(path string) error {
+	// Check for patterns that might cause resource exhaustion
+	components := strings.Split(path, "/")
+	
+	// Too many path components could indicate an attack
+	if len(components) > 10 {
+		return fmt.Errorf("socket path has too many components")
+	}
+	
+	// Check for excessively long component names
+	for _, component := range components {
+		if len(component) > 50 {
+			return fmt.Errorf("socket path component exceeds maximum length")
+		}
+	}
+	
+	return nil
+}
+
+// ValidateEnhancedJSONStructure validates JSON structure more robustly (matches Swift implementation)
+func (sv *SecurityValidator) ValidateEnhancedJSONStructure(data []byte) error {
+	if len(data) == 0 {
+		return nil
+	}
+	
+	// Parse JSON to ensure it's valid
+	var jsonObj interface{}
+	if err := json.Unmarshal(data, &jsonObj); err != nil {
+		return fmt.Errorf("message contains invalid JSON structure: %v", err)
+	}
+	
+	// Ensure it's a JSON object (map), not just any JSON
+	if _, ok := jsonObj.(map[string]interface{}); !ok {
+		return fmt.Errorf("message must be a JSON object")
+	}
+	
+	return nil
+}
+
+// ValidateUUIDFormat validates command ID UUID format (matches TypeScript implementation)
+func (sv *SecurityValidator) ValidateUUIDFormat(uuid string) error {
+	// UUID v4 format: 8-4-4-4-12 hexadecimal digits
+	uuidPattern := `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`
+	matched, err := regexp.MatchString(uuidPattern, uuid)
+	if err != nil {
+		return fmt.Errorf("UUID pattern validation failed: %v", err)
+	}
+	if !matched {
+		return fmt.Errorf("invalid UUID format: %s", uuid)
+	}
+	return nil
+}
+
+// ValidateTimestampFormat validates ISO 8601 timestamp format (matches Swift/TypeScript implementation)
+func (sv *SecurityValidator) ValidateTimestampFormat(timestamp string) error {
+	// ISO 8601 format validation
+	formats := []string{
+		"2006-01-02T15:04:05Z",
+		"2006-01-02T15:04:05.000Z",
+		"2006-01-02T15:04:05-07:00",
+		"2006-01-02T15:04:05.000-07:00",
+	}
+	
+	for _, format := range formats {
+		if _, err := time.Parse(format, timestamp); err == nil {
+			return nil
+		}
+	}
+	
+	return fmt.Errorf("invalid timestamp format: %s (expected ISO 8601)", timestamp)
+}
+
+// ValidateReservedChannels checks for reserved channel names (matches Swift implementation)
+func (sv *SecurityValidator) ValidateReservedChannels(channelId string) error {
+	reservedChannels := map[string]bool{
+		"system":      true,
+		"admin":       true,
+		"root":        true,
+		"internal":    true,
+		"__proto__":   true,
+		"constructor": true,
+	}
+	
+	if reservedChannels[strings.ToLower(channelId)] {
+		return fmt.Errorf("channel ID '%s' is reserved and cannot be used", channelId)
+	}
+	return nil
+}
+
+// ValidateDangerousCommand checks for dangerous command patterns (matches Swift implementation)
+func (sv *SecurityValidator) ValidateDangerousCommand(commandName string) error {
+	dangerousPatterns := []string{"eval", "exec", "system", "shell", "rm", "delete", "drop"}
+	lowerCommand := strings.ToLower(commandName)
+	
+	for _, pattern := range dangerousPatterns {
+		if strings.Contains(lowerCommand, pattern) {
+			return fmt.Errorf("command name contains dangerous pattern: %s", pattern)
+		}
+	}
+	return nil
+}
+
+// ValidateArgumentSecurity checks for dangerous argument names (matches Swift implementation)
+func (sv *SecurityValidator) ValidateArgumentSecurity(args map[string]interface{}) error {
+	dangerousArgs := map[string]bool{
+		"__proto__":    true,
+		"constructor":  true,
+		"prototype":    true,
+		"eval":         true,
+		"function":     true,
+	}
+	
+	for argName := range args {
+		if dangerousArgs[strings.ToLower(argName)] {
+			return fmt.Errorf("dangerous argument name: %s", argName)
+		}
+	}
+	
+	// Validate argument values for injection attempts
+	for key, value := range args {
+		if err := sv.validateArgumentValue(key, value); err != nil {
+			return err
+		}
+	}
+	
+	return nil
+}
+
+// validateArgumentValue checks for SQL and script injection patterns (matches Swift implementation)
+func (sv *SecurityValidator) validateArgumentValue(key string, value interface{}) error {
+	if stringValue, ok := value.(string); ok {
+		lowerValue := strings.ToLower(stringValue)
+		
+		// Check for SQL injection patterns
+		sqlPatterns := []string{"'", "\"", "--", "/*", "*/", "union", "select", "drop", "delete", "insert", "update"}
+		for _, pattern := range sqlPatterns {
+			if strings.Contains(lowerValue, pattern) {
+				return fmt.Errorf("argument '%s' contains potentially dangerous SQL pattern: %s", key, pattern)
+			}
+		}
+		
+		// Check for script injection patterns
+		scriptPatterns := []string{"<script", "javascript:", "vbscript:", "onload=", "onerror="}
+		for _, pattern := range scriptPatterns {
+			if strings.Contains(lowerValue, pattern) {
+				return fmt.Errorf("argument '%s' contains script injection pattern: %s", key, pattern)
+			}
+		}
+	}
 	return nil
 }

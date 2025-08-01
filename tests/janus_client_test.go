@@ -22,9 +22,7 @@ func TestClientInitializationWithValidSpec(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := loadTestAPISpec()
-	
-	client, err := gojanus.NewJanusClient(testSocketPath, "test", spec)
+	client, err := gojanus.NewJanusClient(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client with valid spec: %v", err)
 	}
@@ -54,7 +52,7 @@ func TestClientInitializationWithInvalidChannel(t *testing.T) {
 	
 	spec := loadTestAPISpec()
 	
-	_, err := gojanus.NewJanusClient(testSocketPath, "nonexistent-channel", spec)
+	_, err := gojanus.NewJanusClient(testSocketPath, "nonexistent-channel")
 	if err == nil {
 		t.Error("Expected error for nonexistent channel")
 		return
@@ -90,7 +88,7 @@ func TestClientInitializationWithInvalidSpec(t *testing.T) {
 		},
 	}
 	
-	_, err := gojanus.NewJanusClient(testSocketPath, "test-channel", invalidSpec)
+	_, err := gojanus.NewJanusClient(testSocketPath, "test-channel")
 	if err == nil {
 		t.Error("Expected error for invalid specification")
 		return
@@ -111,7 +109,7 @@ func TestRegisterValidCommandHandler(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := loadTestAPISpec()
-	client, err := gojanus.NewJanusClient(testSocketPath, "test", spec)
+	client, err := gojanus.NewJanusClient(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -140,7 +138,7 @@ func TestRegisterInvalidCommandHandler(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := loadTestAPISpec()
-	client, err := gojanus.NewJanusClient(testSocketPath, "test", spec)
+	client, err := gojanus.NewJanusClient(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -171,7 +169,7 @@ func TestSocketCommandValidation(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := loadTestAPISpec()
-	client, err := gojanus.NewJanusClient(testSocketPath, "test", spec)
+	client, err := gojanus.NewJanusClient(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -221,7 +219,7 @@ func TestCommandMessageSerialization(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := loadTestAPISpec()
-	client, err := gojanus.NewJanusClient(testSocketPath, "test", spec)
+	client, err := gojanus.NewJanusClient(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -285,14 +283,14 @@ func TestMultipleClientInstances(t *testing.T) {
 	spec := loadTestAPISpec()
 	
 	// Create first client
-	client1, err := gojanus.NewJanusClient(testSocketPath1, "test", spec)
+	client1, err := gojanus.NewJanusClient(testSocketPath1, "test")
 	if err != nil {
 		t.Fatalf("Failed to create first client: %v", err)
 	}
 	defer client1.Close()
 	
 	// Create second client with different socket path and same channel
-	client2, err := gojanus.NewJanusClient(testSocketPath2, "test", spec)
+	client2, err := gojanus.NewJanusClient(testSocketPath2, "test")
 	if err != nil {
 		t.Fatalf("Failed to create second client: %v", err)
 	}
@@ -342,7 +340,7 @@ func TestCommandHandlerWithAsyncOperations(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := loadTestAPISpec()
-	client, err := gojanus.NewJanusClient(testSocketPath, "test", spec)
+	client, err := gojanus.NewJanusClient(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -375,7 +373,7 @@ func TestCommandHandlerErrorHandling(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := loadTestAPISpec()
-	client, err := gojanus.NewJanusClient(testSocketPath, "test", spec)
+	client, err := gojanus.NewJanusClient(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -406,7 +404,7 @@ func TestAPISpecWithComplexArguments(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := loadTestAPISpec()
-	client, err := gojanus.NewJanusClient(testSocketPath, "test", spec)
+	client, err := gojanus.NewJanusClient(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -442,7 +440,7 @@ func TestArgumentValidationConstraints(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := loadTestAPISpec()
-	client, err := gojanus.NewJanusClient(testSocketPath, "test", spec)
+	client, err := gojanus.NewJanusClient(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -478,7 +476,7 @@ func TestArgumentValidationConstraints(t *testing.T) {
 
 // loadTestAPISpec loads the test API specification from test-spec.json
 func loadTestAPISpec() *gojanus.APISpecification {
-	specPath := "../tests/config/spec-command-test-api.json"
+	specPath := "../../tests/config/spec-command-test-api.json"
 	specData, err := os.ReadFile(specPath)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to read spec-command-test-api.json: %v", err))

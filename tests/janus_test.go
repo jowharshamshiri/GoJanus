@@ -357,7 +357,7 @@ func TestJanusClientInitialization(t *testing.T) {
 	
 	// Create test API spec and client for SOCK_DGRAM
 	spec := createTestAPISpec()
-	client, err := gojanus.NewJanusClient(testSocketPath, "test-channel", spec)
+	client, err := gojanus.NewJanusClient(testSocketPath, "test-channel")
 	if err != nil {
 		t.Fatalf("Failed to create SOCK_DGRAM client: %v", err)
 	}

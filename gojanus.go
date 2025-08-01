@@ -110,13 +110,13 @@ func NewCoreClientWithConfig(socketPath string, config CoreClientConfig) (*CoreJ
 }
 
 // NewJanusClient creates a new Janus datagram client with default configuration
-func NewJanusClient(socketPath, channelID string, apiSpec *APISpecification) (*JanusClient, error) {
-	return protocol.New(socketPath, channelID, apiSpec)
+func NewJanusClient(socketPath, channelID string) (*JanusClient, error) {
+	return protocol.New(socketPath, channelID)
 }
 
 // NewJanusClientWithConfig creates a new Janus datagram client with custom configuration
-func NewJanusClientWithConfig(socketPath, channelID string, apiSpec *APISpecification, config JanusClientConfig) (*JanusClient, error) {
-	return protocol.New(socketPath, channelID, apiSpec, config)
+func NewJanusClientWithConfig(socketPath, channelID string, config JanusClientConfig) (*JanusClient, error) {
+	return protocol.New(socketPath, channelID, config)
 }
 
 // NewAPISpecificationParser creates a new API specification parser

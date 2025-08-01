@@ -1,12 +1,14 @@
 package tests
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/user/GoJanus/pkg/server"
 	"github.com/user/GoJanus/pkg/models"
+	"github.com/user/GoJanus/pkg/protocol"
 )
 
 func TestServerCreation(t *testing.T) {
@@ -36,9 +38,14 @@ func TestClientServerCommunication(t *testing.T) {
 	socketPath := "/tmp/test-go-high-level-comm.sock"
 	defer os.Remove(socketPath)
 	
-	// Start server
-	server := &server.JanusServer{}
-	server.RegisterHandler("ping", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
+	// Start server with proper configuration
+	config := &server.ServerConfig{
+		SocketPath:     socketPath,
+		MaxConnections: 100,
+		DefaultTimeout: 30,
+	}
+	srv := server.NewJanusServer(config)
+	srv.RegisterHandler("ping", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
 		return map[string]interface{}{
 			"message":   "pong",
 			"timestamp": time.Now().Unix(),
@@ -48,19 +55,23 @@ func TestClientServerCommunication(t *testing.T) {
 	// Start server in goroutine
 	serverDone := make(chan error, 1)
 	go func() {
-		serverDone <- server.StartListening(socketPath)
+		serverDone <- srv.StartListening()
 	}()
 	
 	// Give server time to start
 	time.Sleep(100 * time.Millisecond)
 	
-	// Test client communication
-	client := client.NewJanusClient("test", 5*time.Second)
+	// Test client communication - use nil apiSpec to fetch from server dynamically
+	client, err := protocol.New(socketPath, "test", nil)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+	defer client.Close()
 	
-	response, err := client.SendCommand(socketPath, "ping", nil)
+	response, err := client.SendCommand(context.Background(), "ping", nil)
 	
 	// Stop server
-	server.Stop()
+	srv.Stop()
 	<-serverDone
 	
 	// Verify response
@@ -82,8 +93,13 @@ func TestClientServerWithArgs(t *testing.T) {
 	defer os.Remove(socketPath)
 	
 	// Start server with echo handler
-	server := &server.JanusServer{}
-	server.RegisterHandler("echo", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
+	config := &server.ServerConfig{
+		SocketPath:     socketPath,
+		MaxConnections: 100,
+		DefaultTimeout: 30,
+	}
+	srv := server.NewJanusServer(config)
+	srv.RegisterHandler("echo", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
 		if cmd.Args == nil {
 			return nil, &models.SocketError{
 				Code:    "NO_ARGUMENTS",
@@ -110,23 +126,27 @@ func TestClientServerWithArgs(t *testing.T) {
 	// Start server in goroutine
 	serverDone := make(chan error, 1)
 	go func() {
-		serverDone <- server.StartListening(socketPath)
+		serverDone <- srv.StartListening()
 	}()
 	
 	// Give server time to start
 	time.Sleep(100 * time.Millisecond)
 	
-	// Test client with arguments
-	client := client.NewJanusClient("test", 5*time.Second)
+	// Test client with arguments - use nil apiSpec to fetch from server dynamically
+	client, err := protocol.New(socketPath, "test", nil)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+	defer client.Close()
 	
 	args := map[string]interface{}{
 		"message": "Hello, Server!",
 	}
 	
-	response, err := client.SendCommand(socketPath, "echo", args)
+	response, err := client.SendCommand(context.Background(), "echo", args)
 	
 	// Stop server
-	server.Stop()
+	srv.Stop()
 	<-serverDone
 	
 	// Verify response
@@ -141,12 +161,14 @@ func TestClientServerWithArgs(t *testing.T) {
 	// Verify echo content
 	result, ok := response.Result.(map[string]interface{})
 	if !ok {
-		t.Fatal("Expected result to be map[string]interface{}")
+		t.Fatalf("Expected result to be map[string]interface{}, got %T: %+v", response.Result, response.Result)
 	}
+	
+	t.Logf("Full response result: %+v", result)
 	
 	echo, exists := result["echo"]
 	if !exists {
-		t.Fatal("Expected 'echo' field in result")
+		t.Fatalf("Expected 'echo' field in result. Available fields: %+v", result)
 	}
 	
 	if echo != "Hello, Server!" {
@@ -159,24 +181,33 @@ func TestClientCommandNotFound(t *testing.T) {
 	defer os.Remove(socketPath)
 	
 	// Start server without handlers
-	server := &server.JanusServer{}
+	config := &server.ServerConfig{
+		SocketPath:     socketPath,
+		MaxConnections: 100,
+		DefaultTimeout: 30,
+	}
+	srv := server.NewJanusServer(config)
 	
 	// Start server in goroutine
 	serverDone := make(chan error, 1)
 	go func() {
-		serverDone <- server.StartListening(socketPath)
+		serverDone <- srv.StartListening()
 	}()
 	
 	// Give server time to start
 	time.Sleep(100 * time.Millisecond)
 	
 	// Test client with non-existent command
-	client := client.NewJanusClient("test", 5*time.Second)
+	client, err := protocol.New(socketPath, "test", nil)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+	defer client.Close()
 	
-	response, err := client.SendCommand(socketPath, "nonexistent", nil)
+	response, err := client.SendCommand(context.Background(), "nonexistent", nil)
 	
 	// Stop server
-	server.Stop()
+	srv.Stop()
 	<-serverDone
 	
 	// Should get response (not connection error)
@@ -203,8 +234,13 @@ func TestClientFireAndForget(t *testing.T) {
 	defer os.Remove(socketPath)
 	
 	// Start server with logging handler
-	server := &server.JanusServer{}
-	server.RegisterHandler("log", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
+	config := &server.ServerConfig{
+		SocketPath:     socketPath,
+		MaxConnections: 100,
+		DefaultTimeout: 30,
+	}
+	srv := server.NewJanusServer(config)
+	srv.RegisterHandler("log", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
 		// Simulate logging
 		t.Logf("Logged: %v", cmd.Args)
 		return map[string]interface{}{"logged": true}, nil
@@ -213,24 +249,28 @@ func TestClientFireAndForget(t *testing.T) {
 	// Start server in goroutine
 	serverDone := make(chan error, 1)
 	go func() {
-		serverDone <- server.StartListening(socketPath)
+		serverDone <- srv.StartListening()
 	}()
 	
 	// Give server time to start
 	time.Sleep(100 * time.Millisecond)
 	
 	// Test fire-and-forget
-	client := client.NewJanusClient("test", 5*time.Second)
+	client, err := protocol.New(socketPath, "test", nil)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+	defer client.Close()
 	
 	args := map[string]interface{}{
 		"level":   "info",
 		"message": "Test log message",
 	}
 	
-	err := client.SendCommandNoResponse(socketPath, "log", args)
+	err = client.SendCommandNoResponse(context.Background(), "log", args)
 	
 	// Stop server
-	server.Stop()
+	srv.Stop()
 	<-serverDone
 	
 	// Should complete without error
@@ -244,8 +284,13 @@ func TestClientTimeout(t *testing.T) {
 	defer os.Remove(socketPath)
 	
 	// Start server with slow handler
-	server := &server.JanusServer{}
-	server.RegisterHandler("slow", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
+	config := &server.ServerConfig{
+		SocketPath:     socketPath,
+		MaxConnections: 100,
+		DefaultTimeout: 30,
+	}
+	srv := server.NewJanusServer(config)
+	srv.RegisterHandler("slow", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
 		// Simulate slow processing
 		time.Sleep(10 * time.Second)
 		return map[string]interface{}{"done": true}, nil
@@ -254,19 +299,23 @@ func TestClientTimeout(t *testing.T) {
 	// Start server in goroutine
 	serverDone := make(chan error, 1)
 	go func() {
-		serverDone <- server.StartListening(socketPath)
+		serverDone <- srv.StartListening()
 	}()
 	
 	// Give server time to start
 	time.Sleep(100 * time.Millisecond)
 	
 	// Test client with short timeout
-	client := client.NewJanusClient("test", 1*time.Second)
+	client, err := protocol.New(socketPath, "test", nil)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+	defer client.Close()
 	
-	_, err := client.SendCommand(socketPath, "slow", nil)
+	_, err = client.SendCommand(context.Background(), "slow", nil)
 	
 	// Stop server
-	server.Stop()
+	srv.Stop()
 	<-serverDone
 	
 	// Should timeout
@@ -280,27 +329,36 @@ func TestClientPing(t *testing.T) {
 	defer os.Remove(socketPath)
 	
 	// Start server with ping handler
-	server := &server.JanusServer{}
-	server.RegisterHandler("ping", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
+	config := &server.ServerConfig{
+		SocketPath:     socketPath,
+		MaxConnections: 100,
+		DefaultTimeout: 30,
+	}
+	srv := server.NewJanusServer(config)
+	srv.RegisterHandler("ping", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
 		return map[string]interface{}{"message": "pong"}, nil
 	})
 	
 	// Start server in goroutine
 	serverDone := make(chan error, 1)
 	go func() {
-		serverDone <- server.StartListening(socketPath)
+		serverDone <- srv.StartListening()
 	}()
 	
 	// Give server time to start
 	time.Sleep(100 * time.Millisecond)
 	
 	// Test ping
-	client := client.NewJanusClient("test", 5*time.Second)
+	client, err := protocol.New(socketPath, "test", nil)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+	defer client.Close()
 	
-	success := client.Ping(socketPath)
+	success := client.Ping(context.Background())
 	
 	// Stop server
-	server.Stop()
+	srv.Stop()
 	<-serverDone
 	
 	// Ping should succeed
@@ -314,9 +372,14 @@ func TestMultipleHandlers(t *testing.T) {
 	defer os.Remove(socketPath)
 	
 	// Start server with multiple handlers
-	server := &server.JanusServer{}
+	config := &server.ServerConfig{
+		SocketPath:     socketPath,
+		MaxConnections: 100,
+		DefaultTimeout: 30,
+	}
+	srv := server.NewJanusServer(config)
 	
-	server.RegisterHandler("add", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
+	srv.RegisterHandler("add", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
 		if cmd.Args == nil {
 			return nil, &models.SocketError{
 				Code:    "MISSING_ARGS",
@@ -339,7 +402,7 @@ func TestMultipleHandlers(t *testing.T) {
 		return map[string]interface{}{"result": a + b}, nil
 	})
 	
-	server.RegisterHandler("multiply", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
+	srv.RegisterHandler("multiply", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
 		if cmd.Args == nil {
 			return nil, &models.SocketError{
 				Code:    "MISSING_ARGS",
@@ -365,13 +428,20 @@ func TestMultipleHandlers(t *testing.T) {
 	// Start server in goroutine
 	serverDone := make(chan error, 1)
 	go func() {
-		serverDone <- server.StartListening(socketPath)
+		serverDone <- srv.StartListening()
 	}()
 	
 	// Give server time to start
 	time.Sleep(100 * time.Millisecond)
 	
-	client := client.NewJanusClient("test", 5*time.Second)
+	// Disable client-side validation to test server-side validation
+	clientConfig := protocol.DefaultJanusClientConfig()
+	clientConfig.EnableValidation = false
+	client, err := protocol.New(socketPath, "test", nil, clientConfig)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+	defer client.Close()
 	
 	args := map[string]interface{}{
 		"a": 5.0,
@@ -379,19 +449,19 @@ func TestMultipleHandlers(t *testing.T) {
 	}
 	
 	// Test addition
-	addResponse, err := client.SendCommand(socketPath, "add", args)
+	addResponse, err := client.SendCommand(context.Background(), "add", args)
 	if err != nil {
 		t.Fatalf("Add command failed: %v", err)
 	}
 	
 	// Test multiplication
-	multResponse, err := client.SendCommand(socketPath, "multiply", args)
+	multResponse, err := client.SendCommand(context.Background(), "multiply", args)
 	if err != nil {
 		t.Fatalf("Multiply command failed: %v", err)
 	}
 	
 	// Stop server
-	server.Stop()
+	srv.Stop()
 	<-serverDone
 	
 	// Verify results
