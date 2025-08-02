@@ -422,6 +422,15 @@ func TestErrorResponseGeneration(t *testing.T) {
 	
 	if response.Error == nil {
 		t.Error("Expected error response to have Error field")
+	} else {
+		// Verify the error contains JSONRPCError information
+		if response.Error.Code == 0 {
+			t.Error("Expected error response to have non-zero error code")
+		}
+		if response.Error.Message == "" {
+			t.Error("Expected error response to have error message")
+		}
+		t.Logf("✅ Error response validation completed: Code=%d, Message=%s", response.Error.Code, response.Error.Message)
 	}
 	
 	if response.CommandID != cmd.ID {
