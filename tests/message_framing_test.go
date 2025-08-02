@@ -62,12 +62,13 @@ func TestMessageFraming_EncodeMessage(t *testing.T) {
 			t.Error("Expected error for oversized message")
 		}
 		
-		if framingErr, ok := err.(*protocol.MessageFramingError); ok {
-			if framingErr.Code != "MESSAGE_TOO_LARGE" {
-				t.Errorf("Expected MESSAGE_TOO_LARGE error, got %s", framingErr.Code)
+		// Validate error code instead of error message details
+		if jsonErr, ok := err.(*models.JSONRPCError); ok {
+			if jsonErr.Code != models.MessageFramingError {
+				t.Errorf("Expected MessageFramingError code (%d), got %d", models.MessageFramingError, jsonErr.Code)
 			}
 		} else {
-			t.Error("Expected MessageFramingError")
+			t.Error("Expected JSONRPCError with MessageFramingError code")
 		}
 	})
 }
@@ -202,12 +203,13 @@ func TestMessageFraming_DecodeMessage(t *testing.T) {
 			t.Error("Expected error for incomplete length prefix")
 		}
 		
-		if framingErr, ok := err.(*protocol.MessageFramingError); ok {
-			if framingErr.Code != "INCOMPLETE_LENGTH_PREFIX" {
-				t.Errorf("Expected INCOMPLETE_LENGTH_PREFIX error, got %s", framingErr.Code)
+		// Validate error code instead of error message details
+		if jsonErr, ok := err.(*models.JSONRPCError); ok {
+			if jsonErr.Code != models.MessageFramingError {
+				t.Errorf("Expected MessageFramingError code (%d), got %d", models.MessageFramingError, jsonErr.Code)
 			}
 		} else {
-			t.Error("Expected MessageFramingError")
+			t.Error("Expected JSONRPCError with MessageFramingError code")
 		}
 	})
 	
@@ -226,12 +228,13 @@ func TestMessageFraming_DecodeMessage(t *testing.T) {
 			t.Error("Expected error for incomplete message")
 		}
 		
-		if framingErr, ok := err.(*protocol.MessageFramingError); ok {
-			if framingErr.Code != "INCOMPLETE_MESSAGE" {
-				t.Errorf("Expected INCOMPLETE_MESSAGE error, got %s", framingErr.Code)
+		// Validate error code instead of error message details
+		if jsonErr, ok := err.(*models.JSONRPCError); ok {
+			if jsonErr.Code != models.MessageFramingError {
+				t.Errorf("Expected MessageFramingError code (%d), got %d", models.MessageFramingError, jsonErr.Code)
 			}
 		} else {
-			t.Error("Expected MessageFramingError")
+			t.Error("Expected JSONRPCError with MessageFramingError code")
 		}
 	})
 	
@@ -243,12 +246,13 @@ func TestMessageFraming_DecodeMessage(t *testing.T) {
 			t.Error("Expected error for zero-length message")
 		}
 		
-		if framingErr, ok := err.(*protocol.MessageFramingError); ok {
-			if framingErr.Code != "ZERO_LENGTH_MESSAGE" {
-				t.Errorf("Expected ZERO_LENGTH_MESSAGE error, got %s", framingErr.Code)
+		// Validate error code instead of error message details
+		if jsonErr, ok := err.(*models.JSONRPCError); ok {
+			if jsonErr.Code != models.MessageFramingError {
+				t.Errorf("Expected MessageFramingError code (%d), got %d", models.MessageFramingError, jsonErr.Code)
 			}
 		} else {
-			t.Error("Expected MessageFramingError")
+			t.Error("Expected JSONRPCError with MessageFramingError code")
 		}
 	})
 }

@@ -28,6 +28,11 @@ const (
 	ConfigurationError    JSONRPCErrorCode = -32008
 	SecurityViolation     JSONRPCErrorCode = -32009
 	ResourceLimitExceeded JSONRPCErrorCode = -32010
+	
+	// Janus-specific protocol error codes (-32011 to -32020)
+	MessageFramingError   JSONRPCErrorCode = -32011
+	ResponseTrackingError JSONRPCErrorCode = -32012
+	ManifestValidationError JSONRPCErrorCode = -32013
 )
 
 // String returns the string representation of the error code
@@ -65,6 +70,12 @@ func (code JSONRPCErrorCode) String() string {
 		return "SECURITY_VIOLATION"
 	case ResourceLimitExceeded:
 		return "RESOURCE_LIMIT_EXCEEDED"
+	case MessageFramingError:
+		return "MESSAGE_FRAMING_ERROR"
+	case ResponseTrackingError:
+		return "RESPONSE_TRACKING_ERROR"
+	case ManifestValidationError:
+		return "MANIFEST_VALIDATION_ERROR"
 	default:
 		return fmt.Sprintf("UNKNOWN_ERROR_%d", int(code))
 	}
@@ -105,6 +116,12 @@ func (code JSONRPCErrorCode) Message() string {
 		return "Security violation"
 	case ResourceLimitExceeded:
 		return "Resource limit exceeded"
+	case MessageFramingError:
+		return "Message framing error"
+	case ResponseTrackingError:
+		return "Response tracking error"
+	case ManifestValidationError:
+		return "Manifest validation error"
 	default:
 		return "Unknown error"
 	}
@@ -126,69 +143,6 @@ type JSONRPCError struct {
 	Data    *JSONRPCErrorData `json:"data,omitempty"`
 }
 
-// MapErrorToJSONRPC converts a Go error to a JSONRPCError
-func MapErrorToJSONRPC(err error) *JSONRPCError {
-	if err == nil {
-		return nil
-	}
-	
-	// If it's already a JSONRPCError, return as-is
-	if jsonrpcErr, ok := err.(*JSONRPCError); ok {
-		return jsonrpcErr
-	}
-	
-	// Map common error types to appropriate JSON-RPC error codes
-	errorMessage := err.Error()
-	
-	// Determine appropriate error code based on error message/type
-	var code JSONRPCErrorCode
-	switch {
-	case contains(errorMessage, "validation"):
-		code = ValidationFailed
-	case contains(errorMessage, "timeout"):
-		code = HandlerTimeout
-	case contains(errorMessage, "not found"):
-		code = ResourceNotFound
-	case contains(errorMessage, "invalid"):
-		code = InvalidParams
-	case contains(errorMessage, "parse"):
-		code = ParseError
-	case contains(errorMessage, "socket"):
-		code = SocketTransportError
-	case contains(errorMessage, "security"):
-		code = SecurityViolation
-	case contains(errorMessage, "limit"):
-		code = ResourceLimitExceeded
-	case contains(errorMessage, "auth"):
-		code = AuthenticationFailed
-	default:
-		code = InternalError
-	}
-	
-	return &JSONRPCError{
-		Code:    code,
-		Message: code.Message(),
-		Data: &JSONRPCErrorData{
-			Details: errorMessage,
-		},
-	}
-}
-
-// Helper function for string matching
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && s[len(s)-len(substr):] == substr || 
-		   len(s) >= len(substr) && s[:len(substr)] == substr ||
-		   (len(s) > len(substr) && findSubstring(s, substr))
-}
-
-func findSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}
 
 // Error implements the error interface
 func (e *JSONRPCError) Error() string {

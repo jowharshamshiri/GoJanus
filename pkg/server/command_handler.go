@@ -48,7 +48,14 @@ func NewBoolHandler(fn BoolHandler) CommandHandler {
 	return SyncHandler(func(cmd *models.JanusCommand) HandlerResult {
 		value, err := fn(cmd)
 		if err != nil {
-			return HandlerResult{Error: models.MapErrorToJSONRPC(err)}
+			// If error is already a JSONRPCError, preserve it
+			if jsonRPCErr, ok := err.(*models.JSONRPCError); ok {
+				return HandlerResult{Error: jsonRPCErr}
+			}
+			return HandlerResult{Error: &models.JSONRPCError{
+				Code:    models.InternalError,
+				Message: err.Error(),
+			}}
 		}
 		return HandlerResult{Value: value}
 	})
@@ -58,7 +65,14 @@ func NewStringHandler(fn StringHandler) CommandHandler {
 	return SyncHandler(func(cmd *models.JanusCommand) HandlerResult {
 		value, err := fn(cmd)
 		if err != nil {
-			return HandlerResult{Error: models.MapErrorToJSONRPC(err)}
+			// If error is already a JSONRPCError, preserve it
+			if jsonRPCErr, ok := err.(*models.JSONRPCError); ok {
+				return HandlerResult{Error: jsonRPCErr}
+			}
+			return HandlerResult{Error: &models.JSONRPCError{
+				Code:    models.InternalError,
+				Message: err.Error(),
+			}}
 		}
 		return HandlerResult{Value: value}
 	})
@@ -68,7 +82,14 @@ func NewIntHandler(fn IntHandler) CommandHandler {
 	return SyncHandler(func(cmd *models.JanusCommand) HandlerResult {
 		value, err := fn(cmd)
 		if err != nil {
-			return HandlerResult{Error: models.MapErrorToJSONRPC(err)}
+			// If error is already a JSONRPCError, preserve it
+			if jsonRPCErr, ok := err.(*models.JSONRPCError); ok {
+				return HandlerResult{Error: jsonRPCErr}
+			}
+			return HandlerResult{Error: &models.JSONRPCError{
+				Code:    models.InternalError,
+				Message: err.Error(),
+			}}
 		}
 		return HandlerResult{Value: value}
 	})
@@ -78,7 +99,14 @@ func NewFloatHandler(fn FloatHandler) CommandHandler {
 	return SyncHandler(func(cmd *models.JanusCommand) HandlerResult {
 		value, err := fn(cmd)
 		if err != nil {
-			return HandlerResult{Error: models.MapErrorToJSONRPC(err)}
+			// If error is already a JSONRPCError, preserve it
+			if jsonRPCErr, ok := err.(*models.JSONRPCError); ok {
+				return HandlerResult{Error: jsonRPCErr}
+			}
+			return HandlerResult{Error: &models.JSONRPCError{
+				Code:    models.InternalError,
+				Message: err.Error(),
+			}}
 		}
 		return HandlerResult{Value: value}
 	})
@@ -88,7 +116,14 @@ func NewArrayHandler(fn ArrayHandler) CommandHandler {
 	return SyncHandler(func(cmd *models.JanusCommand) HandlerResult {
 		value, err := fn(cmd)
 		if err != nil {
-			return HandlerResult{Error: models.MapErrorToJSONRPC(err)}
+			// If error is already a JSONRPCError, preserve it
+			if jsonRPCErr, ok := err.(*models.JSONRPCError); ok {
+				return HandlerResult{Error: jsonRPCErr}
+			}
+			return HandlerResult{Error: &models.JSONRPCError{
+				Code:    models.InternalError,
+				Message: err.Error(),
+			}}
 		}
 		return HandlerResult{Value: value}
 	})
@@ -98,7 +133,14 @@ func NewObjectHandler(fn ObjectHandler) CommandHandler {
 	return SyncHandler(func(cmd *models.JanusCommand) HandlerResult {
 		value, err := fn(cmd)
 		if err != nil {
-			return HandlerResult{Error: models.MapErrorToJSONRPC(err)}
+			// If error is already a JSONRPCError, preserve it
+			if jsonRPCErr, ok := err.(*models.JSONRPCError); ok {
+				return HandlerResult{Error: jsonRPCErr}
+			}
+			return HandlerResult{Error: &models.JSONRPCError{
+				Code:    models.InternalError,
+				Message: err.Error(),
+			}}
 		}
 		return HandlerResult{Value: value}
 	})
@@ -109,7 +151,14 @@ func NewCustomHandler[T any](fn CustomHandler[T]) CommandHandler {
 	return SyncHandler(func(cmd *models.JanusCommand) HandlerResult {
 		value, err := fn(cmd)
 		if err != nil {
-			return HandlerResult{Error: models.MapErrorToJSONRPC(err)}
+			// If error is already a JSONRPCError, preserve it
+			if jsonRPCErr, ok := err.(*models.JSONRPCError); ok {
+				return HandlerResult{Error: jsonRPCErr}
+			}
+			return HandlerResult{Error: &models.JSONRPCError{
+				Code:    models.InternalError,
+				Message: err.Error(),
+			}}
 		}
 		return HandlerResult{Value: value}
 	})
@@ -120,7 +169,15 @@ func NewAsyncBoolHandler(fn func(*models.JanusCommand) (bool, error)) CommandHan
 	return AsyncHandler(func(cmd *models.JanusCommand, result chan<- HandlerResult) {
 		value, err := fn(cmd)
 		if err != nil {
-			result <- HandlerResult{Error: models.MapErrorToJSONRPC(err)}
+			// If error is already a JSONRPCError, preserve it
+			if jsonRPCErr, ok := err.(*models.JSONRPCError); ok {
+				result <- HandlerResult{Error: jsonRPCErr}
+			} else {
+				result <- HandlerResult{Error: &models.JSONRPCError{
+					Code:    models.InternalError,
+					Message: err.Error(),
+				}}
+			}
 		} else {
 			result <- HandlerResult{Value: value}
 		}
@@ -132,7 +189,15 @@ func NewAsyncStringHandler(fn func(*models.JanusCommand) (string, error)) Comman
 	return AsyncHandler(func(cmd *models.JanusCommand, result chan<- HandlerResult) {
 		value, err := fn(cmd)
 		if err != nil {
-			result <- HandlerResult{Error: models.MapErrorToJSONRPC(err)}
+			// If error is already a JSONRPCError, preserve it
+			if jsonRPCErr, ok := err.(*models.JSONRPCError); ok {
+				result <- HandlerResult{Error: jsonRPCErr}
+			} else {
+				result <- HandlerResult{Error: &models.JSONRPCError{
+					Code:    models.InternalError,
+					Message: err.Error(),
+				}}
+			}
 		} else {
 			result <- HandlerResult{Value: value}
 		}
@@ -144,7 +209,15 @@ func NewAsyncCustomHandler[T any](fn func(*models.JanusCommand) (T, error)) Comm
 	return AsyncHandler(func(cmd *models.JanusCommand, result chan<- HandlerResult) {
 		value, err := fn(cmd)
 		if err != nil {
-			result <- HandlerResult{Error: models.MapErrorToJSONRPC(err)}
+			// If error is already a JSONRPCError, preserve it
+			if jsonRPCErr, ok := err.(*models.JSONRPCError); ok {
+				result <- HandlerResult{Error: jsonRPCErr}
+			} else {
+				result <- HandlerResult{Error: &models.JSONRPCError{
+					Code:    models.InternalError,
+					Message: err.Error(),
+				}}
+			}
 		} else {
 			result <- HandlerResult{Value: value}
 		}
