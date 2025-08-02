@@ -20,7 +20,7 @@ func TestCommandValidationWithoutConnection(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := createStatelessTestAPISpec()
+	_ = createStatelessTestManifest() // Load spec but don't use it - specification is now fetched dynamically
 	client, err := gojanus.NewJanusClient(testSocketPath, "stateless-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -69,7 +69,7 @@ func TestIndependentCommandExecution(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := createStatelessTestAPISpec()
+	_ = createStatelessTestManifest() // Load spec but don't use it - specification is now fetched dynamically
 	client, err := gojanus.NewJanusClient(testSocketPath, "stateless-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -116,7 +116,7 @@ func TestChannelIsolationBetweenClients(t *testing.T) {
 		os.Remove(testSocketPath2)
 	}()
 	
-	spec := createMultiChannelAPISpec()
+	_ = createMultiChannelManifest() // Load spec but don't use it - specification is now fetched dynamically
 	
 	// Create clients for different channels
 	client1, err := gojanus.NewJanusClient(testSocketPath1, "channel-1")
@@ -174,7 +174,7 @@ func TestArgumentValidationInStatelessMode(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := createStatelessTestAPISpec()
+	_ = createStatelessTestManifest() // Load spec but don't use it - specification is now fetched dynamically
 	client, err := gojanus.NewJanusClient(testSocketPath, "stateless-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -238,7 +238,7 @@ func TestMessageSerializationForStatelessOperations(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := createStatelessTestAPISpec()
+	_ = createStatelessTestManifest() // Load spec but don't use it - specification is now fetched dynamically
 	client, err := gojanus.NewJanusClient(testSocketPath, "stateless-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -269,25 +269,25 @@ func TestMessageSerializationForStatelessOperations(t *testing.T) {
 	}
 }
 
-// TestMultiChannelAPISpecificationHandling tests handling of multi-channel specifications
-// Matches Swift: testMultiChannelAPISpecificationHandling()
-func TestMultiChannelAPISpecificationHandling(t *testing.T) {
+// TestMultiChannelManifestHandling tests handling of multi-channel specifications
+// Matches Swift: testMultiChannelManifestHandling()
+func TestMultiChannelManifestHandling(t *testing.T) {
 	testSocketPath := "/tmp/gojanus-stateless-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := createMultiChannelAPISpec()
+	_ = createMultiChannelManifest() // Load spec but don't use it - specification is now fetched dynamically
 	
 	// Test creating clients for different channels
-	client1, err := gojanus.NewJanusClient(testSocketPath, "channel-1", spec)
+	client1, err := gojanus.NewJanusClient(testSocketPath, "channel-1")
 	if err != nil {
 		t.Fatalf("Failed to create client for channel-1: %v", err)
 	}
 	defer client1.Close()
 	
-	client2, err := gojanus.NewJanusClient(testSocketPath, "channel-2", spec)
+	client2, err := gojanus.NewJanusClient(testSocketPath, "channel-2")
 	if err != nil {
 		t.Fatalf("Failed to create client for channel-2: %v", err)
 	}
@@ -336,7 +336,7 @@ func TestStatelessCommandUUIDGeneration(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := createStatelessTestAPISpec()
+	_ = createStatelessTestManifest() // Load spec but don't use it - specification is now fetched dynamically
 	client, err := gojanus.NewJanusClient(testSocketPath, "stateless-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -390,7 +390,7 @@ func TestChannelIsolationValidation(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := createMultiChannelAPISpec()
+	_ = createMultiChannelManifest() // Load spec but don't use it - specification is now fetched dynamically
 	client, err := gojanus.NewJanusClient(testSocketPath, "channel-1")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -415,12 +415,12 @@ func TestChannelIsolationValidation(t *testing.T) {
 	}
 }
 
-// Helper function to create a stateless test API specification
-func createStatelessTestAPISpec() *gojanus.APISpecification {
-	return &gojanus.APISpecification{
+// Helper function to create a stateless test Manifest
+func createStatelessTestManifest() *gojanus.Manifest {
+	return &gojanus.Manifest{
 		Version:     "1.0.0",
 		Name:        "Stateless Test API",
-		Description: "API specification for stateless communication testing",
+		Description: "Manifest for stateless communication testing",
 		Channels: map[string]*gojanus.ChannelSpec{
 			"stateless-channel": {
 				Name:        "Stateless Channel",
@@ -470,12 +470,12 @@ func createStatelessTestAPISpec() *gojanus.APISpecification {
 	}
 }
 
-// Helper function to create a multi-channel API specification
-func createMultiChannelAPISpec() *gojanus.APISpecification {
-	return &gojanus.APISpecification{
+// Helper function to create a multi-channel Manifest
+func createMultiChannelManifest() *gojanus.Manifest {
+	return &gojanus.Manifest{
 		Version:     "1.0.0",
 		Name:        "Multi-Channel Test API",
-		Description: "API specification with multiple channels",
+		Description: "Manifest with multiple channels",
 		Channels: map[string]*gojanus.ChannelSpec{
 			"channel-1": {
 				Name:        "Channel 1",

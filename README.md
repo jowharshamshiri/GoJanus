@@ -8,7 +8,7 @@ A production-ready Unix domain socket communication library for Go with **async 
 - **Cross-Language Compatibility**: Seamless communication with Rust and Swift implementations  
 - **Persistent Connection Management**: Background message listeners with proper async task management
 - **Security Framework**: Comprehensive path validation, resource limits, and attack prevention
-- **API Specification Engine**: JSON/YAML-driven command validation and type safety
+- **Manifest Engine**: JSON/YAML-driven command validation and type safety
 - **Performance Optimized**: Async communication patterns optimized for Unix socket inherent async nature
 - **Production Ready**: Enterprise-grade error handling and resource management
 - **Cross-Platform**: Works on all Unix-like systems (Linux, macOS, BSD)
@@ -17,7 +17,7 @@ A production-ready Unix domain socket communication library for Go with **async 
 
 ```bash
 go mod init your-project
-go get github.com/user/GoJanus
+go get github.com/jowharshamshiri/GoJanus
 ```
 
 ## Quick Start
@@ -31,14 +31,14 @@ import (
     "context"
     "fmt"
     "time"
-    "github.com/user/GoJanus/pkg/protocol"
-    "github.com/user/GoJanus/pkg/specification"
+    "github.com/jowharshamshiri/GoJanus/pkg/protocol"
+    "github.com/jowharshamshiri/GoJanus/pkg/specification"
 )
 
 func main() {
-    // Load API specification
-    parser := specification.NewAPISpecParser()
-    spec, err := parser.ParseFromFile("api-spec.json")
+    // Load Manifest
+    parser := specification.NewManifestParser()
+    spec, err := parser.ParseFromFile("manifest.json")
     if err != nil {
         panic(err)
     }
@@ -83,8 +83,8 @@ package main
 import (
     "context"
     "fmt"
-    "github.com/user/GoJanus/pkg/protocol"
-    "github.com/user/GoJanus/pkg/models"
+    "github.com/jowharshamshiri/GoJanus/pkg/protocol"
+    "github.com/jowharshamshiri/GoJanus/pkg/models"
 )
 
 func main() {
@@ -136,7 +136,7 @@ func main() {
 ### Cross-Platform Compatibility
 - **Protocol Compatibility**: Works seamlessly with Rust and Swift implementations
 - **Message Format**: Standardized JSON message format across all languages
-- **API Specification**: Shared JSON/YAML API specification format
+- **Manifest**: Shared JSON/YAML Manifest format
 
 ### Security & Performance
 - **Path Validation**: Comprehensive socket path security validation

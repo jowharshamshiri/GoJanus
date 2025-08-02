@@ -1,0 +1,174 @@
+package tests
+
+import (
+	"testing"
+	"time"
+	"github.com/user/GoJanus/pkg/core"
+	"github.com/user/GoJanus/pkg/models"
+)
+
+// Network Failure Tests - Parity with Swift/Rust implementations
+// Tests connection failures, permission issues, resource exhaustion
+
+func TestConnectionToNonexistentSocket(t *testing.T) {
+	config := &core.JanusClientConfig{
+		Timeout:        time.Millisecond * 100,
+		SecurityConfig: core.DefaultSecurityConfig(),
+	}
+	
+	nonexistentPath := "/tmp/nonexistent_socket_12345.sock"
+	
+	client, err := core.NewJanusClient(nonexistentPath, "test", config)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+	
+	args := map[string]interface{}{"message": "test"}
+	_, err = client.SendCommand("echo", args, time.Millisecond*100)
+	
+	if err == nil {
+		t.Error("Expected connection error for nonexistent socket")
+	}
+	
+	// Should be connection error or timeout
+	switch err.(type) {
+	case *models.ConnectionError, *models.CommandTimeoutError:
+		// Expected
+	default:
+		t.Errorf("Expected connection/timeout error, got: %T", err)
+	}
+}
+
+func TestConnectionTimeout(t *testing.T) {
+	config := &core.JanusClientConfig{
+		Timeout:        time.Millisecond * 50, // Very short timeout
+		SecurityConfig: core.DefaultSecurityConfig(),
+	}
+	
+	timeoutPath := "/tmp/nonexistent_timeout_socket.sock"
+	
+	client, err := core.NewJanusClient(timeoutPath, "test", config)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+	
+	args := map[string]interface{}{"message": "test"}
+	_, err = client.SendCommand("echo", args, time.Millisecond*50)
+	
+	if err == nil {
+		t.Error("Expected timeout error")
+	}
+}
+
+func TestRepeatedConnectionFailures(t *testing.T) {
+	config := &core.JanusClientConfig{
+		Timeout:        time.Millisecond * 100,
+		SecurityConfig: core.DefaultSecurityConfig(),
+	}
+	
+	nonexistentPath := "/tmp/repeated_failure_socket.sock"
+	
+	client, err := core.NewJanusClient(nonexistentPath, "test", config)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+	
+	// Test multiple consecutive failures
+	for i := 0; i < 3; i++ {
+		_, err = client.SendCommand("ping", nil, time.Millisecond*100)
+		if err == nil {
+			t.Errorf("Attempt %d should fail", i+1)
+		}
+	}
+}
+
+func TestInvalidSocketPathFormat(t *testing.T) {
+	config := &core.JanusClientConfig{
+		Timeout:        time.Millisecond * 100,
+		SecurityConfig: core.DefaultSecurityConfig(),
+	}
+	
+	invalidPath := "invalid\x00path/with/null.sock"
+	
+	client, err := core.NewJanusClient(invalidPath, "test", config)
+	if err != nil {
+		// Should fail at creation due to security validation
+		return
+	}
+	
+	// If creation succeeds, should fail at first send
+	_, err = client.SendCommand("ping", nil, time.Millisecond*100)
+	if err == nil {
+		t.Error("Expected security violation for null byte in path")
+	}
+}
+
+func TestMalformedSocketPath(t *testing.T) {
+	config := &core.JanusClientConfig{
+		Timeout:        time.Millisecond * 100,
+		SecurityConfig: core.DefaultSecurityConfig(),
+	}
+	
+	malformedPaths := []string{
+		"",
+		"/",
+		"relative/path.sock",
+		"/tmp/../../../etc/passwd",
+	}
+	
+	for _, path := range malformedPaths {
+		client, err := core.NewJanusClient(path, "test", config)
+		if err != nil {
+			continue // Path rejected at creation - good
+		}
+		
+		// If creation succeeds, should fail at send
+		_, err = client.SendCommand("ping", nil, time.Millisecond*100)
+		if err == nil {
+			t.Errorf("Malformed path %s should fail", path)
+		}
+	}
+}
+
+func TestSocketPathTooLong(t *testing.T) {
+	config := &core.JanusClientConfig{
+		Timeout:        time.Millisecond * 100,
+		SecurityConfig: core.DefaultSecurityConfig(),
+	}
+	
+	// Create a path longer than Unix socket limit (typically 108 chars)
+	longPath := "/tmp/" + string(make([]byte, 200)) + ".sock"
+	
+	client, err := core.NewJanusClient(longPath, "test", config)
+	if err != nil {
+		// Should fail at creation due to path length validation
+		return
+	}
+	
+	// If creation succeeds, should fail at first send
+	_, err = client.SendCommand("ping", nil, time.Millisecond*100)
+	if err == nil {
+		t.Error("Expected path length validation error")
+	}
+}
+
+func TestPermissionDeniedSocketPath(t *testing.T) {
+	config := &core.JanusClientConfig{
+		Timeout:        time.Millisecond * 100,
+		SecurityConfig: core.DefaultSecurityConfig(),
+	}
+	
+	restrictedPath := "/root/restricted_socket.sock"
+	
+	client, err := core.NewJanusClient(restrictedPath, "test", config)
+	if err != nil {
+		// May fail at creation
+		return
+	}
+	
+	// Should fail at send attempt
+	_, err = client.SendCommand("ping", nil, time.Millisecond*100)
+	if err == nil {
+		t.Error("Expected permission denied error")
+	}
+}

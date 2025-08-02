@@ -18,14 +18,14 @@ type ValidationResult struct {
 	FieldsValidated int                `json:"fieldsValidated"`
 }
 
-// ResponseValidator validates command handler responses against API specification ResponseSpec models
+// ResponseValidator validates command handler responses against Manifest ResponseSpec models
 // Matches TypeScript ResponseValidator functionality exactly for cross-language parity
 type ResponseValidator struct {
-	specification *APISpecification
+	specification *Manifest
 }
 
-// NewResponseValidator creates a new response validator with the given API specification
-func NewResponseValidator(spec *APISpecification) *ResponseValidator {
+// NewResponseValidator creates a new response validator with the given Manifest
+func NewResponseValidator(spec *Manifest) *ResponseValidator {
 	return &ResponseValidator{
 		specification: spec,
 	}
@@ -61,7 +61,7 @@ func (rv *ResponseValidator) ValidateCommandResponse(response map[string]interfa
 			Valid: false,
 			Errors: []*ValidationError{{
 				Field:    "channelId",
-				Message:  fmt.Sprintf("Channel '%s' not found in API specification", channelID),
+				Message:  fmt.Sprintf("Channel '%s' not found in Manifest", channelID),
 				Expected: "valid channel ID",
 				Actual:   channelID,
 			}},

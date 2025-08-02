@@ -19,7 +19,7 @@ import (
 type JanusClient struct {
 	socketPath     string
 	channelID      string
-	apiSpec        *specification.APISpecification
+	manifest        *specification.Manifest
 	config         JanusClientConfig
 	
 	janusClient *core.JanusClient
@@ -73,7 +73,7 @@ func validateConstructorInputs(socketPath, channelID string, config JanusClientC
 		return fmt.Errorf("invalid channel ID: contains forbidden characters")
 	}
 	
-	// API specification is always fetched from server - no validation needed here
+	// Manifest is always fetched from server - no validation needed here
 	
 	// Validate configuration security
 	if config.MaxMessageSize < 1024 {
@@ -91,8 +91,8 @@ func validateConstructorInputs(socketPath, channelID string, config JanusClientC
 	return nil
 }
 
-// fetchSpecificationFromServer fetches the API specification from the server
-func fetchSpecificationFromServer(janusClient *core.JanusClient, socketPath string, cfg JanusClientConfig) (*specification.APISpecification, error) {
+// fetchSpecificationFromServer fetches the Manifest from the server
+func fetchSpecificationFromServer(janusClient *core.JanusClient, socketPath string, cfg JanusClientConfig) (*specification.Manifest, error) {
 	// Generate response socket path
 	responseSocketPath := fmt.Sprintf("/tmp/janus_spec_%d_%s.sock", time.Now().UnixNano(), generateRandomID())
 	
@@ -139,13 +139,13 @@ func fetchSpecificationFromServer(janusClient *core.JanusClient, socketPath stri
 		return nil, fmt.Errorf("failed to marshal specification data: %w", err)
 	}
 	
-	parser := specification.NewAPISpecificationParser()
-	apiSpec, err := parser.ParseJSON(specJSON)
+	parser := specification.NewManifestParser()
+	manifest, err := parser.ParseJSON(specJSON)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse server specification: %w", err)
 	}
 	
-	return apiSpec, nil
+	return manifest, nil
 }
 
 // generateRandomID generates a random ID for unique socket paths
@@ -183,7 +183,7 @@ func New(socketPath, channelID string, config ...JanusClientConfig) (*JanusClien
 		return nil, fmt.Errorf("failed to create datagram client: %w", err)
 	}
 	
-	// API specification will be fetched when needed during operations
+	// Manifest will be fetched when needed during operations
 	
 	validator := core.NewSecurityValidator()
 	timeoutManager := NewTimeoutManager()
@@ -199,7 +199,7 @@ func New(socketPath, channelID string, config ...JanusClientConfig) (*JanusClien
 	return &JanusClient{
 		socketPath:      socketPath,
 		channelID:       channelID,
-		apiSpec:         nil,
+		manifest:         nil,
 		config:          cfg,
 		janusClient:     janusClient,
 		validator:       validator,
@@ -209,9 +209,9 @@ func New(socketPath, channelID string, config ...JanusClientConfig) (*JanusClien
 	}, nil
 }
 
-// ensureAPISpecLoaded fetches API specification from server if not already loaded
-func (client *JanusClient) ensureAPISpecLoaded() error {
-	if client.apiSpec != nil {
+// ensureManifestLoaded fetches Manifest from server if not already loaded
+func (client *JanusClient) ensureManifestLoaded() error {
+	if client.manifest != nil {
 		return nil // Already loaded
 	}
 	
@@ -222,7 +222,7 @@ func (client *JanusClient) ensureAPISpecLoaded() error {
 	// Fetch specification from server
 	fetchedSpec, err := fetchSpecificationFromServer(client.janusClient, client.socketPath, client.config)
 	if err != nil {
-		return fmt.Errorf("failed to fetch API specification: %w", err)
+		return fmt.Errorf("failed to fetch Manifest: %w", err)
 	}
 	
 	// Validate channel exists in fetched specification
@@ -230,7 +230,7 @@ func (client *JanusClient) ensureAPISpecLoaded() error {
 		return fmt.Errorf("channel '%s' not found in server specification", client.channelID)
 	}
 	
-	client.apiSpec = fetchedSpec
+	client.manifest = fetchedSpec
 	return nil
 }
 
@@ -256,25 +256,25 @@ func (client *JanusClient) SendCommand(ctx context.Context, command string, args
 		Timestamp: float64(time.Now().Unix()),
 	}
 	
-	// Ensure API specification is loaded for validation
+	// Ensure Manifest is loaded for validation
 	if client.config.EnableValidation {
-		if err := client.ensureAPISpecLoaded(); err != nil {
-			return nil, fmt.Errorf("failed to load API specification for validation: %w", err)
+		if err := client.ensureManifestLoaded(); err != nil {
+			return nil, fmt.Errorf("failed to load Manifest for validation: %w", err)
 		}
 	}
 
-	// Validate command against API specification
-	if client.config.EnableValidation && client.apiSpec != nil {
-		if !client.apiSpec.HasCommand(client.channelID, command) {
+	// Validate command against Manifest
+	if client.config.EnableValidation && client.manifest != nil {
+		if !client.manifest.HasCommand(client.channelID, command) {
 			return nil, fmt.Errorf("command '%s' not found in channel '%s'", command, client.channelID)
 		}
 		
-		commandSpec, err := client.apiSpec.GetCommand(client.channelID, command)
+		commandSpec, err := client.manifest.GetCommand(client.channelID, command)
 		if err != nil {
 			return nil, fmt.Errorf("command validation failed: %w", err)
 		}
 		
-		if err := client.apiSpec.ValidateCommandArgs(commandSpec, args); err != nil {
+		if err := client.manifest.ValidateCommandArgs(commandSpec, args); err != nil {
 			return nil, fmt.Errorf("command validation failed: %w", err)
 		}
 	}
@@ -333,18 +333,18 @@ func (client *JanusClient) SendCommandNoResponse(ctx context.Context, command st
 		Timestamp: float64(time.Now().Unix()),
 	}
 	
-	// Validate command against API specification
-	if client.config.EnableValidation && client.apiSpec != nil {
-		if !client.apiSpec.HasCommand(client.channelID, command) {
+	// Validate command against Manifest
+	if client.config.EnableValidation && client.manifest != nil {
+		if !client.manifest.HasCommand(client.channelID, command) {
 			return fmt.Errorf("command '%s' not found in channel '%s'", command, client.channelID)
 		}
 		
-		commandSpec, err := client.apiSpec.GetCommand(client.channelID, command)
+		commandSpec, err := client.manifest.GetCommand(client.channelID, command)
 		if err != nil {
 			return fmt.Errorf("command validation failed: %w", err)
 		}
 		
-		if err := client.apiSpec.ValidateCommandArgs(commandSpec, args); err != nil {
+		if err := client.manifest.ValidateCommandArgs(commandSpec, args); err != nil {
 			return fmt.Errorf("command validation failed: %w", err)
 		}
 	}
@@ -394,9 +394,9 @@ func (client *JanusClient) GetSocketPath() string {
 	return client.socketPath
 }
 
-// GetAPISpecification returns the API specification
-func (client *JanusClient) GetAPISpecification() *specification.APISpecification {
-	return client.apiSpec
+// GetManifest returns the Manifest
+func (client *JanusClient) GetManifest() *specification.Manifest {
+	return client.manifest
 }
 
 // Helper functions
@@ -448,9 +448,9 @@ func (client *JanusClient) ChannelIdentifier() string {
 	return client.channelID
 }
 
-// Specification returns the API specification for backward compatibility  
-func (client *JanusClient) Specification() *specification.APISpecification {
-	return client.apiSpec
+// Specification returns the Manifest for backward compatibility  
+func (client *JanusClient) Specification() *specification.Manifest {
+	return client.manifest
 }
 
 // PublishCommand sends a command without expecting response for backward compatibility
@@ -470,9 +470,9 @@ func (client *JanusClient) SocketPathString() string {
 
 // RegisterCommandHandler validates command exists in specification (SOCK_DGRAM compatibility)
 func (client *JanusClient) RegisterCommandHandler(command string, handler interface{}) error {
-	// Validate command exists in the API specification for the client's channel
-	if client.apiSpec != nil {
-		if channel, exists := client.apiSpec.Channels[client.channelID]; exists {
+	// Validate command exists in the Manifest for the client's channel
+	if client.manifest != nil {
+		if channel, exists := client.manifest.Channels[client.channelID]; exists {
 			if _, commandExists := channel.Commands[command]; !commandExists {
 				return fmt.Errorf("command '%s' not found in channel '%s'", command, client.channelID)
 			}
@@ -553,24 +553,24 @@ func (client *JanusClient) SendCommandWithCorrelation(ctx context.Context, comma
 
 		// Validate and send command
 		if client.config.EnableValidation {
-			if err := client.ensureAPISpecLoaded(); err != nil {
-				client.responseTracker.CancelCommand(commandID, fmt.Sprintf("API spec loading failed: %v", err))
+			if err := client.ensureManifestLoaded(); err != nil {
+				client.responseTracker.CancelCommand(commandID, fmt.Sprintf("Manifest loading failed: %v", err))
 				return
 			}
 
-			if client.apiSpec != nil && !client.isBuiltinCommand(command) {
-				if !client.apiSpec.HasCommand(client.channelID, command) {
+			if client.manifest != nil && !client.isBuiltinCommand(command) {
+				if !client.manifest.HasCommand(client.channelID, command) {
 					client.responseTracker.CancelCommand(commandID, fmt.Sprintf("command '%s' not found in channel '%s'", command, client.channelID))
 					return
 				}
 
-				commandSpec, err := client.apiSpec.GetCommand(client.channelID, command)
+				commandSpec, err := client.manifest.GetCommand(client.channelID, command)
 				if err != nil {
 					client.responseTracker.CancelCommand(commandID, fmt.Sprintf("command validation failed: %v", err))
 					return
 				}
 
-				if err := client.apiSpec.ValidateCommandArgs(commandSpec, args); err != nil {
+				if err := client.manifest.ValidateCommandArgs(commandSpec, args); err != nil {
 					client.responseTracker.CancelCommand(commandID, fmt.Sprintf("command validation failed: %v", err))
 					return
 				}

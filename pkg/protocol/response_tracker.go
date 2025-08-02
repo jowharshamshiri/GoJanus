@@ -160,11 +160,9 @@ func (rt *ResponseTracker) HandleResponse(response *models.SocketResponse) bool 
 			if response.Error.Message != "" {
 				errorMsg = response.Error.Message
 			}
-			if response.Error.Code != "" {
-				errorCode = response.Error.Code
-			}
-			if response.Error.Details != "" {
-				errorDetails = response.Error.Details
+			errorCode = response.Error.Code.String()
+			if response.Error.Data != nil && response.Error.Data.Details != "" {
+				errorDetails = response.Error.Data.Details
 			}
 		}
 

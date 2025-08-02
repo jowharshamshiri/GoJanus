@@ -1,0 +1,367 @@
+package protocol
+
+import (
+	"encoding/binary"
+	"encoding/json"
+	"fmt"
+
+	"github.com/user/GoJanus/pkg/models"
+)
+
+const (
+	// LengthPrefixSize is the size of the 4-byte big-endian length prefix
+	LengthPrefixSize = 4
+	// MaxMessageSize is the maximum allowed message size (10MB default)
+	MaxMessageSize = 10 * 1024 * 1024
+)
+
+// MessageFramingError represents errors in message framing operations
+type MessageFramingError struct {
+	Message string
+	Code    string
+}
+
+func (e *MessageFramingError) Error() string {
+	return e.Message
+}
+
+// MessageFraming provides message framing functionality with 4-byte length prefix
+type MessageFraming struct{}
+
+// SocketMessage represents the message envelope for framing
+type SocketMessage struct {
+	Type    string `json:"type"`    // "command" or "response"
+	Payload string `json:"payload"` // Base64 encoded payload
+}
+
+// EncodeMessage encodes a message with 4-byte big-endian length prefix
+func (mf *MessageFraming) EncodeMessage(message interface{}) ([]byte, error) {
+	// Determine message type
+	var messageType string
+	switch message.(type) {
+	case models.SocketCommand, *models.SocketCommand:
+		messageType = "command"
+	case models.SocketResponse, *models.SocketResponse:
+		messageType = "response"
+	default:
+		return nil, &MessageFramingError{
+			Message: "Invalid message type",
+			Code:    "INVALID_MESSAGE_TYPE",
+		}
+	}
+
+	// Serialize payload to JSON
+	payloadBytes, err := json.Marshal(message)
+	if err != nil {
+		return nil, &MessageFramingError{
+			Message: fmt.Sprintf("Failed to marshal payload: %v", err),
+			Code:    "MARSHAL_FAILED",
+		}
+	}
+
+	// Create envelope with base64 payload
+	envelope := SocketMessage{
+		Type:    messageType,
+		Payload: string(payloadBytes), // Direct JSON for efficiency
+	}
+
+	// Serialize envelope to JSON
+	envelopeBytes, err := json.Marshal(envelope)
+	if err != nil {
+		return nil, &MessageFramingError{
+			Message: fmt.Sprintf("Failed to marshal envelope: %v", err),
+			Code:    "ENVELOPE_MARSHAL_FAILED",
+		}
+	}
+
+	// Validate message size
+	if len(envelopeBytes) > MaxMessageSize {
+		return nil, &MessageFramingError{
+			Message: fmt.Sprintf("Message size %d exceeds maximum %d", len(envelopeBytes), MaxMessageSize),
+			Code:    "MESSAGE_TOO_LARGE",
+		}
+	}
+
+	// Create length prefix (4-byte big-endian)
+	lengthBuffer := make([]byte, LengthPrefixSize)
+	binary.BigEndian.PutUint32(lengthBuffer, uint32(len(envelopeBytes)))
+
+	// Combine length prefix and message
+	result := make([]byte, 0, LengthPrefixSize+len(envelopeBytes))
+	result = append(result, lengthBuffer...)
+	result = append(result, envelopeBytes...)
+
+	return result, nil
+}
+
+// DecodeMessage decodes a message from buffer with length prefix
+func (mf *MessageFraming) DecodeMessage(buffer []byte) (interface{}, []byte, error) {
+	// Check if we have at least the length prefix
+	if len(buffer) < LengthPrefixSize {
+		return nil, buffer, &MessageFramingError{
+			Message: fmt.Sprintf("Buffer too small for length prefix: %d < %d", len(buffer), LengthPrefixSize),
+			Code:    "INCOMPLETE_LENGTH_PREFIX",
+		}
+	}
+
+	// Read message length from big-endian prefix
+	messageLength := binary.BigEndian.Uint32(buffer[:LengthPrefixSize])
+
+	// Validate message length
+	if messageLength > MaxMessageSize {
+		return nil, buffer, &MessageFramingError{
+			Message: fmt.Sprintf("Message length %d exceeds maximum %d", messageLength, MaxMessageSize),
+			Code:    "MESSAGE_TOO_LARGE",
+		}
+	}
+
+	if messageLength == 0 {
+		return nil, buffer, &MessageFramingError{
+			Message: "Message length cannot be zero",
+			Code:    "ZERO_LENGTH_MESSAGE",
+		}
+	}
+
+	// Check if we have the complete message
+	totalRequired := LengthPrefixSize + int(messageLength)
+	if len(buffer) < totalRequired {
+		return nil, buffer, &MessageFramingError{
+			Message: fmt.Sprintf("Buffer too small for complete message: %d < %d", len(buffer), totalRequired),
+			Code:    "INCOMPLETE_MESSAGE",
+		}
+	}
+
+	// Extract message data
+	messageBuffer := buffer[LengthPrefixSize : LengthPrefixSize+int(messageLength)]
+	remainingBuffer := buffer[LengthPrefixSize+int(messageLength):]
+
+	// Parse JSON envelope
+	var envelope SocketMessage
+	if err := json.Unmarshal(messageBuffer, &envelope); err != nil {
+		return nil, buffer, &MessageFramingError{
+			Message: fmt.Sprintf("Failed to parse message envelope JSON: %v", err),
+			Code:    "INVALID_JSON_ENVELOPE",
+		}
+	}
+
+	// Validate envelope structure
+	if envelope.Type == "" || envelope.Payload == "" {
+		return nil, buffer, &MessageFramingError{
+			Message: "Message envelope missing required fields (type, payload)",
+			Code:    "MISSING_ENVELOPE_FIELDS",
+		}
+	}
+
+	if envelope.Type != "command" && envelope.Type != "response" {
+		return nil, buffer, &MessageFramingError{
+			Message: fmt.Sprintf("Invalid message type: %s", envelope.Type),
+			Code:    "INVALID_MESSAGE_TYPE",
+		}
+	}
+
+	// Parse payload JSON directly (no base64 decoding needed)
+	var message interface{}
+	if envelope.Type == "command" {
+		var cmd models.SocketCommand
+		if err := json.Unmarshal([]byte(envelope.Payload), &cmd); err != nil {
+			return nil, buffer, &MessageFramingError{
+				Message: fmt.Sprintf("Failed to parse command payload JSON: %v", err),
+				Code:    "INVALID_PAYLOAD_JSON",
+			}
+		}
+		
+		// Validate command structure
+		if err := mf.validateCommandStructure(&cmd); err != nil {
+			return nil, buffer, err
+		}
+		message = cmd
+	} else {
+		var resp models.SocketResponse
+		if err := json.Unmarshal([]byte(envelope.Payload), &resp); err != nil {
+			return nil, buffer, &MessageFramingError{
+				Message: fmt.Sprintf("Failed to parse response payload JSON: %v", err),
+				Code:    "INVALID_PAYLOAD_JSON",
+			}
+		}
+		
+		// Validate response structure
+		if err := mf.validateResponseStructure(&resp); err != nil {
+			return nil, buffer, err
+		}
+		message = resp
+	}
+
+	return message, remainingBuffer, nil
+}
+
+// ExtractMessages extracts complete messages from a buffer, handling partial messages
+func (mf *MessageFraming) ExtractMessages(buffer []byte) ([]interface{}, []byte, error) {
+	var messages []interface{}
+	currentBuffer := buffer
+
+	for len(currentBuffer) > 0 {
+		message, remainingBuffer, err := mf.DecodeMessage(currentBuffer)
+		if err != nil {
+			if framingErr, ok := err.(*MessageFramingError); ok {
+				if framingErr.Code == "INCOMPLETE_LENGTH_PREFIX" || framingErr.Code == "INCOMPLETE_MESSAGE" {
+					// Not enough data for complete message, save remaining buffer
+					break
+				}
+			}
+			return nil, buffer, err
+		}
+
+		messages = append(messages, message)
+		currentBuffer = remainingBuffer
+	}
+
+	return messages, currentBuffer, nil
+}
+
+// CalculateFramedSize calculates the total size needed for a message when framed
+func (mf *MessageFraming) CalculateFramedSize(message interface{}) (int, error) {
+	encoded, err := mf.EncodeMessage(message)
+	if err != nil {
+		return 0, err
+	}
+	return len(encoded), nil
+}
+
+// EncodeDirectMessage creates a direct JSON message for simple cases (without envelope)
+func (mf *MessageFraming) EncodeDirectMessage(message interface{}) ([]byte, error) {
+	// Serialize message to JSON
+	messageBytes, err := json.Marshal(message)
+	if err != nil {
+		return nil, &MessageFramingError{
+			Message: fmt.Sprintf("Failed to marshal message: %v", err),
+			Code:    "MARSHAL_FAILED",
+		}
+	}
+
+	// Validate message size
+	if len(messageBytes) > MaxMessageSize {
+		return nil, &MessageFramingError{
+			Message: fmt.Sprintf("Message size %d exceeds maximum %d", len(messageBytes), MaxMessageSize),
+			Code:    "MESSAGE_TOO_LARGE",
+		}
+	}
+
+	// Create length prefix
+	lengthBuffer := make([]byte, LengthPrefixSize)
+	binary.BigEndian.PutUint32(lengthBuffer, uint32(len(messageBytes)))
+
+	// Combine length prefix and message
+	result := make([]byte, 0, LengthPrefixSize+len(messageBytes))
+	result = append(result, lengthBuffer...)
+	result = append(result, messageBytes...)
+
+	return result, nil
+}
+
+// DecodeDirectMessage decodes a direct JSON message (without envelope)
+func (mf *MessageFraming) DecodeDirectMessage(buffer []byte) (interface{}, []byte, error) {
+	// Check length prefix
+	if len(buffer) < LengthPrefixSize {
+		return nil, buffer, &MessageFramingError{
+			Message: fmt.Sprintf("Buffer too small for length prefix: %d < %d", len(buffer), LengthPrefixSize),
+			Code:    "INCOMPLETE_LENGTH_PREFIX",
+		}
+	}
+
+	messageLength := binary.BigEndian.Uint32(buffer[:LengthPrefixSize])
+	totalRequired := LengthPrefixSize + int(messageLength)
+
+	if len(buffer) < totalRequired {
+		return nil, buffer, &MessageFramingError{
+			Message: fmt.Sprintf("Buffer too small for complete message: %d < %d", len(buffer), totalRequired),
+			Code:    "INCOMPLETE_MESSAGE",
+		}
+	}
+
+	// Extract and parse message
+	messageBuffer := buffer[LengthPrefixSize : LengthPrefixSize+int(messageLength)]
+	remainingBuffer := buffer[LengthPrefixSize+int(messageLength):]
+
+	// Try to determine message type by looking for key fields
+	var rawMessage map[string]interface{}
+	if err := json.Unmarshal(messageBuffer, &rawMessage); err != nil {
+		return nil, buffer, &MessageFramingError{
+			Message: fmt.Sprintf("Failed to parse message JSON: %v", err),
+			Code:    "INVALID_JSON",
+		}
+	}
+
+	// Determine message type and parse accordingly
+	var message interface{}
+	if _, hasCommand := rawMessage["command"]; hasCommand {
+		var cmd models.SocketCommand
+		if err := json.Unmarshal(messageBuffer, &cmd); err != nil {
+			return nil, buffer, &MessageFramingError{
+				Message: fmt.Sprintf("Failed to parse command: %v", err),
+				Code:    "INVALID_COMMAND",
+			}
+		}
+		message = cmd
+	} else if _, hasCommandId := rawMessage["commandId"]; hasCommandId {
+		var resp models.SocketResponse
+		if err := json.Unmarshal(messageBuffer, &resp); err != nil {
+			return nil, buffer, &MessageFramingError{
+				Message: fmt.Sprintf("Failed to parse response: %v", err),
+				Code:    "INVALID_RESPONSE",
+			}
+		}
+		message = resp
+	} else {
+		return nil, buffer, &MessageFramingError{
+			Message: "Cannot determine message type",
+			Code:    "UNKNOWN_MESSAGE_TYPE",
+		}
+	}
+
+	return message, remainingBuffer, nil
+}
+
+// validateCommandStructure validates command structure
+func (mf *MessageFraming) validateCommandStructure(cmd *models.SocketCommand) error {
+	if cmd.ID == "" {
+		return &MessageFramingError{
+			Message: "Command missing required string field: id",
+			Code:    "MISSING_COMMAND_FIELD",
+		}
+	}
+	if cmd.ChannelID == "" {
+		return &MessageFramingError{
+			Message: "Command missing required string field: channelId",
+			Code:    "MISSING_COMMAND_FIELD",
+		}
+	}
+	if cmd.Command == "" {
+		return &MessageFramingError{
+			Message: "Command missing required string field: command",
+			Code:    "MISSING_COMMAND_FIELD",
+		}
+	}
+	return nil
+}
+
+// validateResponseStructure validates response structure
+func (mf *MessageFraming) validateResponseStructure(resp *models.SocketResponse) error {
+	if resp.CommandID == "" {
+		return &MessageFramingError{
+			Message: "Response missing required field: commandId",
+			Code:    "MISSING_RESPONSE_FIELD",
+		}
+	}
+	if resp.ChannelID == "" {
+		return &MessageFramingError{
+			Message: "Response missing required field: channelId",
+			Code:    "MISSING_RESPONSE_FIELD",
+		}
+	}
+	return nil
+}
+
+// NewMessageFraming creates a new MessageFraming instance
+func NewMessageFraming() *MessageFraming {
+	return &MessageFraming{}
+}

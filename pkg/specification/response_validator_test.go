@@ -7,11 +7,11 @@ import (
 )
 
 func TestResponseValidator(t *testing.T) {
-	// Create test API specification matching TypeScript test structure
-	testApiSpec := &APISpecification{
+	// Create test Manifest matching TypeScript test structure
+	testManifest := &Manifest{
 		Version:     "1.0.0",
 		Name:        "Test API",
-		Description: "Test API specification for response validation",
+		Description: "Test Manifest for response validation",
 		Channels: map[string]*ChannelSpec{
 			"test": {
 				Name:        "test",
@@ -177,7 +177,7 @@ func TestResponseValidator(t *testing.T) {
 		},
 	}
 
-	validator := NewResponseValidator(testApiSpec)
+	validator := NewResponseValidator(testManifest)
 
 	t.Run("Basic Response Validation", func(t *testing.T) {
 		t.Run("should validate correct ping response", func(t *testing.T) {
@@ -516,13 +516,13 @@ func TestResponseValidator(t *testing.T) {
 
 		t.Run("should handle missing response specification", func(t *testing.T) {
 			// Add command without response specification
-			testApiSpec.Channels["test"].Commands["no_response"] = &CommandSpec{
+			testManifest.Channels["test"].Commands["no_response"] = &CommandSpec{
 				Name:        "no_response",
 				Description: "Command without response spec",
 				// No Response field
 			}
 
-			validator := NewResponseValidator(testApiSpec)
+			validator := NewResponseValidator(testManifest)
 			response := map[string]interface{}{"status": "ok"}
 
 			result := validator.ValidateCommandResponse(response, "test", "no_response")
@@ -632,7 +632,7 @@ func TestResponseValidator(t *testing.T) {
 	t.Run("Model References", func(t *testing.T) {
 		t.Run("should handle model references", func(t *testing.T) {
 			// Add command that uses model reference
-			testApiSpec.Channels["test"].Commands["user_info"] = &CommandSpec{
+			testManifest.Channels["test"].Commands["user_info"] = &CommandSpec{
 				Name:        "user_info",
 				Description: "Get user information",
 				Response: &ResponseSpec{
@@ -642,7 +642,7 @@ func TestResponseValidator(t *testing.T) {
 				},
 			}
 
-			validator := NewResponseValidator(testApiSpec)
+			validator := NewResponseValidator(testManifest)
 
 			validResponse := map[string]interface{}{
 				"id":   "user123",
@@ -685,7 +685,7 @@ func TestResponseValidator(t *testing.T) {
 		})
 
 		t.Run("should handle missing model reference", func(t *testing.T) {
-			testApiSpec.Channels["test"].Commands["bad_ref"] = &CommandSpec{
+			testManifest.Channels["test"].Commands["bad_ref"] = &CommandSpec{
 				Name:        "bad_ref",
 				Description: "Command with bad model reference",
 				Response: &ResponseSpec{
@@ -695,7 +695,7 @@ func TestResponseValidator(t *testing.T) {
 				},
 			}
 
-			validator := NewResponseValidator(testApiSpec)
+			validator := NewResponseValidator(testManifest)
 
 			response := map[string]interface{}{"data": "test"}
 			result := validator.ValidateCommandResponse(response, "test", "bad_ref")

@@ -3,19 +3,19 @@ package tests
 import (
 	"os"
 	"path/filepath"
-	"strings"
+	"strings" 
 	"testing"
 
-	"github.com/user/GoJanus"
+	gojanus "github.com/user/GoJanus/pkg/specification"
 )
 
-// TestParseJSONSpecification tests parsing a valid JSON API specification
+// TestParseJSONSpecification tests parsing a valid JSON Manifest
 // Matches Swift: testParseJSONSpecification()
 func TestParseJSONSpecification(t *testing.T) {
 	jsonData := `{
 		"version": "1.0.0",
 		"name": "Test API",
-		"description": "Test API specification",
+		"description": "Test Manifest",
 		"channels": {
 			"test-channel": {
 				"name": "Test Channel",
@@ -42,7 +42,7 @@ func TestParseJSONSpecification(t *testing.T) {
 		}
 	}`
 	
-	spec, err := gojanus.ParseAPISpecFromJSON([]byte(jsonData))
+	spec, err := gojanus.ParseJSON([]byte(jsonData))
 	if err != nil {
 		t.Fatalf("Failed to parse JSON specification: %v", err)
 	}
@@ -91,13 +91,13 @@ func TestParseJSONSpecification(t *testing.T) {
 	}
 }
 
-// TestParseYAMLSpecification tests parsing a valid YAML API specification
+// TestParseYAMLSpecification tests parsing a valid YAML Manifest
 // Matches Swift: testParseYAMLSpecification()
 func TestParseYAMLSpecification(t *testing.T) {
 	yamlData := `
 version: "1.0.0"
 name: "Test API"
-description: "Test API specification"
+description: "Test Manifest"
 channels:
   test-channel:
     name: "Test Channel"
@@ -117,7 +117,7 @@ channels:
           description: "Test response"
 `
 	
-	spec, err := gojanus.ParseAPISpecFromYAML([]byte(yamlData))
+	spec, err := gojanus.ParseYAML([]byte(yamlData))
 	if err != nil {
 		t.Fatalf("Failed to parse YAML specification: %v", err)
 	}
@@ -157,9 +157,9 @@ channels:
 // TestValidateValidSpecification tests validation of a valid specification
 // Matches Swift: testValidateValidSpecification()
 func TestValidateValidSpecification(t *testing.T) {
-	spec := createValidAPISpecification()
+	spec := createValidManifest()
 	
-	err := gojanus.ValidateAPISpec(spec)
+	err := gojanus.Validate(spec)
 	if err != nil {
 		t.Errorf("Valid specification should not produce validation error: %v", err)
 	}
@@ -168,10 +168,10 @@ func TestValidateValidSpecification(t *testing.T) {
 // TestValidateSpecificationWithEmptyVersion tests validation failure for empty version
 // Matches Swift: testValidateSpecificationWithEmptyVersion()
 func TestValidateSpecificationWithEmptyVersion(t *testing.T) {
-	spec := createValidAPISpecification()
+	spec := createValidManifest()
 	spec.Version = ""
 	
-	err := gojanus.ValidateAPISpec(spec)
+	err := gojanus.Validate(spec)
 	if err == nil {
 		t.Error("Expected validation error for empty version")
 	}
@@ -184,10 +184,10 @@ func TestValidateSpecificationWithEmptyVersion(t *testing.T) {
 // TestValidateSpecificationWithNoChannels tests validation failure for no channels
 // Matches Swift: testValidateSpecificationWithNoChannels()
 func TestValidateSpecificationWithNoChannels(t *testing.T) {
-	spec := createValidAPISpecification()
+	spec := createValidManifest()
 	spec.Channels = make(map[string]*gojanus.ChannelSpec)
 	
-	err := gojanus.ValidateAPISpec(spec)
+	err := gojanus.Validate(spec)
 	if err == nil {
 		t.Error("Expected validation error for no channels")
 	}
@@ -200,14 +200,14 @@ func TestValidateSpecificationWithNoChannels(t *testing.T) {
 // TestValidateSpecificationWithEmptyChannelId tests validation failure for empty channel ID
 // Matches Swift: testValidateSpecificationWithEmptyChannelId()
 func TestValidateSpecificationWithEmptyChannelId(t *testing.T) {
-	spec := createValidAPISpecification()
+	spec := createValidManifest()
 	
 	// Add channel with empty ID
 	channelSpec := spec.Channels["test-channel"]
 	delete(spec.Channels, "test-channel")
 	spec.Channels[""] = channelSpec
 	
-	err := gojanus.ValidateAPISpec(spec)
+	err := gojanus.Validate(spec)
 	if err == nil {
 		t.Error("Expected validation error for empty channel ID")
 	}
@@ -220,10 +220,10 @@ func TestValidateSpecificationWithEmptyChannelId(t *testing.T) {
 // TestValidateSpecificationWithNoCommands tests validation failure for no commands
 // Matches Swift: testValidateSpecificationWithNoCommands()
 func TestValidateSpecificationWithNoCommands(t *testing.T) {
-	spec := createValidAPISpecification()
+	spec := createValidManifest()
 	spec.Channels["test-channel"].Commands = make(map[string]*gojanus.CommandSpec)
 	
-	err := gojanus.ValidateAPISpec(spec)
+	err := gojanus.Validate(spec)
 	if err == nil {
 		t.Error("Expected validation error for no commands")
 	}
@@ -236,14 +236,14 @@ func TestValidateSpecificationWithNoCommands(t *testing.T) {
 // TestValidateSpecificationWithEmptyCommandName tests validation failure for empty command name
 // Matches Swift: testValidateSpecificationWithEmptyCommandName()
 func TestValidateSpecificationWithEmptyCommandName(t *testing.T) {
-	spec := createValidAPISpecification()
+	spec := createValidManifest()
 	
 	// Add command with empty name
 	commandSpec := spec.Channels["test-channel"].Commands["test-command"]
 	delete(spec.Channels["test-channel"].Commands, "test-command")
 	spec.Channels["test-channel"].Commands[""] = commandSpec
 	
-	err := gojanus.ValidateAPISpec(spec)
+	err := gojanus.Validate(spec)
 	if err == nil {
 		t.Error("Expected validation error for empty command name")
 	}
@@ -256,7 +256,7 @@ func TestValidateSpecificationWithEmptyCommandName(t *testing.T) {
 // TestValidateSpecificationWithInvalidValidation tests validation failure for invalid argument spec
 // Matches Swift: testValidateSpecificationWithInvalidValidation()
 func TestValidateSpecificationWithInvalidValidation(t *testing.T) {
-	spec := createValidAPISpecification()
+	spec := createValidManifest()
 	
 	// Add invalid argument specification (empty type)
 	spec.Channels["test-channel"].Commands["test-command"].Args["invalid_arg"] = &gojanus.ArgumentSpec{
@@ -266,7 +266,7 @@ func TestValidateSpecificationWithInvalidValidation(t *testing.T) {
 		Required:    true,
 	}
 	
-	err := gojanus.ValidateAPISpec(spec)
+	err := gojanus.Validate(spec)
 	if err == nil {
 		t.Error("Expected validation error for invalid argument specification")
 	}
@@ -279,7 +279,7 @@ func TestValidateSpecificationWithInvalidValidation(t *testing.T) {
 // TestValidateSpecificationWithInvalidRegexPattern tests validation failure for invalid regex
 // Matches Swift: testValidateSpecificationWithInvalidRegexPattern()
 func TestValidateSpecificationWithInvalidRegexPattern(t *testing.T) {
-	spec := createValidAPISpecification()
+	spec := createValidManifest()
 	
 	// Add argument with invalid regex pattern
 	spec.Channels["test-channel"].Commands["test-command"].Args["regex_arg"] = &gojanus.ArgumentSpec{
@@ -290,7 +290,7 @@ func TestValidateSpecificationWithInvalidRegexPattern(t *testing.T) {
 		Pattern:     "[invalid-regex(", // Invalid regex pattern
 	}
 	
-	err := gojanus.ValidateAPISpec(spec)
+	err := gojanus.Validate(spec)
 	if err == nil {
 		t.Error("Expected validation error for invalid regex pattern")
 	}
@@ -317,7 +317,7 @@ func TestParseInvalidJSON(t *testing.T) {
 		}
 	}` // Missing closing brace
 	
-	_, err := gojanus.ParseAPISpecFromJSON([]byte(invalidJSON))
+	_, err := gojanus.ParseJSON([]byte(invalidJSON))
 	if err == nil {
 		t.Error("Expected parsing error for invalid JSON")
 	}
@@ -346,7 +346,7 @@ func TestParseUnsupportedFileFormat(t *testing.T) {
 	}
 	
 	// Try to parse as JSON (should fail)
-	_, err = gojanus.ParseAPISpecFromFile(unsupportedFile)
+	_, err = gojanus.ParseFromFile(unsupportedFile)
 	if err == nil {
 		t.Error("Expected parsing error for unsupported file format")
 	}
@@ -386,7 +386,7 @@ func TestParseFromJSONFile(t *testing.T) {
 		t.Fatalf("Failed to write JSON file: %v", err)
 	}
 	
-	spec, err := gojanus.ParseAPISpecFromFile(jsonFile)
+	spec, err := gojanus.ParseFromFile(jsonFile)
 	if err != nil {
 		t.Fatalf("Failed to parse JSON file: %v", err)
 	}
@@ -439,7 +439,7 @@ channels:
 		t.Fatalf("Failed to write YAML file: %v", err)
 	}
 	
-	spec, err := gojanus.ParseAPISpecFromFile(yamlFile)
+	spec, err := gojanus.ParseFromFile(yamlFile)
 	if err != nil {
 		t.Fatalf("Failed to parse YAML file: %v", err)
 	}
@@ -462,13 +462,436 @@ channels:
 	}
 }
 
-// Helper function to create a valid API specification
+// TestParseMultipleFiles tests parsing and merging multiple Manifest files
+func TestParseMultipleFiles(t *testing.T) {
+	// Create temporary directory
+	tempDir, err := os.MkdirTemp("", "gojanus-multifile-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+	
+	// Create first specification file (base)
+	baseFile := filepath.Join(tempDir, "base.json")
+	baseData := `{
+		"version": "1.0.0",
+		"name": "Multi-File Test API",
+		"description": "Base Manifest",
+		"channels": {
+			"base-channel": {
+				"name": "Base Channel",
+				"description": "Base channel",
+				"commands": {
+					"base-command": {
+						"name": "Base Command",
+						"description": "Base command"
+					}
+				}
+			}
+		},
+		"models": {
+			"BaseModel": {
+				"name": "Base Model",
+				"type": "object",
+				"description": "Base model",
+				"properties": {
+					"id": {
+						"name": "ID",
+						"type": "string",
+						"description": "Model ID",
+						"required": true
+					}
+				}
+			}
+		}
+	}`
+	
+	err = os.WriteFile(baseFile, []byte(baseData), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write base file: %v", err)
+	}
+	
+	// Create second specification file (additional)
+	additionalFile := filepath.Join(tempDir, "additional.json")
+	additionalData := `{
+		"version": "1.0.0",
+		"name": "Additional Spec",
+		"description": "Additional Manifest",
+		"channels": {
+			"additional-channel": {
+				"name": "Additional Channel",
+				"description": "Additional channel",
+				"commands": {
+					"additional-command": {
+						"name": "Additional Command",
+						"description": "Additional command"
+					}
+				}
+			}
+		},
+		"models": {
+			"AdditionalModel": {
+				"name": "Additional Model",
+				"type": "object",
+				"description": "Additional model",
+				"properties": {
+					"value": {
+						"name": "Value",
+						"type": "string",
+						"description": "Model value",
+						"required": true
+					}
+				}
+			}
+		}
+	}`
+	
+	err = os.WriteFile(additionalFile, []byte(additionalData), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write additional file: %v", err)
+	}
+	
+	// Parse multiple files using parser instance method
+	parser := gojanus.NewManifestParser()
+	spec, err := parser.ParseMultipleFiles([]string{baseFile, additionalFile})
+	if err != nil {
+		t.Fatalf("Failed to parse multiple files: %v", err)
+	}
+	
+	// Verify merged result
+	if spec.Name != "Multi-File Test API" {
+		t.Errorf("Expected base name 'Multi-File Test API', got '%s'", spec.Name)
+	}
+	
+	if len(spec.Channels) != 2 {
+		t.Errorf("Expected 2 channels after merge, got %d", len(spec.Channels))
+	}
+	
+	// Verify base channel exists
+	if _, exists := spec.Channels["base-channel"]; !exists {
+		t.Error("Expected 'base-channel' to exist after merge")
+	}
+	
+	// Verify additional channel exists
+	if _, exists := spec.Channels["additional-channel"]; !exists {
+		t.Error("Expected 'additional-channel' to exist after merge")
+	}
+	
+	if len(spec.Models) != 2 {
+		t.Errorf("Expected 2 models after merge, got %d", len(spec.Models))
+	}
+	
+	// Verify base model exists
+	if _, exists := spec.Models["BaseModel"]; !exists {
+		t.Error("Expected 'BaseModel' to exist after merge")
+	}
+	
+	// Verify additional model exists
+	if _, exists := spec.Models["AdditionalModel"]; !exists {
+		t.Error("Expected 'AdditionalModel' to exist after merge")
+	}
+}
+
+// TestParseMultipleFilesWithConflict tests that merging fails when channels conflict
+func TestParseMultipleFilesWithConflict(t *testing.T) {
+	// Create temporary directory
+	tempDir, err := os.MkdirTemp("", "gojanus-conflict-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+	
+	// Create first file
+	baseFile := filepath.Join(tempDir, "base.json")
+	baseData := `{
+		"version": "1.0.0",
+		"name": "Conflict Test API",
+		"channels": {
+			"conflict-channel": {
+				"name": "Base Channel",
+				"commands": {
+					"test-command": {
+						"name": "Test Command"
+					}
+				}
+			}
+		}
+	}`
+	
+	err = os.WriteFile(baseFile, []byte(baseData), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write base file: %v", err)
+	}
+	
+	// Create second file with conflicting channel
+	conflictFile := filepath.Join(tempDir, "conflict.json")
+	conflictData := `{
+		"version": "1.0.0",
+		"name": "Conflict Spec",
+		"channels": {
+			"conflict-channel": {
+				"name": "Conflicting Channel",
+				"commands": {
+					"different-command": {
+						"name": "Different Command"
+					}
+				}
+			}
+		}
+	}`
+	
+	err = os.WriteFile(conflictFile, []byte(conflictData), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write conflict file: %v", err)
+	}
+	
+	// Attempt to parse - should fail due to conflict
+	parser := gojanus.NewManifestParser()
+	_, err = parser.ParseMultipleFiles([]string{baseFile, conflictFile})
+	if err == nil {
+		t.Error("Expected error for conflicting channel names")
+	}
+	
+	if !strings.Contains(err.Error(), "already exists") {
+		t.Errorf("Expected conflict error, got: %v", err)
+	}
+}
+
+// TestSpecificationMerging tests direct specification merging functionality
+func TestSpecificationMerging(t *testing.T) {
+	// Create base specification
+	baseSpec := &gojanus.Manifest{
+		Version: "1.0.0",
+		Name:    "Base API",
+		Channels: map[string]*gojanus.ChannelSpec{
+			"base-channel": {
+				Name: "Base Channel",
+				Commands: map[string]*gojanus.CommandSpec{
+					"base-command": {
+						Name: "Base Command",
+					},
+				},
+			},
+		},
+		Models: map[string]*gojanus.ModelDefinition{
+			"BaseModel": {
+				Name: "Base Model",
+				Type: "object",
+			},
+		},
+	}
+	
+	// Create additional specification
+	additionalSpec := &gojanus.Manifest{
+		Version: "1.0.0",
+		Name:    "Additional API",
+		Channels: map[string]*gojanus.ChannelSpec{
+			"additional-channel": {
+				Name: "Additional Channel",
+				Commands: map[string]*gojanus.CommandSpec{
+					"additional-command": {
+						Name: "Additional Command",
+					},
+				},
+			},
+		},
+		Models: map[string]*gojanus.ModelDefinition{
+			"AdditionalModel": {
+				Name: "Additional Model",
+				Type: "object",
+			},
+		},
+	}
+	
+	// Merge specifications using parser method
+	parser := gojanus.NewManifestParser()
+	err := parser.MergeSpecifications(baseSpec, additionalSpec)
+	if err != nil {
+		t.Fatalf("Failed to merge specifications: %v", err)
+	}
+	
+	// Verify merge results
+	if len(baseSpec.Channels) != 2 {
+		t.Errorf("Expected 2 channels after merge, got %d", len(baseSpec.Channels))
+	}
+	
+	if len(baseSpec.Models) != 2 {
+		t.Errorf("Expected 2 models after merge, got %d", len(baseSpec.Models))
+	}
+	
+	// Verify both channels exist
+	if _, exists := baseSpec.Channels["base-channel"]; !exists {
+		t.Error("Expected 'base-channel' to exist after merge")
+	}
+	
+	if _, exists := baseSpec.Channels["additional-channel"]; !exists {
+		t.Error("Expected 'additional-channel' to exist after merge")
+	}
+	
+	// Verify both models exist
+	if _, exists := baseSpec.Models["BaseModel"]; !exists {
+		t.Error("Expected 'BaseModel' to exist after merge")
+	}
+	
+	if _, exists := baseSpec.Models["AdditionalModel"]; !exists {
+		t.Error("Expected 'AdditionalModel' to exist after merge")
+	}
+}
+
+// TestStaticInterfaceMethods tests all static methods match instance method behavior
+func TestStaticInterfaceMethods(t *testing.T) {
+	// Test data
+	jsonData := `{
+		"version": "1.0.0",
+		"name": "Static Test API",
+		"channels": {
+			"static-channel": {
+				"name": "Static Channel",
+				"commands": {
+					"static-command": {
+						"name": "Static Command"
+					}
+				}
+			}
+		}
+	}`
+	
+	yamlData := `
+version: "1.0.0"
+name: "Static YAML API"
+channels:
+  static-yaml-channel:
+    name: "Static YAML Channel"
+    commands:
+      static-yaml-command:
+        name: "Static YAML Command"
+`
+	
+	// Test static ParseJSON
+	spec1, err := gojanus.ParseJSON([]byte(jsonData))
+	if err != nil {
+		t.Fatalf("Static ParseJSON failed: %v", err)
+	}
+	
+	if spec1.Name != "Static Test API" {
+		t.Errorf("Expected name 'Static Test API', got '%s'", spec1.Name)
+	}
+	
+	// Test static ParseJSONString  
+	spec2, err := gojanus.ParseJSONString(jsonData)
+	if err != nil {
+		t.Fatalf("Static ParseJSONString failed: %v", err)
+	}
+	
+	if spec2.Name != "Static Test API" {
+		t.Errorf("Expected name 'Static Test API', got '%s'", spec2.Name)
+	}
+	
+	// Test static ParseYAML
+	spec3, err := gojanus.ParseYAML([]byte(yamlData))
+	if err != nil {
+		t.Fatalf("Static ParseYAML failed: %v", err)
+	}
+	
+	if spec3.Name != "Static YAML API" {
+		t.Errorf("Expected name 'Static YAML API', got '%s'", spec3.Name)
+	}
+	
+	// Test static ParseYAMLString
+	spec4, err := gojanus.ParseYAMLString(yamlData)
+	if err != nil {
+		t.Fatalf("Static ParseYAMLString failed: %v", err)
+	}
+	
+	if spec4.Name != "Static YAML API" {
+		t.Errorf("Expected name 'Static YAML API', got '%s'", spec4.Name)
+	}
+	
+	// Test static Validate
+	err = gojanus.Validate(spec1)
+	if err != nil {
+		t.Errorf("Static Validate failed: %v", err)
+	}
+	
+	// Create temporary file for static ParseFromFile test
+	tempDir, err := os.MkdirTemp("", "gojanus-static-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+	
+	staticFile := filepath.Join(tempDir, "static.json")
+	err = os.WriteFile(staticFile, []byte(jsonData), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write static file: %v", err)
+	}
+	
+	// Test static ParseFromFile
+	spec5, err := gojanus.ParseFromFile(staticFile)
+	if err != nil {
+		t.Fatalf("Static ParseFromFile failed: %v", err)
+	}
+	
+	if spec5.Name != "Static Test API" {
+		t.Errorf("Expected name 'Static Test API', got '%s'", spec5.Name)
+	}
+}
+
+// TestJSONYAMLSerialization tests serialization of specifications back to JSON/YAML
+func TestJSONYAMLSerialization(t *testing.T) {
+	// Create test specification
+	spec := createValidManifest()
+	
+	parser := gojanus.NewManifestParser()
+	
+	// Test JSON serialization
+	jsonBytes, err := parser.SerializeToJSON(spec)
+	if err != nil {
+		t.Fatalf("Failed to serialize to JSON: %v", err)
+	}
+	
+	if len(jsonBytes) == 0 {
+		t.Error("JSON serialization produced empty result")
+	}
+	
+	// Verify JSON is valid by parsing it back
+	reparsedSpec, err := gojanus.ParseJSON(jsonBytes)
+	if err != nil {
+		t.Fatalf("Failed to reparse serialized JSON: %v", err)
+	}
+	
+	if reparsedSpec.Name != spec.Name {
+		t.Errorf("Expected name '%s', got '%s' after JSON round-trip", spec.Name, reparsedSpec.Name)
+	}
+	
+	// Test YAML serialization
+	yamlBytes, err := parser.SerializeToYAML(spec)
+	if err != nil {
+		t.Fatalf("Failed to serialize to YAML: %v", err)
+	}
+	
+	if len(yamlBytes) == 0 {
+		t.Error("YAML serialization produced empty result")
+	}
+	
+	// Verify YAML is valid by parsing it back
+	reparsedYAMLSpec, err := gojanus.ParseYAML(yamlBytes)
+	if err != nil {
+		t.Fatalf("Failed to reparse serialized YAML: %v", err)
+	}
+	
+	if reparsedYAMLSpec.Name != spec.Name {
+		t.Errorf("Expected name '%s', got '%s' after YAML round-trip", spec.Name, reparsedYAMLSpec.Name)
+	}
+}
+
+// Helper function to create a valid Manifest
 // Matches Swift test helper patterns
-func createValidAPISpecification() *gojanus.APISpecification {
-	return &gojanus.APISpecification{
+func createValidManifest() *gojanus.Manifest {
+	return &gojanus.Manifest{
 		Version:     "1.0.0",
 		Name:        "Valid Test API",
-		Description: "Valid test API specification",
+		Description: "Valid test Manifest",
 		Channels: map[string]*gojanus.ChannelSpec{
 			"test-channel": {
 				Name:        "Test Channel",

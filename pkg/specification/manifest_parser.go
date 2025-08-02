@@ -10,43 +10,43 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// APISpecificationParser handles parsing of API specifications from JSON and YAML
-// Matches Swift APISpecificationParser functionality exactly for cross-language compatibility
-type APISpecificationParser struct{}
+// ManifestParser handles parsing of Manifests from JSON and YAML
+// Matches Swift ManifestParser functionality exactly for cross-language compatibility
+type ManifestParser struct{}
 
-// NewAPISpecificationParser creates a new parser instance
-func NewAPISpecificationParser() *APISpecificationParser {
-	return &APISpecificationParser{}
+// NewManifestParser creates a new parser instance
+func NewManifestParser() *ManifestParser {
+	return &ManifestParser{}
 }
 
-// ParseJSON parses an API specification from JSON data
-// Matches Swift: static func parseJSON(_ data: Data) throws -> APISpecification
-func (parser *APISpecificationParser) ParseJSON(data []byte) (*APISpecification, error) {
+// ParseJSON parses an Manifest from JSON data
+// Matches Swift: static func parseJSON(_ data: Data) throws -> Manifest
+func (parser *ManifestParser) ParseJSON(data []byte) (*Manifest, error) {
 	if len(data) == 0 {
 		return nil, fmt.Errorf("JSON data cannot be empty")
 	}
 	
-	var spec APISpecification
+	var spec Manifest
 	
 	// Use json.Decoder to handle large files and provide better error messages
 	decoder := json.NewDecoder(strings.NewReader(string(data)))
 	decoder.DisallowUnknownFields() // Strict parsing like Swift
 	
 	if err := decoder.Decode(&spec); err != nil {
-		return nil, fmt.Errorf("failed to parse JSON API specification: %w", err)
+		return nil, fmt.Errorf("failed to parse JSON Manifest: %w", err)
 	}
 	
 	// Validate the parsed specification
 	if err := spec.Validate(); err != nil {
-		return nil, fmt.Errorf("API specification validation failed: %w", err)
+		return nil, fmt.Errorf("Manifest validation failed: %w", err)
 	}
 	
 	return &spec, nil
 }
 
-// ParseJSONString parses an API specification from a JSON string
-// Matches Swift: static func parseJSON(_ jsonString: String) throws -> APISpecification
-func (parser *APISpecificationParser) ParseJSONString(jsonString string) (*APISpecification, error) {
+// ParseJSONString parses an Manifest from a JSON string
+// Matches Swift: static func parseJSON(_ jsonString: String) throws -> Manifest
+func (parser *ManifestParser) ParseJSONString(jsonString string) (*Manifest, error) {
 	if strings.TrimSpace(jsonString) == "" {
 		return nil, fmt.Errorf("JSON string cannot be empty")
 	}
@@ -54,34 +54,34 @@ func (parser *APISpecificationParser) ParseJSONString(jsonString string) (*APISp
 	return parser.ParseJSON([]byte(jsonString))
 }
 
-// ParseYAML parses an API specification from YAML data
-// Matches Swift: static func parseYAML(_ data: Data) throws -> APISpecification
-func (parser *APISpecificationParser) ParseYAML(data []byte) (*APISpecification, error) {
+// ParseYAML parses an Manifest from YAML data
+// Matches Swift: static func parseYAML(_ data: Data) throws -> Manifest
+func (parser *ManifestParser) ParseYAML(data []byte) (*Manifest, error) {
 	if len(data) == 0 {
 		return nil, fmt.Errorf("YAML data cannot be empty")
 	}
 	
-	var spec APISpecification
+	var spec Manifest
 	
 	// Parse YAML with strict mode
 	decoder := yaml.NewDecoder(strings.NewReader(string(data)))
 	decoder.KnownFields(true) // Strict parsing like Swift
 	
 	if err := decoder.Decode(&spec); err != nil {
-		return nil, fmt.Errorf("failed to parse YAML API specification: %w", err)
+		return nil, fmt.Errorf("failed to parse YAML Manifest: %w", err)
 	}
 	
 	// Validate the parsed specification
 	if err := spec.Validate(); err != nil {
-		return nil, fmt.Errorf("API specification validation failed: %w", err)
+		return nil, fmt.Errorf("Manifest validation failed: %w", err)
 	}
 	
 	return &spec, nil
 }
 
-// ParseYAMLString parses an API specification from a YAML string
-// Matches Swift: static func parseYAML(_ yamlString: String) throws -> APISpecification
-func (parser *APISpecificationParser) ParseYAMLString(yamlString string) (*APISpecification, error) {
+// ParseYAMLString parses an Manifest from a YAML string
+// Matches Swift: static func parseYAML(_ yamlString: String) throws -> Manifest
+func (parser *ManifestParser) ParseYAMLString(yamlString string) (*Manifest, error) {
 	if strings.TrimSpace(yamlString) == "" {
 		return nil, fmt.Errorf("YAML string cannot be empty")
 	}
@@ -89,9 +89,9 @@ func (parser *APISpecificationParser) ParseYAMLString(yamlString string) (*APISp
 	return parser.ParseYAML([]byte(yamlString))
 }
 
-// ParseFromFile parses an API specification from a file
-// Matches Swift: static func parseFromFile(at url: URL) throws -> APISpecification
-func (parser *APISpecificationParser) ParseFromFile(filePath string) (*APISpecification, error) {
+// ParseFromFile parses an Manifest from a file
+// Matches Swift: static func parseFromFile(at url: URL) throws -> Manifest
+func (parser *ManifestParser) ParseFromFile(filePath string) (*Manifest, error) {
 	if filePath == "" {
 		return nil, fmt.Errorf("file path cannot be empty")
 	}
@@ -121,7 +121,7 @@ func (parser *APISpecificationParser) ParseFromFile(filePath string) (*APISpecif
 }
 
 // parseAutoDetect attempts to parse data by auto-detecting the format
-func (parser *APISpecificationParser) parseAutoDetect(data []byte) (*APISpecification, error) {
+func (parser *ManifestParser) parseAutoDetect(data []byte) (*Manifest, error) {
 	trimmed := strings.TrimSpace(string(data))
 	
 	// Try JSON first (starts with '{')
@@ -142,32 +142,32 @@ func (parser *APISpecificationParser) parseAutoDetect(data []byte) (*APISpecific
 	return parser.ParseJSON(data)
 }
 
-// ValidateSpecification validates a parsed API specification
-// Matches Swift: static func validate(_ spec: APISpecification) throws
-func (parser *APISpecificationParser) ValidateSpecification(spec *APISpecification) error {
+// ValidateSpecification validates a parsed Manifest
+// Matches Swift: static func validate(_ spec: Manifest) throws
+func (parser *ManifestParser) ValidateSpecification(spec *Manifest) error {
 	if spec == nil {
-		return fmt.Errorf("API specification cannot be nil")
+		return fmt.Errorf("Manifest cannot be nil")
 	}
 	
 	return spec.Validate()
 }
 
-// SerializeToJSON serializes an API specification to JSON
+// SerializeToJSON serializes an Manifest to JSON
 // Useful for debugging and testing
-func (parser *APISpecificationParser) SerializeToJSON(spec *APISpecification) ([]byte, error) {
+func (parser *ManifestParser) SerializeToJSON(spec *Manifest) ([]byte, error) {
 	if spec == nil {
-		return nil, fmt.Errorf("API specification cannot be nil")
+		return nil, fmt.Errorf("Manifest cannot be nil")
 	}
 	
 	// Use indented JSON for readability
 	return json.MarshalIndent(spec, "", "  ")
 }
 
-// SerializeToYAML serializes an API specification to YAML
+// SerializeToYAML serializes an Manifest to YAML
 // Useful for debugging and testing
-func (parser *APISpecificationParser) SerializeToYAML(spec *APISpecification) ([]byte, error) {
+func (parser *ManifestParser) SerializeToYAML(spec *Manifest) ([]byte, error) {
 	if spec == nil {
-		return nil, fmt.Errorf("API specification cannot be nil")
+		return nil, fmt.Errorf("Manifest cannot be nil")
 	}
 	
 	return yaml.Marshal(spec)
@@ -175,8 +175,8 @@ func (parser *APISpecificationParser) SerializeToYAML(spec *APISpecification) ([
 
 // ParseAndValidate is a convenience method that parses and validates in one step
 // Provides a simple interface for common use cases
-func (parser *APISpecificationParser) ParseAndValidate(data []byte, format string) (*APISpecification, error) {
-	var spec *APISpecification
+func (parser *ManifestParser) ParseAndValidate(data []byte, format string) (*Manifest, error) {
+	var spec *Manifest
 	var err error
 	
 	switch strings.ToLower(format) {
@@ -198,13 +198,13 @@ func (parser *APISpecificationParser) ParseAndValidate(data []byte, format strin
 
 // GetSupportedFormats returns the list of supported file formats
 // Useful for CLI tools and user interfaces
-func (parser *APISpecificationParser) GetSupportedFormats() []string {
+func (parser *ManifestParser) GetSupportedFormats() []string {
 	return []string{"json", "yaml", "yml"}
 }
 
 // ParseMultipleFiles parses multiple specification files and merges them
-// Useful for modular API specifications
-func (parser *APISpecificationParser) ParseMultipleFiles(filePaths []string) (*APISpecification, error) {
+// Useful for modular Manifests
+func (parser *ManifestParser) ParseMultipleFiles(filePaths []string) (*Manifest, error) {
 	if len(filePaths) == 0 {
 		return nil, fmt.Errorf("no files provided")
 	}
@@ -235,9 +235,15 @@ func (parser *APISpecificationParser) ParseMultipleFiles(filePaths []string) (*A
 	return baseSpec, nil
 }
 
-// mergeSpecifications merges two API specifications
+// MergeSpecifications merges two Manifests (public method)
 // The additional spec's channels and models are added to the base spec
-func (parser *APISpecificationParser) mergeSpecifications(base, additional *APISpecification) error {
+func (parser *ManifestParser) MergeSpecifications(base, additional *Manifest) error {
+	return parser.mergeSpecifications(base, additional)
+}
+
+// mergeSpecifications merges two Manifests (private implementation)
+// The additional spec's channels and models are added to the base spec
+func (parser *ManifestParser) mergeSpecifications(base, additional *Manifest) error {
 	// Merge channels
 	for channelID, channel := range additional.Channels {
 		if _, exists := base.Channels[channelID]; exists {
@@ -264,37 +270,37 @@ func (parser *APISpecificationParser) mergeSpecifications(base, additional *APIS
 // Static methods for direct use (matching Swift static interface)
 
 // ParseJSON is a static method for parsing JSON specifications
-func ParseJSON(data []byte) (*APISpecification, error) {
-	parser := NewAPISpecificationParser()
+func ParseJSON(data []byte) (*Manifest, error) {
+	parser := NewManifestParser()
 	return parser.ParseJSON(data)
 }
 
 // ParseJSONString is a static method for parsing JSON strings
-func ParseJSONString(jsonString string) (*APISpecification, error) {
-	parser := NewAPISpecificationParser()
+func ParseJSONString(jsonString string) (*Manifest, error) {
+	parser := NewManifestParser()
 	return parser.ParseJSONString(jsonString)
 }
 
 // ParseYAML is a static method for parsing YAML specifications
-func ParseYAML(data []byte) (*APISpecification, error) {
-	parser := NewAPISpecificationParser()
+func ParseYAML(data []byte) (*Manifest, error) {
+	parser := NewManifestParser()
 	return parser.ParseYAML(data)
 }
 
 // ParseYAMLString is a static method for parsing YAML strings
-func ParseYAMLString(yamlString string) (*APISpecification, error) {
-	parser := NewAPISpecificationParser()
+func ParseYAMLString(yamlString string) (*Manifest, error) {
+	parser := NewManifestParser()
 	return parser.ParseYAMLString(yamlString)
 }
 
 // ParseFromFile is a static method for parsing files
-func ParseFromFile(filePath string) (*APISpecification, error) {
-	parser := NewAPISpecificationParser()
+func ParseFromFile(filePath string) (*Manifest, error) {
+	parser := NewManifestParser()
 	return parser.ParseFromFile(filePath)
 }
 
 // Validate is a static method for validating specifications
-func Validate(spec *APISpecification) error {
-	parser := NewAPISpecificationParser()
+func Validate(spec *Manifest) error {
+	parser := NewManifestParser()
 	return parser.ValidateSpecification(spec)
 }

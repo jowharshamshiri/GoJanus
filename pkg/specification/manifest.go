@@ -8,9 +8,9 @@ import (
 	"strings"
 )
 
-// APISpecification represents the complete API specification
-// Matches Swift APISpecification structure exactly for cross-language compatibility
-type APISpecification struct {
+// Manifest represents the complete Manifest
+// Matches Swift Manifest structure exactly for cross-language compatibility
+type Manifest struct {
 	Version     string                        `json:"version"`
 	Name        string                        `json:"name"`
 	Description string                        `json:"description"`
@@ -94,8 +94,8 @@ func (ve *ValidationError) Error() string {
 }
 
 // HasCommand checks if a command exists in the specified channel
-// Matches Swift API specification query methods
-func (spec *APISpecification) HasCommand(channelID, commandName string) bool {
+// Matches Swift Manifest query methods
+func (spec *Manifest) HasCommand(channelID, commandName string) bool {
 	if spec == nil || spec.Channels == nil {
 		return false
 	}
@@ -115,10 +115,10 @@ func (spec *APISpecification) HasCommand(channelID, commandName string) bool {
 
 // GetCommand retrieves a command specification
 // Matches Swift command retrieval functionality
-func (spec *APISpecification) GetCommand(channelID, commandName string) (*CommandSpec, error) {
+func (spec *Manifest) GetCommand(channelID, commandName string) (*CommandSpec, error) {
 	channel, exists := spec.Channels[channelID]
 	if !exists {
-		return nil, fmt.Errorf("channel '%s' not found in API specification", channelID)
+		return nil, fmt.Errorf("channel '%s' not found in Manifest", channelID)
 	}
 	
 	command, exists := channel.Commands[commandName]
@@ -131,7 +131,7 @@ func (spec *APISpecification) GetCommand(channelID, commandName string) (*Comman
 
 // ValidateCommandArgs validates command arguments against the specification
 // Matches Swift comprehensive argument validation
-func (spec *APISpecification) ValidateCommandArgs(commandSpec *CommandSpec, args map[string]interface{}) error {
+func (spec *Manifest) ValidateCommandArgs(commandSpec *CommandSpec, args map[string]interface{}) error {
 	if commandSpec.Args == nil {
 		if len(args) > 0 {
 			return &ValidationError{
@@ -177,7 +177,7 @@ func (spec *APISpecification) ValidateCommandArgs(commandSpec *CommandSpec, args
 
 // validateArgument validates a single argument against its specification
 // Implements all Swift validation rules
-func (spec *APISpecification) validateArgument(name string, value interface{}, argSpec *ArgumentSpec) error {
+func (spec *Manifest) validateArgument(name string, value interface{}, argSpec *ArgumentSpec) error {
 	// Handle null values
 	if value == nil {
 		if argSpec.Required {
@@ -287,7 +287,7 @@ func (spec *APISpecification) validateArgument(name string, value interface{}, a
 
 // validateArgumentType validates the type of an argument
 // Matches Swift type validation exactly
-func (spec *APISpecification) validateArgumentType(name string, value interface{}, argSpec *ArgumentSpec) error {
+func (spec *Manifest) validateArgumentType(name string, value interface{}, argSpec *ArgumentSpec) error {
 	switch argSpec.Type {
 	case "string":
 		if _, ok := value.(string); !ok {
@@ -350,7 +350,7 @@ func (spec *APISpecification) validateArgumentType(name string, value interface{
 
 // validateModelReference validates a value against a model definition
 // Matches Swift model reference validation
-func (spec *APISpecification) validateModelReference(name string, value interface{}, modelRef string) error {
+func (spec *Manifest) validateModelReference(name string, value interface{}, modelRef string) error {
 	model, exists := spec.Models[modelRef]
 	if !exists {
 		return &ValidationError{
@@ -404,7 +404,7 @@ func (spec *APISpecification) validateModelReference(name string, value interfac
 
 // Helper methods for type checking
 
-func (spec *APISpecification) isNumericType(value interface{}) bool {
+func (spec *Manifest) isNumericType(value interface{}) bool {
 	switch value.(type) {
 	case int, int8, int16, int32, int64:
 		return true
@@ -424,7 +424,7 @@ func (spec *APISpecification) isNumericType(value interface{}) bool {
 	}
 }
 
-func (spec *APISpecification) isIntegerType(value interface{}) bool {
+func (spec *Manifest) isIntegerType(value interface{}) bool {
 	switch value.(type) {
 	case int, int8, int16, int32, int64:
 		return true
@@ -452,7 +452,7 @@ func (spec *APISpecification) isIntegerType(value interface{}) bool {
 	}
 }
 
-func (spec *APISpecification) isArrayType(value interface{}) bool {
+func (spec *Manifest) isArrayType(value interface{}) bool {
 	switch value.(type) {
 	case []interface{}:
 		return true
@@ -461,7 +461,7 @@ func (spec *APISpecification) isArrayType(value interface{}) bool {
 	}
 }
 
-func (spec *APISpecification) isObjectType(value interface{}) bool {
+func (spec *Manifest) isObjectType(value interface{}) bool {
 	switch value.(type) {
 	case map[string]interface{}:
 		return true
@@ -470,7 +470,7 @@ func (spec *APISpecification) isObjectType(value interface{}) bool {
 	}
 }
 
-func (spec *APISpecification) getNumericValue(value interface{}) (float64, error) {
+func (spec *Manifest) getNumericValue(value interface{}) (float64, error) {
 	switch v := value.(type) {
 	case int:
 		return float64(v), nil
@@ -505,19 +505,19 @@ func (spec *APISpecification) getNumericValue(value interface{}) (float64, error
 	}
 }
 
-// Validate performs comprehensive validation of the API specification
+// Validate performs comprehensive validation of the Manifest
 // Matches Swift specification validation
-func (spec *APISpecification) Validate() error {
+func (spec *Manifest) Validate() error {
 	if spec.Version == "" {
-		return fmt.Errorf("API specification version is required")
+		return fmt.Errorf("Manifest version is required")
 	}
 	
 	if spec.Name == "" {
-		return fmt.Errorf("API specification name is required")
+		return fmt.Errorf("Manifest name is required")
 	}
 	
 	if len(spec.Channels) == 0 {
-		return fmt.Errorf("API specification must have at least one channel")
+		return fmt.Errorf("Manifest must have at least one channel")
 	}
 	
 	// Validate channels
@@ -579,7 +579,7 @@ func (spec *APISpecification) Validate() error {
 }
 
 // validateArgumentSpec validates an argument specification itself
-func (spec *APISpecification) validateArgumentSpec(context string, argSpec *ArgumentSpec) error {
+func (spec *Manifest) validateArgumentSpec(context string, argSpec *ArgumentSpec) error {
 	if argSpec.Type == "" {
 		return fmt.Errorf("argument type is required for '%s'", context)
 	}

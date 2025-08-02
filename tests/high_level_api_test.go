@@ -24,11 +24,16 @@ func TestClientCreation(t *testing.T) {
 }
 
 func TestServerRegisterHandler(t *testing.T) {
-	server := &server.JanusServer{}
+	config := &server.ServerConfig{
+		SocketPath:     "/tmp/test-handler.sock",
+		MaxConnections: 100,
+		DefaultTimeout: 30,
+	}
+	srv := server.NewJanusServer(config)
 	
-	server.RegisterHandler("test", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
+	srv.RegisterHandler("test", server.NewObjectHandler(func(cmd *models.SocketCommand) (map[string]interface{}, error) {
 		return map[string]interface{}{"echo": cmd.Command}, nil
-	})
+	}))
 	
 	// Handler registration should succeed
 	// We can't directly test the internal map, but no panic is good
@@ -45,12 +50,12 @@ func TestClientServerCommunication(t *testing.T) {
 		DefaultTimeout: 30,
 	}
 	srv := server.NewJanusServer(config)
-	srv.RegisterHandler("ping", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
+	srv.RegisterHandler("ping", server.NewObjectHandler(func(cmd *models.SocketCommand) (map[string]interface{}, error) {
 		return map[string]interface{}{
 			"message":   "pong",
 			"timestamp": time.Now().Unix(),
 		}, nil
-	})
+	}))
 	
 	// Start server in goroutine
 	serverDone := make(chan error, 1)
@@ -61,8 +66,8 @@ func TestClientServerCommunication(t *testing.T) {
 	// Give server time to start
 	time.Sleep(100 * time.Millisecond)
 	
-	// Test client communication - use nil apiSpec to fetch from server dynamically
-	client, err := protocol.New(socketPath, "test", nil)
+	// Test client communication - use nil manifest to fetch from server dynamically
+	client, err := protocol.New(socketPath, "test", protocol.DefaultJanusClientConfig())
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -99,29 +104,21 @@ func TestClientServerWithArgs(t *testing.T) {
 		DefaultTimeout: 30,
 	}
 	srv := server.NewJanusServer(config)
-	srv.RegisterHandler("echo", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
+	srv.RegisterHandler("echo", server.NewObjectHandler(func(cmd *models.SocketCommand) (map[string]interface{}, error) {
 		if cmd.Args == nil {
-			return nil, &models.SocketError{
-				Code:    "NO_ARGUMENTS",
-				Message: "No arguments provided",
-				Details: "",
-			}
+			return nil, models.NewJSONRPCError(models.InvalidParams, "No arguments provided")
 		}
 		
 		message, exists := cmd.Args["message"]
 		if !exists {
-			return nil, &models.SocketError{
-				Code:    "MISSING_ARGUMENT",
-				Message: "Missing 'message' argument",
-				Details: "",
-			}
+			return nil, models.NewJSONRPCError(models.InvalidParams, "Missing 'message' argument")
 		}
 		
 		return map[string]interface{}{
 			"echo":        message,
 			"received_at": time.Now().Unix(),
 		}, nil
-	})
+	}))
 	
 	// Start server in goroutine
 	serverDone := make(chan error, 1)
@@ -132,8 +129,8 @@ func TestClientServerWithArgs(t *testing.T) {
 	// Give server time to start
 	time.Sleep(100 * time.Millisecond)
 	
-	// Test client with arguments - use nil apiSpec to fetch from server dynamically
-	client, err := protocol.New(socketPath, "test", nil)
+	// Test client with arguments - use nil manifest to fetch from server dynamically
+	client, err := protocol.New(socketPath, "test", protocol.DefaultJanusClientConfig())
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -198,7 +195,7 @@ func TestClientCommandNotFound(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	
 	// Test client with non-existent command
-	client, err := protocol.New(socketPath, "test", nil)
+	client, err := protocol.New(socketPath, "test", protocol.DefaultJanusClientConfig())
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -224,7 +221,7 @@ func TestClientCommandNotFound(t *testing.T) {
 		t.Fatal("Expected error in response")
 	}
 	
-	if response.Error.Code != "COMMAND_NOT_FOUND" {
+	if response.Error.Code != models.MethodNotFound {
 		t.Fatalf("Expected COMMAND_NOT_FOUND error, got %s", response.Error.Code)
 	}
 }
@@ -240,11 +237,11 @@ func TestClientFireAndForget(t *testing.T) {
 		DefaultTimeout: 30,
 	}
 	srv := server.NewJanusServer(config)
-	srv.RegisterHandler("log", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
+	srv.RegisterHandler("log", server.NewObjectHandler(func(cmd *models.SocketCommand) (map[string]interface{}, error) {
 		// Simulate logging
 		t.Logf("Logged: %v", cmd.Args)
 		return map[string]interface{}{"logged": true}, nil
-	})
+	}))
 	
 	// Start server in goroutine
 	serverDone := make(chan error, 1)
@@ -256,7 +253,7 @@ func TestClientFireAndForget(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	
 	// Test fire-and-forget
-	client, err := protocol.New(socketPath, "test", nil)
+	client, err := protocol.New(socketPath, "test", protocol.DefaultJanusClientConfig())
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -290,11 +287,11 @@ func TestClientTimeout(t *testing.T) {
 		DefaultTimeout: 30,
 	}
 	srv := server.NewJanusServer(config)
-	srv.RegisterHandler("slow", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
+	srv.RegisterHandler("slow", server.NewObjectHandler(func(cmd *models.SocketCommand) (map[string]interface{}, error) {
 		// Simulate slow processing
 		time.Sleep(10 * time.Second)
 		return map[string]interface{}{"done": true}, nil
-	})
+	}))
 	
 	// Start server in goroutine
 	serverDone := make(chan error, 1)
@@ -306,7 +303,7 @@ func TestClientTimeout(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	
 	// Test client with short timeout
-	client, err := protocol.New(socketPath, "test", nil)
+	client, err := protocol.New(socketPath, "test", protocol.DefaultJanusClientConfig())
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -335,9 +332,9 @@ func TestClientPing(t *testing.T) {
 		DefaultTimeout: 30,
 	}
 	srv := server.NewJanusServer(config)
-	srv.RegisterHandler("ping", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
+	srv.RegisterHandler("ping", server.NewObjectHandler(func(cmd *models.SocketCommand) (map[string]interface{}, error) {
 		return map[string]interface{}{"message": "pong"}, nil
-	})
+	}))
 	
 	// Start server in goroutine
 	serverDone := make(chan error, 1)
@@ -349,7 +346,7 @@ func TestClientPing(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	
 	// Test ping
-	client, err := protocol.New(socketPath, "test", nil)
+	client, err := protocol.New(socketPath, "test", protocol.DefaultJanusClientConfig())
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -379,51 +376,35 @@ func TestMultipleHandlers(t *testing.T) {
 	}
 	srv := server.NewJanusServer(config)
 	
-	srv.RegisterHandler("add", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
+	srv.RegisterHandler("add", server.NewObjectHandler(func(cmd *models.SocketCommand) (map[string]interface{}, error) {
 		if cmd.Args == nil {
-			return nil, &models.SocketError{
-				Code:    "MISSING_ARGS",
-				Message: "Missing arguments",
-				Details: "",
-			}
+			return nil, models.NewJSONRPCError(models.InvalidParams, "Missing arguments")
 		}
 		
 		a, aOk := cmd.Args["a"].(float64)
 		b, bOk := cmd.Args["b"].(float64)
 		
 		if !aOk || !bOk {
-			return nil, &models.SocketError{
-				Code:    "INVALID_ARGS",
-				Message: "Arguments must be numbers",
-				Details: "",
-			}
+			return nil, models.NewJSONRPCError(models.InvalidParams, "Arguments must be numbers")
 		}
 		
 		return map[string]interface{}{"result": a + b}, nil
-	})
+	}))
 	
-	srv.RegisterHandler("multiply", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
+	srv.RegisterHandler("multiply", server.NewObjectHandler(func(cmd *models.SocketCommand) (map[string]interface{}, error) {
 		if cmd.Args == nil {
-			return nil, &models.SocketError{
-				Code:    "MISSING_ARGS",
-				Message: "Missing arguments",
-				Details: "",
-			}
+			return nil, models.NewJSONRPCError(models.InvalidParams, "Missing arguments")
 		}
 		
 		a, aOk := cmd.Args["a"].(float64)
 		b, bOk := cmd.Args["b"].(float64)
 		
 		if !aOk || !bOk {
-			return nil, &models.SocketError{
-				Code:    "INVALID_ARGS",
-				Message: "Arguments must be numbers",
-				Details: "",
-			}
+			return nil, models.NewJSONRPCError(models.InvalidParams, "Arguments must be numbers")
 		}
 		
 		return map[string]interface{}{"result": a * b}, nil
-	})
+	}))
 	
 	// Start server in goroutine
 	serverDone := make(chan error, 1)
@@ -437,7 +418,7 @@ func TestMultipleHandlers(t *testing.T) {
 	// Disable client-side validation to test server-side validation
 	clientConfig := protocol.DefaultJanusClientConfig()
 	clientConfig.EnableValidation = false
-	client, err := protocol.New(socketPath, "test", nil, clientConfig)
+	client, err := protocol.New(socketPath, "test", clientConfig)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}

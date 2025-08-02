@@ -6,12 +6,13 @@ import (
 	"testing"
 
 	"github.com/user/GoJanus"
+	"github.com/user/GoJanus/pkg/models"
 )
 
-// TestAPISpecificationCreation tests basic API specification model creation
-// Matches Swift: testAPISpecificationCreation()
-func TestAPISpecificationCreation(t *testing.T) {
-	spec := createTestAPISpec()
+// TestManifestCreation tests basic Manifest model creation
+// Matches Swift: testManifestCreation()
+func TestManifestCreation(t *testing.T) {
+	spec := createTestManifest() // Create spec for validation testing
 	
 	if spec.Version != "1.0.0" {
 		t.Errorf("Expected version '1.0.0', got '%s'", spec.Version)
@@ -40,10 +41,10 @@ func TestAPISpecificationCreation(t *testing.T) {
 	}
 }
 
-// TestAPISpecificationJSONSerialization tests JSON serialization of API specifications
-// Matches Swift: testAPISpecificationJSONSerialization()
-func TestAPISpecificationJSONSerialization(t *testing.T) {
-	spec := createTestAPISpec()
+// TestManifestJSONSerialization tests JSON serialization of Manifests
+// Matches Swift: testManifestJSONSerialization()
+func TestManifestJSONSerialization(t *testing.T) {
+	spec := createTestManifest() // Create spec for serialization testing
 	
 	// Serialize to JSON
 	jsonData, err := json.Marshal(spec)
@@ -52,7 +53,7 @@ func TestAPISpecificationJSONSerialization(t *testing.T) {
 	}
 	
 	// Deserialize back
-	var deserializedSpec gojanus.APISpecification
+	var deserializedSpec gojanus.Manifest
 	err = json.Unmarshal(jsonData, &deserializedSpec)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal spec from JSON: %v", err)
@@ -355,8 +356,8 @@ func TestJanusClientInitialization(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	// Create test API spec and client for SOCK_DGRAM
-	spec := createTestAPISpec()
+	// Create test Manifest and client for SOCK_DGRAM
+	_ = createTestManifest() // Load spec but don't use it - specification is now fetched dynamically
 	client, err := gojanus.NewJanusClient(testSocketPath, "test-channel")
 	if err != nil {
 		t.Fatalf("Failed to create SOCK_DGRAM client: %v", err)
@@ -376,13 +377,13 @@ func TestJanusClientInitialization(t *testing.T) {
 	}
 }
 
-// Helper function to create a test API specification
+// Helper function to create a test Manifest
 // Matches Swift test helper patterns
-func createTestAPISpec() *gojanus.APISpecification {
-	return &gojanus.APISpecification{
+func createTestManifest() *gojanus.Manifest {
+	return &gojanus.Manifest{
 		Version:     "1.0.0",
 		Name:        "Test API",
-		Description: "Test API specification",
+		Description: "Test Manifest",
 		Channels: map[string]*gojanus.ChannelSpec{
 			"test-channel": {
 				Name:        "Test Channel",
@@ -408,5 +409,82 @@ func createTestAPISpec() *gojanus.APISpecification {
 				},
 			},
 		},
+	}
+}
+
+// TestJSONRPCErrorFunctionality tests JSON-RPC 2.0 compliant error handling
+// Validates the architectural enhancement for standardized error codes
+func TestJSONRPCErrorFunctionality(t *testing.T) {
+	// Test error code creation and properties
+	err := models.NewJSONRPCError(models.MethodNotFound, "Test method not found")
+	
+	if models.JSONRPCErrorCode(err.Code) != models.MethodNotFound {
+		t.Errorf("Expected error code %d, got %d", int(models.MethodNotFound), err.Code)
+	}
+	
+	if err.Message == "" {
+		t.Error("Expected non-empty error message")
+	}
+	
+	// Test error code string representation
+	codeString := models.JSONRPCErrorCode(err.Code).String()
+	if codeString != "METHOD_NOT_FOUND" {
+		t.Errorf("Expected code string 'METHOD_NOT_FOUND', got '%s'", codeString)
+	}
+	
+	// Test all standard error codes
+	testCases := []struct {
+		code     models.JSONRPCErrorCode
+		expected string
+	}{
+		{models.ParseError, "PARSE_ERROR"},
+		{models.InvalidRequest, "INVALID_REQUEST"},
+		{models.MethodNotFound, "METHOD_NOT_FOUND"},
+		{models.InvalidParams, "INVALID_PARAMS"},
+		{models.InternalError, "INTERNAL_ERROR"},
+		{models.ValidationFailed, "VALIDATION_FAILED"},
+		{models.HandlerTimeout, "HANDLER_TIMEOUT"},
+		{models.SecurityViolation, "SECURITY_VIOLATION"},
+	}
+	
+	for _, tc := range testCases {
+		if tc.code.String() != tc.expected {
+			t.Errorf("Error code %d: expected '%s', got '%s'", int(tc.code), tc.expected, tc.code.String())
+		}
+	}
+	
+	// Test error response creation
+	errorResponse := models.NewErrorResponse("test-cmd", "test-channel", err)
+	if errorResponse.Error == nil {
+		t.Error("Expected error response to contain JSONRPCError")
+	}
+	
+	if errorResponse.Error.Code != err.Code {
+		t.Errorf("Error response code mismatch: expected %d, got %d", err.Code, errorResponse.Error.Code)
+	}
+	
+	// Test JSON serialization of error response
+	jsonData, jsonErr := json.Marshal(errorResponse)
+	if jsonErr != nil {
+		t.Fatalf("Failed to serialize error response to JSON: %v", jsonErr)
+	}
+	
+	// Verify JSON contains proper JSON-RPC error structure
+	var parsed map[string]interface{}
+	if parseErr := json.Unmarshal(jsonData, &parsed); parseErr != nil {
+		t.Fatalf("Failed to parse error response JSON: %v", parseErr)
+	}
+	
+	errorObj, hasError := parsed["error"].(map[string]interface{})
+	if !hasError {
+		t.Error("Expected 'error' field in JSON response")
+	}
+	
+	if code, hasCode := errorObj["code"].(float64); !hasCode || models.JSONRPCErrorCode(code) != models.JSONRPCErrorCode(err.Code) {
+		t.Errorf("Expected error code %d in JSON, got %v", err.Code, errorObj["code"])
+	}
+	
+	if message, hasMessage := errorObj["message"].(string); !hasMessage || message == "" {
+		t.Error("Expected non-empty error message in JSON")
 	}
 }

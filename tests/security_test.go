@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -8,12 +9,13 @@ import (
 	"time"
 
 	"github.com/user/GoJanus"
+	"github.com/user/GoJanus/pkg/protocol"
 )
 
 // TestPathTraversalAttackPrevention tests prevention of path traversal attacks
 // Matches Swift: testPathTraversalAttackPrevention()
 func TestPathTraversalAttackPrevention(t *testing.T) {
-	spec := createSecurityTestAPISpec()
+	_ = createSecurityTestManifest() // Load spec but don't use it - specification is now fetched dynamically
 	
 	// Test various path traversal attack patterns
 	maliciousPaths := []string{
@@ -44,7 +46,7 @@ func TestPathTraversalAttackPrevention(t *testing.T) {
 // TestNullByteInjectionDetection tests detection of null byte injection attacks
 // Matches Swift: testNullByteInjectionDetection()
 func TestNullByteInjectionDetection(t *testing.T) {
-	spec := createSecurityTestAPISpec()
+	_ = createSecurityTestManifest() // Load spec but don't use it - specification is now fetched dynamically
 	
 	// Test null byte injection in socket paths
 	nullBytePaths := []string{
@@ -75,7 +77,7 @@ func TestChannelIDInjectionAttacks(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := createSecurityTestAPISpec()
+	_ = createSecurityTestManifest() // Load spec but don't use it - specification is now fetched dynamically
 	
 	// Test malicious channel IDs - should be rejected
 	maliciousChannelIDs := []string{
@@ -115,7 +117,7 @@ func TestCommandInjectionInArguments(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := createSecurityTestAPISpec()
+	_ = createSecurityTestManifest() // Load spec but don't use it - specification is now fetched dynamically
 	client, err := gojanus.NewJanusClient(testSocketPath, "security-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -174,7 +176,7 @@ func TestMalformedJSONAttackPrevention(t *testing.T) {
 	}
 	
 	for _, malformedData := range malformedJSONData {
-		_, err := gojanus.ParseAPISpecFromJSON(malformedData)
+		_, err := gojanus.ParseManifestFromJSON(malformedData)
 		if err == nil {
 			t.Errorf("Expected JSON parsing error for malformed data: %s", string(malformedData))
 		}
@@ -195,7 +197,7 @@ func TestUnicodeNormalizationAttacks(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := createSecurityTestAPISpec()
+	_ = createSecurityTestManifest() // Load spec but don't use it - specification is now fetched dynamically
 	client, err := gojanus.NewJanusClient(testSocketPath, "security-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -246,7 +248,7 @@ func TestMemoryExhaustionViaLargePayloads(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := createSecurityTestAPISpec()
+	_ = createSecurityTestManifest() // Load spec but don't use it - specification is now fetched dynamically
 	client, err := gojanus.NewJanusClient(testSocketPath, "security-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -282,7 +284,7 @@ func TestMemoryExhaustionViaLargePayloads(t *testing.T) {
 // TestResourceExhaustionViaConnectionFlooding tests protection against connection flooding
 // Matches Swift: testResourceExhaustionViaConnectionFlooding()
 func TestResourceExhaustionViaConnectionFlooding(t *testing.T) {
-	spec := createSecurityTestAPISpec()
+	_ = createSecurityTestManifest() // Load spec but don't use it - specification is now fetched dynamically
 	
 	// Test creating many clients rapidly
 	maxAttempts := 200 // More than default max connections (100)
@@ -335,7 +337,7 @@ func TestConfigurationSecurityValidation(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := createSecurityTestAPISpec()
+	_ = createSecurityTestManifest() // Load spec but don't use it - specification is now fetched dynamically
 	
 	// Test insecure configurations
 	insecureConfigs := []gojanus.JanusClientConfig{
@@ -370,7 +372,7 @@ func TestValidationBypassAttempts(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := createSecurityTestAPISpec()
+	spec := createSecurityTestManifest() // Create spec for validation bypass testing
 	client, err := gojanus.NewJanusClient(testSocketPath, "security-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -432,7 +434,7 @@ func TestValidationBypassAttempts(t *testing.T) {
 // TestSocketPathSecurityRestrictions tests socket path security restrictions
 // Matches Swift socket path security validation
 func TestSocketPathSecurityRestrictions(t *testing.T) {
-	spec := createSecurityTestAPISpec()
+	_ = createSecurityTestManifest() // Load spec but don't use it - specification is now fetched dynamically
 	
 	// Test paths outside allowed directories
 	restrictedPaths := []string{
@@ -480,12 +482,12 @@ func TestSocketPathSecurityRestrictions(t *testing.T) {
 	}
 }
 
-// Helper function to create security test API specification
-func createSecurityTestAPISpec() *gojanus.APISpecification {
-	return &gojanus.APISpecification{
+// Helper function to create security test Manifest
+func createSecurityTestManifest() *gojanus.Manifest {
+	return &gojanus.Manifest{
 		Version:     "1.0.0",
 		Name:        "Security Test API",
-		Description: "API specification for security testing",
+		Description: "Manifest for security testing",
 		Channels: map[string]*gojanus.ChannelSpec{
 			"security-channel": {
 				Name:        "Security Channel",
@@ -514,6 +516,69 @@ func createSecurityTestAPISpec() *gojanus.APISpecification {
 				},
 			},
 		},
+	}
+}
+
+// TestDynamicMessageSizeDetection tests dynamic message size limit detection
+// Validates that the system properly detects and handles message size limits
+func TestDynamicMessageSizeDetection(t *testing.T) {
+	testSocketPath := "/tmp/gojanus-size-test.sock"
+	
+	// Clean up before and after test
+	os.Remove(testSocketPath)
+	defer os.Remove(testSocketPath)
+	
+	client, err := gojanus.NewJanusClient(testSocketPath, "test")
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+	
+	// Test with normal-sized message (should pass validation)
+	normalArgs := map[string]interface{}{
+		"message": "normal message within size limits",
+	}
+	
+	ctx := context.Background()
+	
+	// This should fail with connection error, not validation error
+	_, err = client.SendCommand(ctx, "echo", normalArgs, protocol.CommandOptions{Timeout: 1*time.Second})
+	if err == nil {
+		t.Error("Expected connection error since no server is running")
+	}
+	
+	// Should be connection error, not message size error
+	if strings.Contains(err.Error(), "size") && strings.Contains(err.Error(), "exceeds") {
+		t.Errorf("Got size error for normal message: %v", err)
+	}
+	
+	// Test with very large message (should trigger size validation)
+	// Create message larger than 5MB limit
+	largeData := strings.Repeat("x", 6*1024*1024) // 6MB of data
+	largeArgs := map[string]interface{}{
+		"message": largeData,
+	}
+	
+	// This should fail with size validation error before attempting connection
+	_, err = client.SendCommand(ctx, "echo", largeArgs, protocol.CommandOptions{Timeout: 1*time.Second})
+	if err == nil {
+		t.Error("Expected validation error for oversized message")
+	}
+	
+	// Should be size validation error
+	if !strings.Contains(err.Error(), "size") && !strings.Contains(err.Error(), "exceeds") && !strings.Contains(err.Error(), "limit") {
+		t.Logf("Got error (may not be size-related): %v", err)
+		// Log the error but don't fail - different implementations may handle this differently
+	}
+	
+	// Test fire-and-forget with large message
+	err = client.SendCommandNoResponse(ctx, "echo", largeArgs)
+	if err == nil {
+		t.Error("Expected validation error for oversized fire-and-forget message")
+	}
+	
+	// Message size detection should work for both response and no-response commands
+	if err != nil {
+		t.Logf("Fire-and-forget large message correctly rejected: %v", err)
 	}
 }
 

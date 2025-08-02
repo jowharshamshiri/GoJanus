@@ -2,7 +2,6 @@ package models
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,25 +26,10 @@ type SocketResponse struct {
 	ChannelID string                 `json:"channelId"`
 	Success   bool                   `json:"success"`
 	Result    interface{} `json:"result,omitempty"`
-	Error     *SocketError           `json:"error,omitempty"`
+	Error     *JSONRPCError          `json:"error,omitempty"`
 	Timestamp float64                `json:"timestamp"`
 }
 
-// SocketError represents error information in responses
-// Matches the Swift error structure for consistency
-type SocketError struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	Details string `json:"details,omitempty"`
-}
-
-// Error implements the error interface
-func (e *SocketError) Error() string {
-	if e.Details != "" {
-		return fmt.Sprintf("%s: %s (%s)", e.Code, e.Message, e.Details)
-	}
-	return fmt.Sprintf("%s: %s", e.Code, e.Message)
-}
 
 // SocketMessage represents the envelope for all socket communications
 // Uses the same structure as Swift/Rust for protocol compatibility
@@ -78,7 +62,7 @@ func NewSuccessResponse(commandID, channelID string, result map[string]interface
 }
 
 // NewErrorResponse creates an error response for a command
-func NewErrorResponse(commandID, channelID string, err *SocketError) *SocketResponse {
+func NewErrorResponse(commandID, channelID string, err *JSONRPCError) *SocketResponse {
 	return &SocketResponse{
 		CommandID: commandID,
 		ChannelID: channelID,
@@ -87,6 +71,7 @@ func NewErrorResponse(commandID, channelID string, err *SocketError) *SocketResp
 		Timestamp: float64(time.Now().Unix()) + float64(time.Now().Nanosecond())/1e9,
 	}
 }
+
 
 // ToJSON serializes the command to JSON bytes
 func (c *SocketCommand) ToJSON() ([]byte, error) {

@@ -11,8 +11,6 @@ import (
 	"github.com/user/GoJanus/pkg/models"
 )
 
-// CommandHandler defines the function signature for command handlers
-type CommandHandler func(*models.SocketCommand) (interface{}, *models.SocketError)
 
 // EventHandler defines the function signature for event handlers
 type EventHandler func(data interface{})
@@ -40,13 +38,13 @@ type JanusServerEvents struct {
 // JanusServer provides a high-level API for listening on Unix datagram sockets
 // SOCK_DGRAM connectionless implementation for cross-language compatibility
 type JanusServer struct {
-	handlers   map[string]CommandHandler
-	socketPath string
-	conn       *net.UnixConn
-	running    bool
-	mutex      sync.RWMutex
-	events     *JanusServerEvents
-	config     *ServerConfig
+	handlerRegistry *HandlerRegistry
+	socketPath      string
+	conn            *net.UnixConn
+	running         bool
+	mutex           sync.RWMutex
+	events          *JanusServerEvents
+	config          *ServerConfig
 }
 
 // NewJanusServer creates a new server instance with event architecture
@@ -62,8 +60,8 @@ func NewJanusServer(config *ServerConfig) *JanusServer {
 	}
 	
 	return &JanusServer{
-		handlers: make(map[string]CommandHandler),
-		running:  false,
+		handlerRegistry: NewHandlerRegistry(),
+		running:         false,
 		events: &JanusServerEvents{
 			Listening:     make([]EventHandler, 0),
 			Connection:    make([]EventHandler, 0),
@@ -148,20 +146,14 @@ func (s *JanusServer) CleanupSocketFile() error {
 	return nil
 }
 
-// RegisterHandler registers a command handler
+// RegisterHandler registers an enhanced command handler
 //
 // Example:
-//   server.RegisterHandler("ping", func(cmd *models.SocketCommand) (interface{}, *models.SocketError) {
-//       return map[string]interface{}{"message": "pong", "timestamp": time.Now().Unix()}, nil
-//   })
+//   server.RegisterHandler("ping", NewStringHandler(func(cmd *models.SocketCommand) (string, error) {
+//       return "pong", nil
+//   }))
 func (s *JanusServer) RegisterHandler(command string, handler CommandHandler) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	
-	if s.handlers == nil {
-		s.handlers = make(map[string]CommandHandler)
-	}
-	s.handlers[command] = handler
+	s.handlerRegistry.RegisterHandler(command, handler)
 }
 
 // StartListening starts the server and begins listening for commands
@@ -348,46 +340,27 @@ func (s *JanusServer) processCommand(cmd *models.SocketCommand) *models.SocketRe
 		return builtinResult
 	}
 
-	s.mutex.RLock()
-	handler, exists := s.handlers[cmd.Command]
-	s.mutex.RUnlock()
-
+	// Execute handler using enhanced handler registry
+	result, err := s.handlerRegistry.ExecuteHandler(cmd.Command, cmd)
+	
 	var response *models.SocketResponse
-
-	if exists {
-		// Execute handler
-		result, err := handler(cmd)
-		if err != nil {
-			response = &models.SocketResponse{
-				CommandID: cmd.ID,
-				ChannelID: cmd.ChannelID,
-				Success:   false,
-				Result:    nil,
-				Error:     err,
-				Timestamp: float64(time.Now().Unix()),
-			}
-		} else {
-			response = &models.SocketResponse{
-				CommandID: cmd.ID,
-				ChannelID: cmd.ChannelID,
-				Success:   true,
-				Result:    result,
-				Error:     nil,
-				Timestamp: float64(time.Now().Unix()),
-			}
-		}
-	} else {
-		// Command not found
+	
+	if err != nil {
 		response = &models.SocketResponse{
 			CommandID: cmd.ID,
 			ChannelID: cmd.ChannelID,
 			Success:   false,
 			Result:    nil,
-			Error: &models.SocketError{
-				Code:    "COMMAND_NOT_FOUND",
-				Message: fmt.Sprintf("Command '%s' not registered", cmd.Command),
-				Details: "",
-			},
+			Error:     err,
+			Timestamp: float64(time.Now().Unix()),
+		}
+	} else {
+		response = &models.SocketResponse{
+			CommandID: cmd.ID,
+			ChannelID: cmd.ChannelID,
+			Success:   true,
+			Result:    result,
+			Error:     nil,
 			Timestamp: float64(time.Now().Unix()),
 		}
 	}
@@ -448,11 +421,11 @@ func (s *JanusServer) handleBuiltinCommand(cmd *models.SocketCommand) (*models.S
 		}, true
 
 	case "spec":
-		// Return a basic API specification matching the expected format
-		apiSpec := map[string]interface{}{
+		// Return a basic Manifest matching the expected format
+		manifest := map[string]interface{}{
 			"version":     "1.0.0",
 			"name":        "Go Janus Test API",
-			"description": "Test API specification for Go implementation",
+			"description": "Test Manifest for Go implementation",
 			"channels": map[string]interface{}{
 				"test": map[string]interface{}{
 					"name":        "Test Channel",
@@ -512,7 +485,7 @@ func (s *JanusServer) handleBuiltinCommand(cmd *models.SocketCommand) (*models.S
 			CommandID: cmd.ID,
 			ChannelID: cmd.ChannelID,
 			Success:   true,
-			Result:    apiSpec,
+			Result:    manifest,
 			Error:     nil,
 			Timestamp: float64(time.Now().Unix()),
 		}, true

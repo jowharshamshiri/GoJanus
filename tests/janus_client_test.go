@@ -50,7 +50,7 @@ func TestClientInitializationWithInvalidChannel(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := loadTestAPISpec()
+	spec := loadTestManifest()
 	
 	_, err := gojanus.NewJanusClient(testSocketPath, "nonexistent-channel")
 	if err == nil {
@@ -73,7 +73,7 @@ func TestClientInitializationWithInvalidSpec(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	// Create invalid spec (empty version)
-	invalidSpec := &gojanus.APISpecification{
+	invalidSpec := &gojanus.Manifest{
 		Version: "", // Empty version should cause validation error
 		Name:    "Invalid API",
 		Channels: map[string]*gojanus.ChannelSpec{
@@ -108,7 +108,7 @@ func TestRegisterValidCommandHandler(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := loadTestAPISpec()
+	spec := loadTestManifest()
 	client, err := gojanus.NewJanusClient(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -137,7 +137,7 @@ func TestRegisterInvalidCommandHandler(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := loadTestAPISpec()
+	spec := loadTestManifest()
 	client, err := gojanus.NewJanusClient(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -168,7 +168,7 @@ func TestSocketCommandValidation(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := loadTestAPISpec()
+	spec := loadTestManifest()
 	client, err := gojanus.NewJanusClient(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -218,7 +218,7 @@ func TestCommandMessageSerialization(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := loadTestAPISpec()
+	spec := loadTestManifest()
 	client, err := gojanus.NewJanusClient(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -280,7 +280,7 @@ func TestMultipleClientInstances(t *testing.T) {
 		os.Remove(testSocketPath2)
 	}()
 	
-	spec := loadTestAPISpec()
+	spec := loadTestManifest()
 	
 	// Create first client
 	client1, err := gojanus.NewJanusClient(testSocketPath1, "test")
@@ -339,7 +339,7 @@ func TestCommandHandlerWithAsyncOperations(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := loadTestAPISpec()
+	spec := loadTestManifest()
 	client, err := gojanus.NewJanusClient(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -372,7 +372,7 @@ func TestCommandHandlerErrorHandling(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := loadTestAPISpec()
+	spec := loadTestManifest()
 	client, err := gojanus.NewJanusClient(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -394,16 +394,16 @@ func TestCommandHandlerErrorHandling(t *testing.T) {
 	}
 }
 
-// TestAPISpecWithComplexArguments tests API specification with complex argument structures
-// Matches Swift: testAPISpecWithComplexArguments()
-func TestAPISpecWithComplexArguments(t *testing.T) {
+// TestManifestWithComplexArguments tests Manifest with complex argument structures
+// Matches Swift: testManifestWithComplexArguments()
+func TestManifestWithComplexArguments(t *testing.T) {
 	testSocketPath := "/tmp/gojanus-client-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := loadTestAPISpec()
+	spec := loadTestManifest()
 	client, err := gojanus.NewJanusClient(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -439,7 +439,7 @@ func TestArgumentValidationConstraints(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := loadTestAPISpec()
+	spec := loadTestManifest()
 	client, err := gojanus.NewJanusClient(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -474,19 +474,19 @@ func TestArgumentValidationConstraints(t *testing.T) {
 }
 
 
-// loadTestAPISpec loads the test API specification from test-spec.json
-func loadTestAPISpec() *gojanus.APISpecification {
+// loadTestManifest loads the test Manifest from test-spec.json
+func loadTestManifest() *gojanus.Manifest {
 	specPath := "../../tests/config/spec-command-test-api.json"
 	specData, err := os.ReadFile(specPath)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to read spec-command-test-api.json: %v", err))
 	}
 	
-	var apiSpec gojanus.APISpecification
-	if err := json.Unmarshal(specData, &apiSpec); err != nil {
+	var manifest gojanus.Manifest
+	if err := json.Unmarshal(specData, &manifest); err != nil {
 		panic(fmt.Sprintf("Failed to parse spec-command-test-api.json: %v", err))
 	}
 	
-	return &apiSpec
+	return &manifest
 }
 

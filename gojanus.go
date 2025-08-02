@@ -4,7 +4,7 @@
 // This package implements SOCK_DGRAM connectionless Unix domain socket communication:
 // - Core Layer: Low-level Unix datagram socket communication with security validation
 // - Protocol Layer: High-level API client with datagram messaging and reply-to mechanism
-// - Specification Layer: API specification parsing and validation engine
+// - Specification Layer: Manifest parsing and validation engine
 //
 // Key Features:
 // - Connectionless SOCK_DGRAM communication
@@ -12,13 +12,13 @@
 // - 25+ comprehensive security mechanisms
 // - Cross-language protocol compatibility
 // - Ephemeral socket patterns
-// - API specification engine (JSON/YAML)
+// - Manifest engine (JSON/YAML)
 // - Enterprise-grade configuration options
 //
 // Example Usage:
 //
-//	// Parse API specification
-//	spec, err := specification.ParseFromFile("api-spec.json")
+//	// Parse Manifest
+//	spec, err := specification.ParseFromFile("manifest.json")
 //	if err != nil {
 //		log.Fatal(err)
 //	}
@@ -77,18 +77,20 @@ type (
 
 // Model types
 type (
-	SocketCommand  = models.SocketCommand
-	SocketResponse = models.SocketResponse
-	SocketError    = models.SocketError
-	SocketMessage  = models.SocketMessage
-	CommandHandler = models.CommandHandler
-	TimeoutHandler = models.TimeoutHandler
+	SocketCommand     = models.SocketCommand
+	SocketResponse    = models.SocketResponse
+	JSONRPCError      = models.JSONRPCError
+	JSONRPCErrorCode  = models.JSONRPCErrorCode
+	JSONRPCErrorData  = models.JSONRPCErrorData
+	SocketMessage     = models.SocketMessage
+	CommandHandler    = models.CommandHandler
+	TimeoutHandler    = models.TimeoutHandler
 )
 
 // Specification types
 type (
-	APISpecification       = specification.APISpecification
-	APISpecificationParser = specification.APISpecificationParser
+	Manifest       = specification.Manifest
+	ManifestParser = specification.ManifestParser
 	ChannelSpec            = specification.ChannelSpec
 	CommandSpec            = specification.CommandSpec
 	ArgumentSpec           = specification.ArgumentSpec
@@ -119,9 +121,9 @@ func NewJanusClientWithConfig(socketPath, channelID string, config JanusClientCo
 	return protocol.New(socketPath, channelID, config)
 }
 
-// NewAPISpecificationParser creates a new API specification parser
-func NewAPISpecificationParser() *APISpecificationParser {
-	return specification.NewAPISpecificationParser()
+// NewManifestParser creates a new Manifest parser
+func NewManifestParser() *ManifestParser {
+	return specification.NewManifestParser()
 }
 
 // NewSecurityValidator creates a new security validator
@@ -134,27 +136,19 @@ func NewTimeoutManager() *TimeoutManager {
 	return protocol.NewTimeoutManager()
 }
 
-// Convenience functions for common operations
+// Direct function exports (no legacy wrappers)
 
-// ParseAPISpecFromFile parses an API specification from a file
-func ParseAPISpecFromFile(filePath string) (*APISpecification, error) {
-	return specification.ParseFromFile(filePath)
-}
+// ParseFromFile parses an Manifest from a file
+var ParseFromFile = specification.ParseFromFile
 
-// ParseAPISpecFromJSON parses an API specification from JSON data
-func ParseAPISpecFromJSON(data []byte) (*APISpecification, error) {
-	return specification.ParseJSON(data)
-}
+// ParseJSON parses an Manifest from JSON data  
+var ParseJSON = specification.ParseJSON
 
-// ParseAPISpecFromYAML parses an API specification from YAML data
-func ParseAPISpecFromYAML(data []byte) (*APISpecification, error) {
-	return specification.ParseYAML(data)
-}
+// ParseYAML parses an Manifest from YAML data
+var ParseYAML = specification.ParseYAML
 
-// ValidateAPISpec validates an API specification
-func ValidateAPISpec(spec *APISpecification) error {
-	return specification.Validate(spec)
-}
+// Validate validates an Manifest
+var Validate = specification.Validate
 
 // NewSocketCommand creates a new socket command with generated UUID
 func NewSocketCommand(channelID, command string, args map[string]interface{}, timeout *float64) *SocketCommand {
@@ -167,9 +161,37 @@ func NewSuccessResponse(commandID, channelID string, result map[string]interface
 }
 
 // NewErrorResponse creates an error response for a command
-func NewErrorResponse(commandID, channelID string, err *SocketError) *SocketResponse {
+func NewErrorResponse(commandID, channelID string, err *JSONRPCError) *SocketResponse {
 	return models.NewErrorResponse(commandID, channelID, err)
 }
+
+// NewJSONRPCError creates a new JSON-RPC error with the specified code
+func NewJSONRPCError(code JSONRPCErrorCode, details string) *JSONRPCError {
+	return models.NewJSONRPCError(code, details)
+}
+
+// JSON-RPC error code constants
+const (
+	// Standard JSON-RPC 2.0 error codes
+	ParseError           JSONRPCErrorCode = models.ParseError
+	InvalidRequest       JSONRPCErrorCode = models.InvalidRequest
+	MethodNotFound       JSONRPCErrorCode = models.MethodNotFound
+	InvalidParams        JSONRPCErrorCode = models.InvalidParams
+	InternalError        JSONRPCErrorCode = models.InternalError
+
+	// Implementation-defined server error codes (-32000 to -32099)
+	ServerError             JSONRPCErrorCode = models.ServerError
+	ServiceUnavailable      JSONRPCErrorCode = models.ServiceUnavailable
+	AuthenticationFailed    JSONRPCErrorCode = models.AuthenticationFailed
+	RateLimitExceeded      JSONRPCErrorCode = models.RateLimitExceeded
+	ResourceNotFound       JSONRPCErrorCode = models.ResourceNotFound
+	ValidationFailed       JSONRPCErrorCode = models.ValidationFailed
+	HandlerTimeout         JSONRPCErrorCode = models.HandlerTimeout
+	SocketTransportError  JSONRPCErrorCode = models.SocketTransportError
+	ConfigurationError    JSONRPCErrorCode = models.ConfigurationError
+	SecurityViolation     JSONRPCErrorCode = models.SecurityViolation
+	ResourceLimitExceeded JSONRPCErrorCode = models.ResourceLimitExceeded
+)
 
 // Default configuration getters
 
@@ -198,7 +220,7 @@ func GetSupportedFeatures() []string {
 		"UUID Command Tracking",
 		"Ephemeral Socket Patterns",
 		"25+ Security Mechanisms",
-		"API Specification Engine",
+		"Manifest Engine",
 		"JSON/YAML Support",
 		"Cross-Language Compatibility",
 		"Natural Message Boundaries",
