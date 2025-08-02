@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"github.com/user/GoJanus/pkg/models"
 )
 
@@ -245,8 +246,19 @@ func NewHandlerRegistry() *HandlerRegistry {
 	}
 }
 
-func (r *HandlerRegistry) RegisterHandler(command string, handler CommandHandler) {
+func (r *HandlerRegistry) RegisterHandler(command string, handler CommandHandler) error {
+	// List of reserved built-in commands that cannot be overridden
+	builtinCommands := []string{"ping", "echo", "get_info", "spec", "validate", "slow_process"}
+	
+	// Check if trying to override a built-in command
+	for _, builtin := range builtinCommands {
+		if command == builtin {
+			return fmt.Errorf("cannot override built-in command: %s", command)
+		}
+	}
+	
 	r.handlers[command] = handler
+	return nil
 }
 
 func (r *HandlerRegistry) UnregisterHandler(command string) {
@@ -256,6 +268,11 @@ func (r *HandlerRegistry) UnregisterHandler(command string) {
 func (r *HandlerRegistry) GetHandler(command string) (CommandHandler, bool) {
 	handler, exists := r.handlers[command]
 	return handler, exists
+}
+
+func (r *HandlerRegistry) HasHandler(command string) bool {
+	_, exists := r.handlers[command]
+	return exists
 }
 
 func (r *HandlerRegistry) ExecuteHandler(command string, cmd *models.JanusCommand) (interface{}, *models.JSONRPCError) {

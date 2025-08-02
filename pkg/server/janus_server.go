@@ -149,11 +149,13 @@ func (s *JanusServer) CleanupSocketFile() error {
 // RegisterHandler registers an enhanced command handler
 //
 // Example:
-//   server.RegisterHandler("ping", NewStringHandler(func(cmd *models.JanusCommand) (string, error) {
+//   server.RegisterHandler("custom_ping", NewStringHandler(func(cmd *models.JanusCommand) (string, error) {
 //       return "pong", nil
 //   }))
-func (s *JanusServer) RegisterHandler(command string, handler CommandHandler) {
-	s.handlerRegistry.RegisterHandler(command, handler)
+//
+// Note: Built-in commands (ping, echo, get_info, spec, validate, slow_process) cannot be overridden
+func (s *JanusServer) RegisterHandler(command string, handler CommandHandler) error {
+	return s.handlerRegistry.RegisterHandler(command, handler)
 }
 
 // StartListening starts the server and begins listening for commands

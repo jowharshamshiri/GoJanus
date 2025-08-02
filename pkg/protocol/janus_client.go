@@ -67,9 +67,8 @@ func validateConstructorInputs(socketPath, channelID string, config JanusClientC
 	}
 	
 	// Check for malicious channel IDs
-	if strings.ContainsAny(channelID, "\x00;`$|&\n\r\t") || 
-	   strings.Contains(channelID, "..") || 
-	   strings.HasPrefix(channelID, "/") {
+	if strings.ContainsAny(channelID, "\x00;`$|&\n\r\t/") || 
+	   strings.Contains(channelID, "..") {
 		return fmt.Errorf("invalid channel ID: contains forbidden characters")
 	}
 	
@@ -259,24 +258,30 @@ func (client *JanusClient) SendCommand(ctx context.Context, command string, args
 	// Ensure Manifest is loaded for validation
 	if client.config.EnableValidation {
 		if err := client.ensureManifestLoaded(); err != nil {
+			// If this is a connection error, propagate it directly without wrapping as validation error
+			if strings.Contains(err.Error(), "dial") || strings.Contains(err.Error(), "connect") || strings.Contains(err.Error(), "no such file") {
+				return nil, err
+			}
 			return nil, fmt.Errorf("failed to load Manifest for validation: %w", err)
 		}
 	}
 
-	// Validate command against Manifest
+	// Validate command arguments against Manifest (but don't reject unknown commands)
+	// Unknown commands should be sent to the server which will respond with an error
 	if client.config.EnableValidation && client.manifest != nil {
-		if !client.manifest.HasCommand(client.channelID, command) {
-			return nil, fmt.Errorf("command '%s' not found in channel '%s'", command, client.channelID)
+		// Only validate arguments if the command exists in the manifest
+		if client.manifest.HasCommand(client.channelID, command) {
+			commandSpec, err := client.manifest.GetCommand(client.channelID, command)
+			if err != nil {
+				return nil, fmt.Errorf("command validation failed: %w", err)
+			}
+			
+			if err := client.manifest.ValidateCommandArgs(commandSpec, args); err != nil {
+				return nil, fmt.Errorf("command validation failed: %w", err)
+			}
 		}
-		
-		commandSpec, err := client.manifest.GetCommand(client.channelID, command)
-		if err != nil {
-			return nil, fmt.Errorf("command validation failed: %w", err)
-		}
-		
-		if err := client.manifest.ValidateCommandArgs(commandSpec, args); err != nil {
-			return nil, fmt.Errorf("command validation failed: %w", err)
-		}
+		// If command doesn't exist in manifest, still send it to server
+		// Server will respond with METHOD_NOT_FOUND error
 	}
 	
 	// Apply timeout
@@ -470,6 +475,11 @@ func (client *JanusClient) SocketPathString() string {
 
 // RegisterCommandHandler validates command exists in specification (SOCK_DGRAM compatibility)
 func (client *JanusClient) RegisterCommandHandler(command string, handler interface{}) error {
+	// Ensure manifest is loaded first
+	if err := client.ensureManifestLoaded(); err != nil {
+		return fmt.Errorf("failed to load manifest for handler validation: %w", err)
+	}
+	
 	// Validate command exists in the Manifest for the client's channel
 	if client.manifest != nil {
 		if channel, exists := client.manifest.Channels[client.channelID]; exists {

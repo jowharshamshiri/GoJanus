@@ -248,7 +248,7 @@ func TestTimeoutErrorMessageFormatting(t *testing.T) {
 	
 	errorString := timeoutError.Error()
 	
-	if !strings.Contains(errorString, "COMMAND_TIMEOUT") {
+	if !strings.Contains(errorString, "-32006") {
 		t.Errorf("Error string should contain error code: %s", errorString)
 	}
 	
@@ -265,11 +265,11 @@ func TestTimeoutErrorMessageFormatting(t *testing.T) {
 	
 	simpleErrorString := simpleTimeoutError.Error()
 	
-	if !strings.Contains(simpleErrorString, "TIMEOUT") {
+	if !strings.Contains(simpleErrorString, "-32006") {
 		t.Errorf("Simple error string should contain error code: %s", simpleErrorString)
 	}
 	
-	if !strings.Contains(simpleErrorString, "Operation timed out") {
+	if !strings.Contains(simpleErrorString, "timed out") {
 		t.Errorf("Simple error string should contain message: %s", simpleErrorString)
 	}
 	

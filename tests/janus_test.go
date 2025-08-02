@@ -1,8 +1,10 @@
 package tests
 
 import (
+	"context"
 	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/user/GoJanus"
@@ -372,8 +374,20 @@ func TestJanusClientInitialization(t *testing.T) {
 		t.Errorf("Expected channel 'test-channel', got '%s'", client.ChannelIdentifier())
 	}
 	
-	if client.Specification() == nil {
-		t.Error("Expected specification to be set")
+	if client.Specification() != nil {
+		t.Error("Expected specification to be nil initially (Dynamic Specification Architecture)")
+	}
+	
+	// Specification should be loaded on first use (but will fail with connection error)
+	ctx := context.Background()
+	_, err = client.SendCommand(ctx, "ping", nil)
+	if err == nil {
+		t.Error("Expected connection error when no server is running")
+	}
+	
+	// Should get connection error since no server is running
+	if !strings.Contains(err.Error(), "dial") && !strings.Contains(err.Error(), "connection") && !strings.Contains(err.Error(), "no such file") {
+		t.Errorf("Expected connection-related error, got: %v", err)
 	}
 }
 

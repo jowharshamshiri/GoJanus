@@ -177,13 +177,23 @@ func TestClientCommandNotFound(t *testing.T) {
 	socketPath := "/tmp/test-go-high-level-notfound.sock"
 	defer os.Remove(socketPath)
 	
-	// Start server without handlers
+	// Start server with a handler for a different command
 	config := &server.ServerConfig{
 		SocketPath:     socketPath,
 		MaxConnections: 100,
 		DefaultTimeout: 30,
 	}
 	srv := server.NewJanusServer(config)
+	
+	// Register a handler for a different command so "nonexistent" won't be found
+	srv.RegisterHandler("existingCommand", server.SyncHandler(func(cmd *models.JanusCommand) server.HandlerResult {
+		return server.HandlerResult{
+			Value: map[string]interface{}{
+				"result": "success",
+			},
+			Error: nil,
+		}
+	}))
 	
 	// Start server in goroutine
 	serverDone := make(chan error, 1)

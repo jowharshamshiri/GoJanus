@@ -107,7 +107,7 @@ func (code JSONRPCErrorCode) Message() string {
 	case ValidationFailed:
 		return "Validation failed"
 	case HandlerTimeout:
-		return "Handler timeout"
+		return "Command timed out"
 	case SocketTransportError:
 		return "Socket error"
 	case ConfigurationError:
