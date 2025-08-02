@@ -7,9 +7,9 @@ import (
 	"github.com/google/uuid"
 )
 
-// SocketCommand represents a command message sent through the Unix socket
+// JanusCommand represents a command message sent through the Unix socket
 // SOCK_DGRAM version with reply_to field for connectionless communication
-type SocketCommand struct {
+type JanusCommand struct {
 	ID        string                 `json:"id"`
 	ChannelID string                 `json:"channelId"`
 	Command   string                 `json:"command"`
@@ -19,9 +19,9 @@ type SocketCommand struct {
 	Timestamp float64                `json:"timestamp"`
 }
 
-// SocketResponse represents a response message from the Unix socket
-// Matches the Swift SocketResponse structure exactly for cross-language compatibility
-type SocketResponse struct {
+// JanusResponse represents a response message from the Unix socket
+// Matches the Swift JanusResponse structure exactly for cross-language compatibility
+type JanusResponse struct {
 	CommandID string                 `json:"commandId"`
 	ChannelID string                 `json:"channelId"`
 	Success   bool                   `json:"success"`
@@ -38,9 +38,9 @@ type SocketMessage struct {
 	Payload string `json:"payload"` // base64-encoded data
 }
 
-// NewSocketCommand creates a new command with generated UUID and timestamp
-func NewSocketCommand(channelID, command string, args map[string]interface{}, timeout *float64) *SocketCommand {
-	return &SocketCommand{
+// NewJanusCommand creates a new command with generated UUID and timestamp
+func NewJanusCommand(channelID, command string, args map[string]interface{}, timeout *float64) *JanusCommand {
+	return &JanusCommand{
 		ID:        uuid.New().String(),
 		ChannelID: channelID,
 		Command:   command,
@@ -51,8 +51,8 @@ func NewSocketCommand(channelID, command string, args map[string]interface{}, ti
 }
 
 // NewSuccessResponse creates a successful response for a command
-func NewSuccessResponse(commandID, channelID string, result map[string]interface{}) *SocketResponse {
-	return &SocketResponse{
+func NewSuccessResponse(commandID, channelID string, result map[string]interface{}) *JanusResponse {
+	return &JanusResponse{
 		CommandID: commandID,
 		ChannelID: channelID,
 		Success:   true,
@@ -62,8 +62,8 @@ func NewSuccessResponse(commandID, channelID string, result map[string]interface
 }
 
 // NewErrorResponse creates an error response for a command
-func NewErrorResponse(commandID, channelID string, err *JSONRPCError) *SocketResponse {
-	return &SocketResponse{
+func NewErrorResponse(commandID, channelID string, err *JSONRPCError) *JanusResponse {
+	return &JanusResponse{
 		CommandID: commandID,
 		ChannelID: channelID,
 		Success:   false,
@@ -74,28 +74,28 @@ func NewErrorResponse(commandID, channelID string, err *JSONRPCError) *SocketRes
 
 
 // ToJSON serializes the command to JSON bytes
-func (c *SocketCommand) ToJSON() ([]byte, error) {
+func (c *JanusCommand) ToJSON() ([]byte, error) {
 	return json.Marshal(c)
 }
 
 // FromJSON deserializes JSON bytes to a command
-func (c *SocketCommand) FromJSON(data []byte) error {
+func (c *JanusCommand) FromJSON(data []byte) error {
 	return json.Unmarshal(data, c)
 }
 
 // ToJSON serializes the response to JSON bytes
-func (r *SocketResponse) ToJSON() ([]byte, error) {
+func (r *JanusResponse) ToJSON() ([]byte, error) {
 	return json.Marshal(r)
 }
 
 // FromJSON deserializes JSON bytes to a response
-func (r *SocketResponse) FromJSON(data []byte) error {
+func (r *JanusResponse) FromJSON(data []byte) error {
 	return json.Unmarshal(data, r)
 }
 
 // CommandHandler represents a function that handles incoming commands
 // Matches the Swift CommandHandler signature for compatibility
-type CommandHandler func(command *SocketCommand) (*SocketResponse, error)
+type CommandHandler func(command *JanusCommand) (*JanusResponse, error)
 
 // TimeoutHandler represents a function called when a command times out
 // Matches the Swift TimeoutHandler signature for compatibility

@@ -56,7 +56,7 @@ func TestCommandHandlerRegistry(t *testing.T) {
 	defer helper.Cleanup()
 	
 	// Test handler registration
-	testHandler := server.NewStringHandler(func(cmd *models.SocketCommand) (string, error) {
+	testHandler := server.NewStringHandler(func(cmd *models.JanusCommand) (string, error) {
 		return "test response", nil
 	})
 	
@@ -73,7 +73,7 @@ func TestMultiClientConnectionManagement(t *testing.T) {
 	defer helper.Cleanup()
 	
 	// Register test handler
-	helper.server.RegisterHandler("ping", server.NewStringHandler(func(cmd *models.SocketCommand) (string, error) {
+	helper.server.RegisterHandler("ping", server.NewStringHandler(func(cmd *models.JanusCommand) (string, error) {
 		return "pong", nil
 	}))
 	
@@ -105,7 +105,7 @@ func TestMultiClientConnectionManagement(t *testing.T) {
 			defer conn.Close()
 			
 			// Create response socket
-			responseSocketPath := filepath.Join(helper.tempDir, fmt.Sprintf("client-%d-response.sock", clientID))
+			responseSocketPath := filepath.Join("/tmp", fmt.Sprintf("cli%d.sock", clientID))
 			responseAddr, _ := net.ResolveUnixAddr("unixgram", responseSocketPath)
 			responseConn, err := net.ListenUnixgram("unixgram", responseAddr)
 			if err != nil {
@@ -116,7 +116,7 @@ func TestMultiClientConnectionManagement(t *testing.T) {
 			defer os.Remove(responseSocketPath)
 			
 			// Send command
-			cmd := models.SocketCommand{
+			cmd := models.JanusCommand{
 				ID:        fmt.Sprintf("test-%d", clientID),
 				ChannelID: "test",
 				Command:   "ping",
@@ -139,7 +139,7 @@ func TestMultiClientConnectionManagement(t *testing.T) {
 				return
 			}
 			
-			var response models.SocketResponse
+			var response models.JanusResponse
 			if err := json.Unmarshal(buffer[:n], &response); err != nil {
 				t.Errorf("Client %d failed to parse response: %v", clientID, err)
 				return
@@ -201,7 +201,7 @@ func TestEventDrivenArchitecture(t *testing.T) {
 	defer conn.Close()
 	
 	// Create response socket
-	responseSocketPath := filepath.Join(helper.tempDir, "event-test-response.sock")
+	responseSocketPath := filepath.Join("/tmp", "evt.sock")
 	responseAddr, _ := net.ResolveUnixAddr("unixgram", responseSocketPath)
 	responseConn, err := net.ListenUnixgram("unixgram", responseAddr)
 	if err != nil {
@@ -211,7 +211,7 @@ func TestEventDrivenArchitecture(t *testing.T) {
 	defer os.Remove(responseSocketPath)
 	
 	// Send ping command (built-in)
-	cmd := models.SocketCommand{
+	cmd := models.JanusCommand{
 		ID:        "event-test",
 		ChannelID: "test",
 		Command:   "ping",
@@ -301,7 +301,7 @@ func TestConnectionProcessingLoop(t *testing.T) {
 	var commandMutex sync.Mutex
 	
 	// Register custom handler that tracks commands
-	helper.server.RegisterHandler("track_test", server.NewStringHandler(func(cmd *models.SocketCommand) (string, error) {
+	helper.server.RegisterHandler("track_test", server.NewStringHandler(func(cmd *models.JanusCommand) (string, error) {
 		commandMutex.Lock()
 		processedCommands = append(processedCommands, cmd.ID)
 		commandMutex.Unlock()
@@ -320,11 +320,11 @@ func TestConnectionProcessingLoop(t *testing.T) {
 	for _, cmdID := range commandIDs {
 		conn, _ := net.DialUnix("unixgram", nil, &net.UnixAddr{Name: helper.socketPath, Net: "unixgram"})
 		
-		responseSocketPath := filepath.Join(helper.tempDir, fmt.Sprintf("loop-test-%s.sock", cmdID))
+		responseSocketPath := filepath.Join("/tmp", fmt.Sprintf("lp%s.sock", cmdID))
 		responseAddr, _ := net.ResolveUnixAddr("unixgram", responseSocketPath)
 		responseConn, _ := net.ListenUnixgram("unixgram", responseAddr)
 		
-		cmd := models.SocketCommand{
+		cmd := models.JanusCommand{
 			ID:        cmdID,
 			ChannelID: "test",
 			Command:   "track_test",
@@ -391,7 +391,7 @@ func TestErrorResponseGeneration(t *testing.T) {
 	defer responseConn.Close()
 	defer os.Remove(responseSocketPath)
 	
-	cmd := models.SocketCommand{
+	cmd := models.JanusCommand{
 		ID:        "error-test",
 		ChannelID: "test",
 		Command:   "nonexistent_command",
@@ -410,7 +410,7 @@ func TestErrorResponseGeneration(t *testing.T) {
 		t.Fatalf("Failed to read error response: %v", err)
 	}
 	
-	var response models.SocketResponse
+	var response models.JanusResponse
 	if err := json.Unmarshal(buffer[:n], &response); err != nil {
 		t.Fatalf("Failed to parse error response: %v", err)
 	}
@@ -453,7 +453,7 @@ func TestClientActivityTracking(t *testing.T) {
 		responseAddr, _ := net.ResolveUnixAddr("unixgram", responseSocketPath)
 		responseConn, _ := net.ListenUnixgram("unixgram", responseAddr)
 		
-		cmd := models.SocketCommand{
+		cmd := models.JanusCommand{
 			ID:        fmt.Sprintf("activity-test-%d", i),
 			ChannelID: "test-client",  // Same channel = same client
 			Command:   "ping",
@@ -486,7 +486,7 @@ func TestCommandExecutionWithTimeout(t *testing.T) {
 	defer helper.Cleanup()
 	
 	// Register slow handler that should timeout
-	helper.server.RegisterHandler("slow_command", server.NewStringHandler(func(cmd *models.SocketCommand) (string, error) {
+	helper.server.RegisterHandler("slow_command", server.NewStringHandler(func(cmd *models.JanusCommand) (string, error) {
 		time.Sleep(10 * time.Second) // Much longer than server timeout
 		return "should not reach here", nil
 	}))
@@ -507,7 +507,7 @@ func TestCommandExecutionWithTimeout(t *testing.T) {
 	defer responseConn.Close()
 	defer os.Remove(responseSocketPath)
 	
-	cmd := models.SocketCommand{
+	cmd := models.JanusCommand{
 		ID:        "timeout-test",
 		ChannelID: "test",
 		Command:   "slow_command",
@@ -535,7 +535,7 @@ func TestCommandExecutionWithTimeout(t *testing.T) {
 		t.Errorf("Timeout took too long: %v", duration)
 	}
 	
-	var response models.SocketResponse
+	var response models.JanusResponse
 	if err := json.Unmarshal(buffer[:n], &response); err != nil {
 		t.Fatalf("Failed to parse timeout response: %v", err)
 	}

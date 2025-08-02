@@ -145,7 +145,7 @@ func TestCommandInjectionInArguments(t *testing.T) {
 		
 		// Test validation - should detect malicious content
 		validator := gojanus.NewSecurityValidator()
-		jsonData, _ := gojanus.NewSocketCommand("security-channel", "secure-command", args, nil).ToJSON()
+		jsonData, _ := gojanus.NewJanusCommand("security-channel", "secure-command", args, nil).ToJSON()
 		
 		err := validator.ValidateMessageData(jsonData)
 		if err != nil && strings.Contains(injection, "\x00") {
@@ -176,7 +176,7 @@ func TestMalformedJSONAttackPrevention(t *testing.T) {
 	}
 	
 	for _, malformedData := range malformedJSONData {
-		_, err := gojanus.ParseManifestFromJSON(malformedData)
+		_, err := gojanus.ParseJSON(malformedData)
 		if err == nil {
 			t.Errorf("Expected JSON parsing error for malformed data: %s", string(malformedData))
 		}
@@ -220,7 +220,7 @@ func TestUnicodeNormalizationAttacks(t *testing.T) {
 			"secure_param": unicodeText,
 		}
 		
-		command := gojanus.NewSocketCommand("security-channel", "secure-command", args, nil)
+		command := gojanus.NewJanusCommand("security-channel", "secure-command", args, nil)
 		jsonData, err := command.ToJSON()
 		if err != nil {
 			t.Errorf("Failed to serialize Unicode text %s: %v", unicodeText, err)
@@ -262,7 +262,7 @@ func TestMemoryExhaustionViaLargePayloads(t *testing.T) {
 		"secure_param": largeString,
 	}
 	
-	command := gojanus.NewSocketCommand("security-channel", "secure-command", args, nil)
+	command := gojanus.NewJanusCommand("security-channel", "secure-command", args, nil)
 	jsonData, err := command.ToJSON()
 	if err != nil {
 		// Large serialization might fail, which is acceptable

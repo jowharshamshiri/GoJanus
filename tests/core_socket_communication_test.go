@@ -139,7 +139,7 @@ func TestSendWithResponse(t *testing.T) {
 	}
 	
 	// Test message with reply_to field
-	command := gojanus.NewSocketCommand("test-channel", "test-command", map[string]interface{}{
+	command := gojanus.NewJanusCommand("test-channel", "test-command", map[string]interface{}{
 		"test_param": "test_value",
 	}, nil)
 	command.ReplyTo = &responseSocketPath
@@ -171,7 +171,7 @@ func TestSendWithResponse(t *testing.T) {
 	receivedData := buffer[:n]
 	
 	// Verify received message
-	var receivedCommand gojanus.SocketCommand
+	var receivedCommand gojanus.JanusCommand
 	err = receivedCommand.FromJSON(receivedData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize received command: %v", err)
@@ -218,7 +218,7 @@ func TestFireAndForgetSend(t *testing.T) {
 	// We don't need a client for this low-level test, just create the command directly
 	
 	// Test fire-and-forget command (no reply_to field)
-	command := gojanus.NewSocketCommand("test-channel", "fire-and-forget", map[string]interface{}{
+	command := gojanus.NewJanusCommand("test-channel", "fire-and-forget", map[string]interface{}{
 		"message": "no response needed",
 	}, nil)
 	// ReplyTo should be empty for fire-and-forget
@@ -249,7 +249,7 @@ func TestFireAndForgetSend(t *testing.T) {
 	
 	receivedData := buffer[:n]
 	
-	var receivedCommand gojanus.SocketCommand
+	var receivedCommand gojanus.JanusCommand
 	err = receivedCommand.FromJSON(receivedData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize received command: %v", err)

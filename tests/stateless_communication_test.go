@@ -353,9 +353,9 @@ func TestStatelessCommandUUIDGeneration(t *testing.T) {
 		"test_param": "value",
 	}
 	
-	command1 := gojanus.NewSocketCommand("stateless-channel", "stateless-command", args, nil)
-	command2 := gojanus.NewSocketCommand("stateless-channel", "stateless-command", args, nil)
-	command3 := gojanus.NewSocketCommand("stateless-channel", "stateless-command", args, nil)
+	command1 := gojanus.NewJanusCommand("stateless-channel", "stateless-command", args, nil)
+	command2 := gojanus.NewJanusCommand("stateless-channel", "stateless-command", args, nil)
+	command3 := gojanus.NewJanusCommand("stateless-channel", "stateless-command", args, nil)
 	
 	// Verify UUIDs are different
 	if command1.ID == command2.ID {

@@ -73,9 +73,9 @@ func TestManifestJSONSerialization(t *testing.T) {
 	}
 }
 
-// TestSocketCommandSerialization tests socket command JSON serialization
-// Matches Swift: testSocketCommandSerialization()
-func TestSocketCommandSerialization(t *testing.T) {
+// TestJanusCommandSerialization tests socket command JSON serialization
+// Matches Swift: testJanusCommandSerialization()
+func TestJanusCommandSerialization(t *testing.T) {
 	args := map[string]interface{}{
 		"test_string": "value",
 		"test_int":    42,
@@ -83,7 +83,7 @@ func TestSocketCommandSerialization(t *testing.T) {
 	}
 	timeout := 30.0
 	
-	command := gojanus.NewSocketCommand("test-channel", "test-command", args, &timeout)
+	command := gojanus.NewJanusCommand("test-channel", "test-command", args, &timeout)
 	
 	// Serialize to JSON
 	jsonData, err := command.ToJSON()
@@ -92,7 +92,7 @@ func TestSocketCommandSerialization(t *testing.T) {
 	}
 	
 	// Deserialize back
-	var deserializedCommand gojanus.SocketCommand
+	var deserializedCommand gojanus.JanusCommand
 	err = deserializedCommand.FromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize command from JSON: %v", err)
@@ -130,9 +130,9 @@ func TestSocketCommandSerialization(t *testing.T) {
 	}
 }
 
-// TestSocketResponseSerialization tests socket response JSON serialization
-// Matches Swift: testSocketResponseSerialization()
-func TestSocketResponseSerialization(t *testing.T) {
+// TestJanusResponseSerialization tests socket response JSON serialization
+// Matches Swift: testJanusResponseSerialization()
+func TestJanusResponseSerialization(t *testing.T) {
 	result := map[string]interface{}{
 		"message": "success",
 		"code":    200,
@@ -148,7 +148,7 @@ func TestSocketResponseSerialization(t *testing.T) {
 	}
 	
 	// Deserialize back
-	var deserializedResponse gojanus.SocketResponse
+	var deserializedResponse gojanus.JanusResponse
 	err = deserializedResponse.FromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize response from JSON: %v", err)
@@ -194,7 +194,7 @@ func TestAnyCodableStringValue(t *testing.T) {
 		"string_value": "test string",
 	}
 	
-	command := gojanus.NewSocketCommand("test-channel", "test-command", args, nil)
+	command := gojanus.NewJanusCommand("test-channel", "test-command", args, nil)
 	
 	// Serialize and deserialize
 	jsonData, err := command.ToJSON()
@@ -202,7 +202,7 @@ func TestAnyCodableStringValue(t *testing.T) {
 		t.Fatalf("Failed to serialize command: %v", err)
 	}
 	
-	var deserializedCommand gojanus.SocketCommand
+	var deserializedCommand gojanus.JanusCommand
 	err = deserializedCommand.FromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize command: %v", err)
@@ -225,7 +225,7 @@ func TestAnyCodableIntegerValue(t *testing.T) {
 		"int_value": 42,
 	}
 	
-	command := gojanus.NewSocketCommand("test-channel", "test-command", args, nil)
+	command := gojanus.NewJanusCommand("test-channel", "test-command", args, nil)
 	
 	// Serialize and deserialize
 	jsonData, err := command.ToJSON()
@@ -233,7 +233,7 @@ func TestAnyCodableIntegerValue(t *testing.T) {
 		t.Fatalf("Failed to serialize command: %v", err)
 	}
 	
-	var deserializedCommand gojanus.SocketCommand
+	var deserializedCommand gojanus.JanusCommand
 	err = deserializedCommand.FromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize command: %v", err)
@@ -258,7 +258,7 @@ func TestAnyCodableBooleanValue(t *testing.T) {
 		"bool_false": false,
 	}
 	
-	command := gojanus.NewSocketCommand("test-channel", "test-command", args, nil)
+	command := gojanus.NewJanusCommand("test-channel", "test-command", args, nil)
 	
 	// Serialize and deserialize
 	jsonData, err := command.ToJSON()
@@ -266,7 +266,7 @@ func TestAnyCodableBooleanValue(t *testing.T) {
 		t.Fatalf("Failed to serialize command: %v", err)
 	}
 	
-	var deserializedCommand gojanus.SocketCommand
+	var deserializedCommand gojanus.JanusCommand
 	err = deserializedCommand.FromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize command: %v", err)
@@ -298,7 +298,7 @@ func TestAnyCodableArrayValue(t *testing.T) {
 		"array_value": []interface{}{"item1", 2, true, []interface{}{"nested", "array"}},
 	}
 	
-	command := gojanus.NewSocketCommand("test-channel", "test-command", args, nil)
+	command := gojanus.NewJanusCommand("test-channel", "test-command", args, nil)
 	
 	// Serialize and deserialize
 	jsonData, err := command.ToJSON()
@@ -306,7 +306,7 @@ func TestAnyCodableArrayValue(t *testing.T) {
 		t.Fatalf("Failed to serialize command: %v", err)
 	}
 	
-	var deserializedCommand gojanus.SocketCommand
+	var deserializedCommand gojanus.JanusCommand
 	err = deserializedCommand.FromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize command: %v", err)

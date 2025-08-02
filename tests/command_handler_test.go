@@ -19,42 +19,42 @@ func TestDirectValueHandlers(t *testing.T) {
 	}{
 		{
 			name: "BoolHandler",
-			handler: server.NewBoolHandler(func(cmd *models.SocketCommand) (bool, error) {
+			handler: server.NewBoolHandler(func(cmd *models.JanusCommand) (bool, error) {
 				return true, nil
 			}),
 			expected: true,
 		},
 		{
 			name: "StringHandler",
-			handler: server.NewStringHandler(func(cmd *models.SocketCommand) (string, error) {
+			handler: server.NewStringHandler(func(cmd *models.JanusCommand) (string, error) {
 				return "test response", nil
 			}),
 			expected: "test response",
 		},
 		{
 			name: "IntHandler",
-			handler: server.NewIntHandler(func(cmd *models.SocketCommand) (int, error) {
+			handler: server.NewIntHandler(func(cmd *models.JanusCommand) (int, error) {
 				return 42, nil
 			}),
 			expected: 42,
 		},
 		{
 			name: "FloatHandler",
-			handler: server.NewFloatHandler(func(cmd *models.SocketCommand) (float64, error) {
+			handler: server.NewFloatHandler(func(cmd *models.JanusCommand) (float64, error) {
 				return 3.14, nil
 			}),
 			expected: 3.14,
 		},
 		{
 			name: "ArrayHandler",
-			handler: server.NewArrayHandler(func(cmd *models.SocketCommand) ([]interface{}, error) {
+			handler: server.NewArrayHandler(func(cmd *models.JanusCommand) ([]interface{}, error) {
 				return []interface{}{"item1", "item2", 123}, nil
 			}),
 			expected: []interface{}{"item1", "item2", 123},
 		},
 		{
 			name: "ObjectHandler",
-			handler: server.NewObjectHandler(func(cmd *models.SocketCommand) (map[string]interface{}, error) {
+			handler: server.NewObjectHandler(func(cmd *models.JanusCommand) (map[string]interface{}, error) {
 				return map[string]interface{}{
 					"key1": "value1",
 					"key2": 42,
@@ -72,7 +72,7 @@ func TestDirectValueHandlers(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create test command
-			testCmd := &models.SocketCommand{
+			testCmd := &models.JanusCommand{
 				ID:        "test-id",
 				ChannelID: "test-channel",
 				Command:   "test-command",
@@ -104,11 +104,11 @@ func TestCustomHandlerTypes(t *testing.T) {
 		Name string `json:"name"`
 	}
 
-	handler := server.NewCustomHandler(func(cmd *models.SocketCommand) (User, error) {
+	handler := server.NewCustomHandler(func(cmd *models.JanusCommand) (User, error) {
 		return User{ID: 123, Name: "Test User"}, nil
 	})
 
-	testCmd := &models.SocketCommand{
+	testCmd := &models.JanusCommand{
 		ID:        "test-id",
 		ChannelID: "test-channel",
 		Command:   "get-user",
@@ -144,7 +144,7 @@ func TestAsyncHandlers(t *testing.T) {
 	}{
 		{
 			name: "AsyncBoolHandler",
-			handler: server.NewAsyncBoolHandler(func(cmd *models.SocketCommand) (bool, error) {
+			handler: server.NewAsyncBoolHandler(func(cmd *models.JanusCommand) (bool, error) {
 				time.Sleep(10 * time.Millisecond) // Simulate async work
 				return true, nil
 			}),
@@ -152,7 +152,7 @@ func TestAsyncHandlers(t *testing.T) {
 		},
 		{
 			name: "AsyncStringHandler",
-			handler: server.NewAsyncStringHandler(func(cmd *models.SocketCommand) (string, error) {
+			handler: server.NewAsyncStringHandler(func(cmd *models.JanusCommand) (string, error) {
 				time.Sleep(10 * time.Millisecond) // Simulate async work
 				return "async response", nil
 			}),
@@ -162,7 +162,7 @@ func TestAsyncHandlers(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testCmd := &models.SocketCommand{
+			testCmd := &models.JanusCommand{
 				ID:        "test-id",
 				ChannelID: "test-channel",
 				Command:   "test-command",
@@ -194,11 +194,11 @@ func TestAsyncHandlers(t *testing.T) {
 // TestHandlerErrorHandling tests error handling in handlers
 func TestHandlerErrorHandling(t *testing.T) {
 	// Test sync handler error
-	syncHandler := server.NewStringHandler(func(cmd *models.SocketCommand) (string, error) {
+	syncHandler := server.NewStringHandler(func(cmd *models.JanusCommand) (string, error) {
 		return "", fmt.Errorf("sync handler error")
 	})
 
-	testCmd := &models.SocketCommand{
+	testCmd := &models.JanusCommand{
 		ID:        "test-id",
 		ChannelID: "test-channel",
 		Command:   "test-command",
@@ -218,7 +218,7 @@ func TestHandlerErrorHandling(t *testing.T) {
 	}
 
 	// Test async handler error
-	asyncHandler := server.NewAsyncStringHandler(func(cmd *models.SocketCommand) (string, error) {
+	asyncHandler := server.NewAsyncStringHandler(func(cmd *models.JanusCommand) (string, error) {
 		return "", fmt.Errorf("async handler error")
 	})
 
@@ -239,7 +239,7 @@ func TestHandlerRegistry(t *testing.T) {
 	registry := server.NewHandlerRegistry()
 
 	// Test registration
-	handler := server.NewStringHandler(func(cmd *models.SocketCommand) (string, error) {
+	handler := server.NewStringHandler(func(cmd *models.JanusCommand) (string, error) {
 		return "test", nil
 	})
 
@@ -258,7 +258,7 @@ func TestHandlerRegistry(t *testing.T) {
 	}
 
 	// Test execution of retrieved handler
-	testCmd := &models.SocketCommand{
+	testCmd := &models.JanusCommand{
 		ID:        "test-id",
 		ChannelID: "test-channel",
 		Command:   "test-command",
@@ -288,7 +288,7 @@ func TestHandlerRegistry(t *testing.T) {
 
 // TestJSONRPCErrorMapping tests JSON-RPC error code mapping
 func TestJSONRPCErrorMapping(t *testing.T) {
-	handler := server.NewStringHandler(func(cmd *models.SocketCommand) (string, error) {
+	handler := server.NewStringHandler(func(cmd *models.JanusCommand) (string, error) {
 		// Return a JSON-RPC error
 		return "", &models.JSONRPCError{
 			Code:    models.InvalidParams,
@@ -297,7 +297,7 @@ func TestJSONRPCErrorMapping(t *testing.T) {
 		}
 	})
 
-	testCmd := &models.SocketCommand{
+	testCmd := &models.JanusCommand{
 		ID:        "test-id",
 		ChannelID: "test-channel",
 		Command:   "test-command",
@@ -323,7 +323,7 @@ func TestJSONRPCErrorMapping(t *testing.T) {
 
 // TestHandlerArguments tests handler access to command arguments
 func TestHandlerArguments(t *testing.T) {
-	handler := server.NewObjectHandler(func(cmd *models.SocketCommand) (map[string]interface{}, error) {
+	handler := server.NewObjectHandler(func(cmd *models.JanusCommand) (map[string]interface{}, error) {
 		// Extract arguments and return them
 		name, nameOk := cmd.Args["name"].(string)
 		age, ageOk := cmd.Args["age"].(float64)
@@ -339,7 +339,7 @@ func TestHandlerArguments(t *testing.T) {
 		}, nil
 	})
 
-	testCmd := &models.SocketCommand{
+	testCmd := &models.JanusCommand{
 		ID:        "test-id",
 		ChannelID: "test-channel",
 		Command:   "process-user",

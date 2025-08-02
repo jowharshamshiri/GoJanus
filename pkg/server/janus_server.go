@@ -149,7 +149,7 @@ func (s *JanusServer) CleanupSocketFile() error {
 // RegisterHandler registers an enhanced command handler
 //
 // Example:
-//   server.RegisterHandler("ping", NewStringHandler(func(cmd *models.SocketCommand) (string, error) {
+//   server.RegisterHandler("ping", NewStringHandler(func(cmd *models.JanusCommand) (string, error) {
 //       return "pong", nil
 //   }))
 func (s *JanusServer) RegisterHandler(command string, handler CommandHandler) {
@@ -272,7 +272,7 @@ func (s *JanusServer) isRunning() bool {
 // SOCK_DGRAM connectionless implementation
 func (s *JanusServer) handleDatagram(data []byte, clientAddr *net.UnixAddr) {
 	// Parse command from datagram
-	var cmd models.SocketCommand
+	var cmd models.JanusCommand
 	if err := json.Unmarshal(data, &cmd); err != nil {
 		fmt.Printf("Failed to decode command: %v\n", err)
 		s.Emit("error", fmt.Errorf("failed to decode command: %w", err))
@@ -304,7 +304,7 @@ func (s *JanusServer) handleDatagram(data []byte, clientAddr *net.UnixAddr) {
 
 // sendResponse sends a response to the specified reply-to address
 // SOCK_DGRAM reply mechanism
-func (s *JanusServer) sendResponse(response *models.SocketResponse, replyToPath string) {
+func (s *JanusServer) sendResponse(response *models.JanusResponse, replyToPath string) {
 	// Marshal response to JSON
 	responseData, err := json.Marshal(response)
 	if err != nil {
@@ -334,7 +334,7 @@ func (s *JanusServer) sendResponse(response *models.SocketResponse, replyToPath 
 }
 
 // processCommand executes the appropriate handler for a command
-func (s *JanusServer) processCommand(cmd *models.SocketCommand) *models.SocketResponse {
+func (s *JanusServer) processCommand(cmd *models.JanusCommand) *models.JanusResponse {
 	// Check for built-in commands first
 	if builtinResult, handled := s.handleBuiltinCommand(cmd); handled {
 		return builtinResult
@@ -343,10 +343,10 @@ func (s *JanusServer) processCommand(cmd *models.SocketCommand) *models.SocketRe
 	// Execute handler using enhanced handler registry
 	result, err := s.handlerRegistry.ExecuteHandler(cmd.Command, cmd)
 	
-	var response *models.SocketResponse
+	var response *models.JanusResponse
 	
 	if err != nil {
-		response = &models.SocketResponse{
+		response = &models.JanusResponse{
 			CommandID: cmd.ID,
 			ChannelID: cmd.ChannelID,
 			Success:   false,
@@ -355,7 +355,7 @@ func (s *JanusServer) processCommand(cmd *models.SocketCommand) *models.SocketRe
 			Timestamp: float64(time.Now().Unix()),
 		}
 	} else {
-		response = &models.SocketResponse{
+		response = &models.JanusResponse{
 			CommandID: cmd.ID,
 			ChannelID: cmd.ChannelID,
 			Success:   true,
@@ -369,10 +369,10 @@ func (s *JanusServer) processCommand(cmd *models.SocketCommand) *models.SocketRe
 }
 
 // handleBuiltinCommand handles built-in commands that are always available
-func (s *JanusServer) handleBuiltinCommand(cmd *models.SocketCommand) (*models.SocketResponse, bool) {
+func (s *JanusServer) handleBuiltinCommand(cmd *models.JanusCommand) (*models.JanusResponse, bool) {
 	switch cmd.Command {
 	case "ping":
-		return &models.SocketResponse{
+		return &models.JanusResponse{
 			CommandID: cmd.ID,
 			ChannelID: cmd.ChannelID,
 			Success:   true,
@@ -393,7 +393,7 @@ func (s *JanusServer) handleBuiltinCommand(cmd *models.SocketCommand) (*models.S
 				}
 			}
 		}
-		return &models.SocketResponse{
+		return &models.JanusResponse{
 			CommandID: cmd.ID,
 			ChannelID: cmd.ChannelID,
 			Success:   true,
@@ -406,7 +406,7 @@ func (s *JanusServer) handleBuiltinCommand(cmd *models.SocketCommand) (*models.S
 		}, true
 
 	case "get_info":
-		return &models.SocketResponse{
+		return &models.JanusResponse{
 			CommandID: cmd.ID,
 			ChannelID: cmd.ChannelID,
 			Success:   true,
@@ -481,7 +481,7 @@ func (s *JanusServer) handleBuiltinCommand(cmd *models.SocketCommand) (*models.S
 			},
 			"models": map[string]interface{}{},
 		}
-		return &models.SocketResponse{
+		return &models.JanusResponse{
 			CommandID: cmd.ID,
 			ChannelID: cmd.ChannelID,
 			Success:   true,
@@ -497,7 +497,7 @@ func (s *JanusServer) handleBuiltinCommand(cmd *models.SocketCommand) (*models.S
 			"message":   "JSON is valid",
 			"timestamp": float64(time.Now().Unix()),
 		}
-		return &models.SocketResponse{
+		return &models.JanusResponse{
 			CommandID: cmd.ID,
 			ChannelID: cmd.ChannelID,
 			Success:   true,
@@ -509,7 +509,7 @@ func (s *JanusServer) handleBuiltinCommand(cmd *models.SocketCommand) (*models.S
 	case "slow_process":
 		// Simulate slow processing
 		time.Sleep(2 * time.Second)
-		return &models.SocketResponse{
+		return &models.JanusResponse{
 			CommandID: cmd.ID,
 			ChannelID: cmd.ChannelID,
 			Success:   true,

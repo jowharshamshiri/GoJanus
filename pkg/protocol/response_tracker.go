@@ -10,7 +10,7 @@ import (
 
 // PendingCommand represents a command awaiting response
 type PendingCommand struct {
-	Resolve   chan *models.SocketResponse
+	Resolve   chan *models.JanusResponse
 	Reject    chan error
 	Timestamp time.Time
 	Timeout   time.Duration
@@ -74,7 +74,7 @@ func NewResponseTracker(config TrackerConfig) *ResponseTracker {
 // TrackCommand tracks a command awaiting response
 func (rt *ResponseTracker) TrackCommand(
 	commandID string,
-	resolve chan *models.SocketResponse,
+	resolve chan *models.JanusResponse,
 	reject chan error,
 	timeout time.Duration,
 ) error {
@@ -123,7 +123,7 @@ func (rt *ResponseTracker) TrackCommand(
 }
 
 // HandleResponse handles an incoming response
-func (rt *ResponseTracker) HandleResponse(response *models.SocketResponse) bool {
+func (rt *ResponseTracker) HandleResponse(response *models.JanusResponse) bool {
 	rt.mutex.Lock()
 	pending, exists := rt.pendingCommands[response.CommandID]
 	if exists {

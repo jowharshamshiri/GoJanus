@@ -31,7 +31,7 @@ func TestServerRegisterHandler(t *testing.T) {
 	}
 	srv := server.NewJanusServer(config)
 	
-	srv.RegisterHandler("test", server.NewObjectHandler(func(cmd *models.SocketCommand) (map[string]interface{}, error) {
+	srv.RegisterHandler("test", server.NewObjectHandler(func(cmd *models.JanusCommand) (map[string]interface{}, error) {
 		return map[string]interface{}{"echo": cmd.Command}, nil
 	}))
 	
@@ -50,7 +50,7 @@ func TestClientServerCommunication(t *testing.T) {
 		DefaultTimeout: 30,
 	}
 	srv := server.NewJanusServer(config)
-	srv.RegisterHandler("ping", server.NewObjectHandler(func(cmd *models.SocketCommand) (map[string]interface{}, error) {
+	srv.RegisterHandler("ping", server.NewObjectHandler(func(cmd *models.JanusCommand) (map[string]interface{}, error) {
 		return map[string]interface{}{
 			"message":   "pong",
 			"timestamp": time.Now().Unix(),
@@ -104,7 +104,7 @@ func TestClientServerWithArgs(t *testing.T) {
 		DefaultTimeout: 30,
 	}
 	srv := server.NewJanusServer(config)
-	srv.RegisterHandler("echo", server.NewObjectHandler(func(cmd *models.SocketCommand) (map[string]interface{}, error) {
+	srv.RegisterHandler("echo", server.NewObjectHandler(func(cmd *models.JanusCommand) (map[string]interface{}, error) {
 		if cmd.Args == nil {
 			return nil, models.NewJSONRPCError(models.InvalidParams, "No arguments provided")
 		}
@@ -237,7 +237,7 @@ func TestClientFireAndForget(t *testing.T) {
 		DefaultTimeout: 30,
 	}
 	srv := server.NewJanusServer(config)
-	srv.RegisterHandler("log", server.NewObjectHandler(func(cmd *models.SocketCommand) (map[string]interface{}, error) {
+	srv.RegisterHandler("log", server.NewObjectHandler(func(cmd *models.JanusCommand) (map[string]interface{}, error) {
 		// Simulate logging
 		t.Logf("Logged: %v", cmd.Args)
 		return map[string]interface{}{"logged": true}, nil
@@ -287,7 +287,7 @@ func TestClientTimeout(t *testing.T) {
 		DefaultTimeout: 30,
 	}
 	srv := server.NewJanusServer(config)
-	srv.RegisterHandler("slow", server.NewObjectHandler(func(cmd *models.SocketCommand) (map[string]interface{}, error) {
+	srv.RegisterHandler("slow", server.NewObjectHandler(func(cmd *models.JanusCommand) (map[string]interface{}, error) {
 		// Simulate slow processing
 		time.Sleep(10 * time.Second)
 		return map[string]interface{}{"done": true}, nil
@@ -332,7 +332,7 @@ func TestClientPing(t *testing.T) {
 		DefaultTimeout: 30,
 	}
 	srv := server.NewJanusServer(config)
-	srv.RegisterHandler("ping", server.NewObjectHandler(func(cmd *models.SocketCommand) (map[string]interface{}, error) {
+	srv.RegisterHandler("ping", server.NewObjectHandler(func(cmd *models.JanusCommand) (map[string]interface{}, error) {
 		return map[string]interface{}{"message": "pong"}, nil
 	}))
 	
@@ -376,7 +376,7 @@ func TestMultipleHandlers(t *testing.T) {
 	}
 	srv := server.NewJanusServer(config)
 	
-	srv.RegisterHandler("add", server.NewObjectHandler(func(cmd *models.SocketCommand) (map[string]interface{}, error) {
+	srv.RegisterHandler("add", server.NewObjectHandler(func(cmd *models.JanusCommand) (map[string]interface{}, error) {
 		if cmd.Args == nil {
 			return nil, models.NewJSONRPCError(models.InvalidParams, "Missing arguments")
 		}
@@ -391,7 +391,7 @@ func TestMultipleHandlers(t *testing.T) {
 		return map[string]interface{}{"result": a + b}, nil
 	}))
 	
-	srv.RegisterHandler("multiply", server.NewObjectHandler(func(cmd *models.SocketCommand) (map[string]interface{}, error) {
+	srv.RegisterHandler("multiply", server.NewObjectHandler(func(cmd *models.JanusCommand) (map[string]interface{}, error) {
 		if cmd.Args == nil {
 			return nil, models.NewJSONRPCError(models.InvalidParams, "Missing arguments")
 		}

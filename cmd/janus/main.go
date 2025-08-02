@@ -111,7 +111,7 @@ func listenForDatagrams(socketPath string, manifest *specification.Manifest, cha
 			continue
 		}
 
-		var cmd models.SocketCommand
+		var cmd models.JanusCommand
 		if err := json.Unmarshal(buffer[:n], &cmd); err != nil {
 			log.Printf("Failed to parse datagram: %v", err)
 			continue
@@ -179,7 +179,7 @@ func sendDatagram(targetSocket, command, message string, manifest *specification
 		fmt.Printf("Built-in command %s allowed\n", command)
 	}
 
-	cmd := models.SocketCommand{
+	cmd := models.JanusCommand{
 		ID:        generateID(),
 		ChannelID: channelID,
 		Command:   command,
@@ -201,7 +201,7 @@ func sendDatagram(targetSocket, command, message string, manifest *specification
 		log.Fatalf("Failed to send datagram: %v", err)
 	}
 
-	var response models.SocketResponse
+	var response models.JanusResponse
 	if err := json.Unmarshal(responseData, &response); err != nil {
 		log.Printf("Failed to parse response: %v", err)
 		return
@@ -493,7 +493,7 @@ func sendResponse(cmdID, channelID, command string, args map[string]interface{},
 		}
 	}
 
-	response := models.SocketResponse{
+	response := models.JanusResponse{
 		CommandID: cmdID,
 		ChannelID: channelID,
 		Success:   success,

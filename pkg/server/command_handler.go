@@ -12,40 +12,40 @@ type HandlerResult struct {
 
 // CommandHandler supports direct value responses and flexible error handling
 type CommandHandler interface {
-	Handle(*models.SocketCommand) HandlerResult
+	Handle(*models.JanusCommand) HandlerResult
 }
 
 // SyncHandler wraps a synchronous handler function
-type SyncHandler func(*models.SocketCommand) HandlerResult
+type SyncHandler func(*models.JanusCommand) HandlerResult
 
-func (h SyncHandler) Handle(cmd *models.SocketCommand) HandlerResult {
+func (h SyncHandler) Handle(cmd *models.JanusCommand) HandlerResult {
 	return h(cmd)
 }
 
 // AsyncHandler wraps an asynchronous handler function using goroutines
-type AsyncHandler func(*models.SocketCommand, chan<- HandlerResult)
+type AsyncHandler func(*models.JanusCommand, chan<- HandlerResult)
 
-func (h AsyncHandler) Handle(cmd *models.SocketCommand) HandlerResult {
+func (h AsyncHandler) Handle(cmd *models.JanusCommand) HandlerResult {
 	resultChan := make(chan HandlerResult, 1)
 	go h(cmd, resultChan)
 	return <-resultChan
 }
 
 // Direct response handlers for common types
-type BoolHandler func(*models.SocketCommand) (bool, error)
-type StringHandler func(*models.SocketCommand) (string, error)
-type IntHandler func(*models.SocketCommand) (int, error)
-type FloatHandler func(*models.SocketCommand) (float64, error)
-type ArrayHandler func(*models.SocketCommand) ([]interface{}, error)
-type ObjectHandler func(*models.SocketCommand) (map[string]interface{}, error)
+type BoolHandler func(*models.JanusCommand) (bool, error)
+type StringHandler func(*models.JanusCommand) (string, error)
+type IntHandler func(*models.JanusCommand) (int, error)
+type FloatHandler func(*models.JanusCommand) (float64, error)
+type ArrayHandler func(*models.JanusCommand) ([]interface{}, error)
+type ObjectHandler func(*models.JanusCommand) (map[string]interface{}, error)
 
 // CustomHandler for any JSON-serializable type
-type CustomHandler[T any] func(*models.SocketCommand) (T, error)
+type CustomHandler[T any] func(*models.JanusCommand) (T, error)
 
 // Convenience constructors for direct value handlers
 
 func NewBoolHandler(fn BoolHandler) CommandHandler {
-	return SyncHandler(func(cmd *models.SocketCommand) HandlerResult {
+	return SyncHandler(func(cmd *models.JanusCommand) HandlerResult {
 		value, err := fn(cmd)
 		if err != nil {
 			return HandlerResult{Error: models.MapErrorToJSONRPC(err)}
@@ -55,7 +55,7 @@ func NewBoolHandler(fn BoolHandler) CommandHandler {
 }
 
 func NewStringHandler(fn StringHandler) CommandHandler {
-	return SyncHandler(func(cmd *models.SocketCommand) HandlerResult {
+	return SyncHandler(func(cmd *models.JanusCommand) HandlerResult {
 		value, err := fn(cmd)
 		if err != nil {
 			return HandlerResult{Error: models.MapErrorToJSONRPC(err)}
@@ -65,7 +65,7 @@ func NewStringHandler(fn StringHandler) CommandHandler {
 }
 
 func NewIntHandler(fn IntHandler) CommandHandler {
-	return SyncHandler(func(cmd *models.SocketCommand) HandlerResult {
+	return SyncHandler(func(cmd *models.JanusCommand) HandlerResult {
 		value, err := fn(cmd)
 		if err != nil {
 			return HandlerResult{Error: models.MapErrorToJSONRPC(err)}
@@ -75,7 +75,7 @@ func NewIntHandler(fn IntHandler) CommandHandler {
 }
 
 func NewFloatHandler(fn FloatHandler) CommandHandler {
-	return SyncHandler(func(cmd *models.SocketCommand) HandlerResult {
+	return SyncHandler(func(cmd *models.JanusCommand) HandlerResult {
 		value, err := fn(cmd)
 		if err != nil {
 			return HandlerResult{Error: models.MapErrorToJSONRPC(err)}
@@ -85,7 +85,7 @@ func NewFloatHandler(fn FloatHandler) CommandHandler {
 }
 
 func NewArrayHandler(fn ArrayHandler) CommandHandler {
-	return SyncHandler(func(cmd *models.SocketCommand) HandlerResult {
+	return SyncHandler(func(cmd *models.JanusCommand) HandlerResult {
 		value, err := fn(cmd)
 		if err != nil {
 			return HandlerResult{Error: models.MapErrorToJSONRPC(err)}
@@ -95,7 +95,7 @@ func NewArrayHandler(fn ArrayHandler) CommandHandler {
 }
 
 func NewObjectHandler(fn ObjectHandler) CommandHandler {
-	return SyncHandler(func(cmd *models.SocketCommand) HandlerResult {
+	return SyncHandler(func(cmd *models.JanusCommand) HandlerResult {
 		value, err := fn(cmd)
 		if err != nil {
 			return HandlerResult{Error: models.MapErrorToJSONRPC(err)}
@@ -106,7 +106,7 @@ func NewObjectHandler(fn ObjectHandler) CommandHandler {
 
 // NewCustomHandler creates a handler for any JSON-serializable type
 func NewCustomHandler[T any](fn CustomHandler[T]) CommandHandler {
-	return SyncHandler(func(cmd *models.SocketCommand) HandlerResult {
+	return SyncHandler(func(cmd *models.JanusCommand) HandlerResult {
 		value, err := fn(cmd)
 		if err != nil {
 			return HandlerResult{Error: models.MapErrorToJSONRPC(err)}
@@ -116,8 +116,8 @@ func NewCustomHandler[T any](fn CustomHandler[T]) CommandHandler {
 }
 
 // NewAsyncBoolHandler creates an async boolean handler
-func NewAsyncBoolHandler(fn func(*models.SocketCommand) (bool, error)) CommandHandler {
-	return AsyncHandler(func(cmd *models.SocketCommand, result chan<- HandlerResult) {
+func NewAsyncBoolHandler(fn func(*models.JanusCommand) (bool, error)) CommandHandler {
+	return AsyncHandler(func(cmd *models.JanusCommand, result chan<- HandlerResult) {
 		value, err := fn(cmd)
 		if err != nil {
 			result <- HandlerResult{Error: models.MapErrorToJSONRPC(err)}
@@ -128,8 +128,8 @@ func NewAsyncBoolHandler(fn func(*models.SocketCommand) (bool, error)) CommandHa
 }
 
 // NewAsyncStringHandler creates an async string handler
-func NewAsyncStringHandler(fn func(*models.SocketCommand) (string, error)) CommandHandler {
-	return AsyncHandler(func(cmd *models.SocketCommand, result chan<- HandlerResult) {
+func NewAsyncStringHandler(fn func(*models.JanusCommand) (string, error)) CommandHandler {
+	return AsyncHandler(func(cmd *models.JanusCommand, result chan<- HandlerResult) {
 		value, err := fn(cmd)
 		if err != nil {
 			result <- HandlerResult{Error: models.MapErrorToJSONRPC(err)}
@@ -140,8 +140,8 @@ func NewAsyncStringHandler(fn func(*models.SocketCommand) (string, error)) Comma
 }
 
 // NewAsyncCustomHandler creates an async handler for any JSON-serializable type
-func NewAsyncCustomHandler[T any](fn func(*models.SocketCommand) (T, error)) CommandHandler {
-	return AsyncHandler(func(cmd *models.SocketCommand, result chan<- HandlerResult) {
+func NewAsyncCustomHandler[T any](fn func(*models.JanusCommand) (T, error)) CommandHandler {
+	return AsyncHandler(func(cmd *models.JanusCommand, result chan<- HandlerResult) {
 		value, err := fn(cmd)
 		if err != nil {
 			result <- HandlerResult{Error: models.MapErrorToJSONRPC(err)}
@@ -185,7 +185,7 @@ func (r *HandlerRegistry) GetHandler(command string) (CommandHandler, bool) {
 	return handler, exists
 }
 
-func (r *HandlerRegistry) ExecuteHandler(command string, cmd *models.SocketCommand) (interface{}, *models.JSONRPCError) {
+func (r *HandlerRegistry) ExecuteHandler(command string, cmd *models.JanusCommand) (interface{}, *models.JSONRPCError) {
 	handler, exists := r.GetHandler(command)
 	if !exists {
 		return nil, &models.JSONRPCError{

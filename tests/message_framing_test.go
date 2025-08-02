@@ -12,7 +12,7 @@ func TestMessageFraming_EncodeMessage(t *testing.T) {
 	framing := protocol.NewMessageFraming()
 	
 	t.Run("should encode a command message", func(t *testing.T) {
-		command := models.NewSocketCommand("test-service", "ping", nil, nil)
+		command := models.NewJanusCommand("test-service", "ping", nil, nil)
 		
 		encoded, err := framing.EncodeMessage(command)
 		if err != nil {
@@ -32,7 +32,7 @@ func TestMessageFraming_EncodeMessage(t *testing.T) {
 	})
 	
 	t.Run("should encode a response message", func(t *testing.T) {
-		response := &models.SocketResponse{
+		response := &models.JanusResponse{
 			CommandID: "550e8400-e29b-41d4-a716-446655440000",
 			ChannelID: "test-service",
 			Success:   true,
@@ -55,7 +55,7 @@ func TestMessageFraming_EncodeMessage(t *testing.T) {
 		largeArgs := make(map[string]interface{})
 		largeArgs["data"] = string(make([]byte, 20*1024*1024)) // 20MB
 		
-		command := models.NewSocketCommand("test-service", "large", largeArgs, nil)
+		command := models.NewJanusCommand("test-service", "large", largeArgs, nil)
 		
 		_, err := framing.EncodeMessage(command)
 		if err == nil {
@@ -76,7 +76,7 @@ func TestMessageFraming_DecodeMessage(t *testing.T) {
 	framing := protocol.NewMessageFraming()
 	
 	t.Run("should decode a command message", func(t *testing.T) {
-		originalCommand := models.NewSocketCommand("test-service", "ping", nil, nil)
+		originalCommand := models.NewJanusCommand("test-service", "ping", nil, nil)
 		
 		encoded, err := framing.EncodeMessage(originalCommand)
 		if err != nil {
@@ -92,9 +92,9 @@ func TestMessageFraming_DecodeMessage(t *testing.T) {
 			t.Errorf("Expected no remaining buffer, got %d bytes", len(remaining))
 		}
 		
-		decodedCommand, ok := decoded.(models.SocketCommand)
+		decodedCommand, ok := decoded.(models.JanusCommand)
 		if !ok {
-			t.Fatalf("Decoded message is not a SocketCommand")
+			t.Fatalf("Decoded message is not a JanusCommand")
 		}
 		
 		if decodedCommand.ID != originalCommand.ID {
@@ -111,7 +111,7 @@ func TestMessageFraming_DecodeMessage(t *testing.T) {
 	})
 	
 	t.Run("should decode a response message", func(t *testing.T) {
-		originalResponse := &models.SocketResponse{
+		originalResponse := &models.JanusResponse{
 			CommandID: "550e8400-e29b-41d4-a716-446655440000",
 			ChannelID: "test-service",
 			Success:   true,
@@ -133,9 +133,9 @@ func TestMessageFraming_DecodeMessage(t *testing.T) {
 			t.Errorf("Expected no remaining buffer, got %d bytes", len(remaining))
 		}
 		
-		decodedResponse, ok := decoded.(models.SocketResponse)
+		decodedResponse, ok := decoded.(models.JanusResponse)
 		if !ok {
-			t.Fatalf("Decoded message is not a SocketResponse")
+			t.Fatalf("Decoded message is not a JanusResponse")
 		}
 		
 		if decodedResponse.CommandID != originalResponse.CommandID {
@@ -148,8 +148,8 @@ func TestMessageFraming_DecodeMessage(t *testing.T) {
 	})
 	
 	t.Run("should handle multiple messages in buffer", func(t *testing.T) {
-		command := models.NewSocketCommand("test-service", "ping", nil, nil)
-		response := &models.SocketResponse{
+		command := models.NewJanusCommand("test-service", "ping", nil, nil)
+		response := &models.JanusResponse{
 			CommandID: "550e8400-e29b-41d4-a716-446655440000",
 			ChannelID: "test-service",
 			Success:   true,
@@ -175,7 +175,7 @@ func TestMessageFraming_DecodeMessage(t *testing.T) {
 			t.Fatalf("Failed to decode first message: %v", err)
 		}
 		
-		if _, ok := message1.(models.SocketCommand); !ok {
+		if _, ok := message1.(models.JanusCommand); !ok {
 			t.Error("First message should be a command")
 		}
 		
@@ -185,7 +185,7 @@ func TestMessageFraming_DecodeMessage(t *testing.T) {
 			t.Fatalf("Failed to decode second message: %v", err)
 		}
 		
-		if _, ok := message2.(models.SocketResponse); !ok {
+		if _, ok := message2.(models.JanusResponse); !ok {
 			t.Error("Second message should be a response")
 		}
 		
@@ -212,7 +212,7 @@ func TestMessageFraming_DecodeMessage(t *testing.T) {
 	})
 	
 	t.Run("should return error for incomplete message", func(t *testing.T) {
-		command := models.NewSocketCommand("test-service", "ping", nil, nil)
+		command := models.NewJanusCommand("test-service", "ping", nil, nil)
 		encoded, err := framing.EncodeMessage(command)
 		if err != nil {
 			t.Fatalf("Failed to encode command: %v", err)
@@ -257,8 +257,8 @@ func TestMessageFraming_ExtractMessages(t *testing.T) {
 	framing := protocol.NewMessageFraming()
 	
 	t.Run("should extract multiple complete messages", func(t *testing.T) {
-		command := models.NewSocketCommand("test-service", "ping", nil, nil)
-		response := &models.SocketResponse{
+		command := models.NewJanusCommand("test-service", "ping", nil, nil)
+		response := &models.JanusResponse{
 			CommandID: "550e8400-e29b-41d4-a716-446655440000",
 			ChannelID: "test-service",
 			Success:   true,
@@ -283,18 +283,18 @@ func TestMessageFraming_ExtractMessages(t *testing.T) {
 			t.Errorf("Expected no remaining buffer, got %d bytes", len(remaining))
 		}
 		
-		if _, ok := messages[0].(models.SocketCommand); !ok {
+		if _, ok := messages[0].(models.JanusCommand); !ok {
 			t.Error("First message should be a command")
 		}
 		
-		if _, ok := messages[1].(models.SocketResponse); !ok {
+		if _, ok := messages[1].(models.JanusResponse); !ok {
 			t.Error("Second message should be a response")
 		}
 	})
 	
 	t.Run("should handle partial messages", func(t *testing.T) {
-		command := models.NewSocketCommand("test-service", "ping", nil, nil)
-		response := &models.SocketResponse{
+		command := models.NewJanusCommand("test-service", "ping", nil, nil)
+		response := &models.JanusResponse{
 			CommandID: "550e8400-e29b-41d4-a716-446655440000",
 			ChannelID: "test-service",
 			Success:   true,
@@ -322,7 +322,7 @@ func TestMessageFraming_ExtractMessages(t *testing.T) {
 			t.Errorf("Expected 10 bytes remaining (partial second message), got %d", len(remaining))
 		}
 		
-		if _, ok := messages[0].(models.SocketCommand); !ok {
+		if _, ok := messages[0].(models.JanusCommand); !ok {
 			t.Error("First message should be a command")
 		}
 	})
@@ -364,7 +364,7 @@ func TestMessageFraming_CalculateFramedSize(t *testing.T) {
 	framing := protocol.NewMessageFraming()
 	
 	t.Run("should calculate correct framed size", func(t *testing.T) {
-		command := models.NewSocketCommand("test-service", "ping", nil, nil)
+		command := models.NewJanusCommand("test-service", "ping", nil, nil)
 		
 		size, err := framing.CalculateFramedSize(command)
 		if err != nil {
@@ -386,7 +386,7 @@ func TestMessageFraming_DirectMessage(t *testing.T) {
 	framing := protocol.NewMessageFraming()
 	
 	t.Run("should encode direct message without envelope", func(t *testing.T) {
-		command := models.NewSocketCommand("test-service", "ping", nil, nil)
+		command := models.NewJanusCommand("test-service", "ping", nil, nil)
 		
 		encoded, err := framing.EncodeDirectMessage(command)
 		if err != nil {
@@ -405,7 +405,7 @@ func TestMessageFraming_DirectMessage(t *testing.T) {
 	})
 	
 	t.Run("should decode direct message without envelope", func(t *testing.T) {
-		originalCommand := models.NewSocketCommand("test-service", "ping", nil, nil)
+		originalCommand := models.NewJanusCommand("test-service", "ping", nil, nil)
 		
 		encoded, err := framing.EncodeDirectMessage(originalCommand)
 		if err != nil {
@@ -421,9 +421,9 @@ func TestMessageFraming_DirectMessage(t *testing.T) {
 			t.Errorf("Expected no remaining buffer, got %d bytes", len(remaining))
 		}
 		
-		decodedCommand, ok := decoded.(models.SocketCommand)
+		decodedCommand, ok := decoded.(models.JanusCommand)
 		if !ok {
-			t.Fatalf("Decoded message is not a SocketCommand")
+			t.Fatalf("Decoded message is not a JanusCommand")
 		}
 		
 		if decodedCommand.ID != originalCommand.ID {
@@ -432,7 +432,7 @@ func TestMessageFraming_DirectMessage(t *testing.T) {
 	})
 	
 	t.Run("should roundtrip command through direct encoding", func(t *testing.T) {
-		originalCommand := models.NewSocketCommand("test-service", "ping", nil, nil)
+		originalCommand := models.NewJanusCommand("test-service", "ping", nil, nil)
 		
 		encoded, err := framing.EncodeDirectMessage(originalCommand)
 		if err != nil {
@@ -444,7 +444,7 @@ func TestMessageFraming_DirectMessage(t *testing.T) {
 			t.Fatalf("Failed to decode: %v", err)
 		}
 		
-		decodedCommand := decoded.(models.SocketCommand)
+		decodedCommand := decoded.(models.JanusCommand)
 		
 		// Compare JSON representations for deep equality
 		originalJSON, _ := json.Marshal(originalCommand)
@@ -456,7 +456,7 @@ func TestMessageFraming_DirectMessage(t *testing.T) {
 	})
 	
 	t.Run("should roundtrip response through direct encoding", func(t *testing.T) {
-		originalResponse := &models.SocketResponse{
+		originalResponse := &models.JanusResponse{
 			CommandID: "550e8400-e29b-41d4-a716-446655440000",
 			ChannelID: "test-service",
 			Success:   true,
@@ -474,7 +474,7 @@ func TestMessageFraming_DirectMessage(t *testing.T) {
 			t.Fatalf("Failed to decode: %v", err)
 		}
 		
-		decodedResponse := decoded.(models.SocketResponse)
+		decodedResponse := decoded.(models.JanusResponse)
 		
 		// Compare JSON representations for deep equality
 		originalJSON, _ := json.Marshal(originalResponse)

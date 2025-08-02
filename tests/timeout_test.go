@@ -125,9 +125,9 @@ func TestUUIDGeneration(t *testing.T) {
 		"test_param": "value",
 	}
 	
-	command1 := gojanus.NewSocketCommand("timeout-channel", "timeout-command", args, nil)
-	command2 := gojanus.NewSocketCommand("timeout-channel", "timeout-command", args, nil)
-	command3 := gojanus.NewSocketCommand("timeout-channel", "timeout-command", args, nil)
+	command1 := gojanus.NewJanusCommand("timeout-channel", "timeout-command", args, nil)
+	command2 := gojanus.NewJanusCommand("timeout-channel", "timeout-command", args, nil)
+	command3 := gojanus.NewJanusCommand("timeout-channel", "timeout-command", args, nil)
 	
 	// Verify UUIDs are different
 	if command1.ID == command2.ID {
@@ -279,16 +279,16 @@ func TestTimeoutErrorMessageFormatting(t *testing.T) {
 	}
 }
 
-// TestSocketCommandTimeoutFieldSerialization tests timeout field in socket commands
-// Matches Swift: testSocketCommandTimeoutFieldSerialization()
-func TestSocketCommandTimeoutFieldSerialization(t *testing.T) {
+// TestJanusCommandTimeoutFieldSerialization tests timeout field in socket commands
+// Matches Swift: testJanusCommandTimeoutFieldSerialization()
+func TestJanusCommandTimeoutFieldSerialization(t *testing.T) {
 	args := map[string]interface{}{
 		"test_param": "value",
 	}
 	
 	// Test command with timeout
 	timeout := 45.0
-	commandWithTimeout := gojanus.NewSocketCommand("timeout-channel", "timeout-command", args, &timeout)
+	commandWithTimeout := gojanus.NewJanusCommand("timeout-channel", "timeout-command", args, &timeout)
 	
 	// Serialize to JSON
 	jsonData, err := commandWithTimeout.ToJSON()
@@ -297,7 +297,7 @@ func TestSocketCommandTimeoutFieldSerialization(t *testing.T) {
 	}
 	
 	// Deserialize back
-	var deserializedCommand gojanus.SocketCommand
+	var deserializedCommand gojanus.JanusCommand
 	err = deserializedCommand.FromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize command with timeout: %v", err)
@@ -311,7 +311,7 @@ func TestSocketCommandTimeoutFieldSerialization(t *testing.T) {
 	}
 	
 	// Test command without timeout
-	commandWithoutTimeout := gojanus.NewSocketCommand("timeout-channel", "timeout-command", args, nil)
+	commandWithoutTimeout := gojanus.NewJanusCommand("timeout-channel", "timeout-command", args, nil)
 	
 	// Serialize to JSON
 	jsonData, err = commandWithoutTimeout.ToJSON()
@@ -320,7 +320,7 @@ func TestSocketCommandTimeoutFieldSerialization(t *testing.T) {
 	}
 	
 	// Deserialize back
-	var deserializedCommandNoTimeout gojanus.SocketCommand
+	var deserializedCommandNoTimeout gojanus.JanusCommand
 	err = deserializedCommandNoTimeout.FromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize command without timeout: %v", err)

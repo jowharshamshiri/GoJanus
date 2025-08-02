@@ -39,9 +39,9 @@ func (mf *MessageFraming) EncodeMessage(message interface{}) ([]byte, error) {
 	// Determine message type
 	var messageType string
 	switch message.(type) {
-	case models.SocketCommand, *models.SocketCommand:
+	case models.JanusCommand, *models.JanusCommand:
 		messageType = "command"
-	case models.SocketResponse, *models.SocketResponse:
+	case models.JanusResponse, *models.JanusResponse:
 		messageType = "response"
 	default:
 		return nil, &MessageFramingError{
@@ -162,7 +162,7 @@ func (mf *MessageFraming) DecodeMessage(buffer []byte) (interface{}, []byte, err
 	// Parse payload JSON directly (no base64 decoding needed)
 	var message interface{}
 	if envelope.Type == "command" {
-		var cmd models.SocketCommand
+		var cmd models.JanusCommand
 		if err := json.Unmarshal([]byte(envelope.Payload), &cmd); err != nil {
 			return nil, buffer, &MessageFramingError{
 				Message: fmt.Sprintf("Failed to parse command payload JSON: %v", err),
@@ -176,7 +176,7 @@ func (mf *MessageFraming) DecodeMessage(buffer []byte) (interface{}, []byte, err
 		}
 		message = cmd
 	} else {
-		var resp models.SocketResponse
+		var resp models.JanusResponse
 		if err := json.Unmarshal([]byte(envelope.Payload), &resp); err != nil {
 			return nil, buffer, &MessageFramingError{
 				Message: fmt.Sprintf("Failed to parse response payload JSON: %v", err),
@@ -294,7 +294,7 @@ func (mf *MessageFraming) DecodeDirectMessage(buffer []byte) (interface{}, []byt
 	// Determine message type and parse accordingly
 	var message interface{}
 	if _, hasCommand := rawMessage["command"]; hasCommand {
-		var cmd models.SocketCommand
+		var cmd models.JanusCommand
 		if err := json.Unmarshal(messageBuffer, &cmd); err != nil {
 			return nil, buffer, &MessageFramingError{
 				Message: fmt.Sprintf("Failed to parse command: %v", err),
@@ -303,7 +303,7 @@ func (mf *MessageFraming) DecodeDirectMessage(buffer []byte) (interface{}, []byt
 		}
 		message = cmd
 	} else if _, hasCommandId := rawMessage["commandId"]; hasCommandId {
-		var resp models.SocketResponse
+		var resp models.JanusResponse
 		if err := json.Unmarshal(messageBuffer, &resp); err != nil {
 			return nil, buffer, &MessageFramingError{
 				Message: fmt.Sprintf("Failed to parse response: %v", err),
@@ -322,7 +322,7 @@ func (mf *MessageFraming) DecodeDirectMessage(buffer []byte) (interface{}, []byt
 }
 
 // validateCommandStructure validates command structure
-func (mf *MessageFraming) validateCommandStructure(cmd *models.SocketCommand) error {
+func (mf *MessageFraming) validateCommandStructure(cmd *models.JanusCommand) error {
 	if cmd.ID == "" {
 		return &MessageFramingError{
 			Message: "Command missing required string field: id",
@@ -345,7 +345,7 @@ func (mf *MessageFraming) validateCommandStructure(cmd *models.SocketCommand) er
 }
 
 // validateResponseStructure validates response structure
-func (mf *MessageFraming) validateResponseStructure(resp *models.SocketResponse) error {
+func (mf *MessageFraming) validateResponseStructure(resp *models.JanusResponse) error {
 	if resp.CommandID == "" {
 		return &MessageFramingError{
 			Message: "Response missing required field: commandId",

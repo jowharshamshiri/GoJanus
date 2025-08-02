@@ -77,8 +77,8 @@ type (
 
 // Model types
 type (
-	SocketCommand     = models.SocketCommand
-	SocketResponse    = models.SocketResponse
+	JanusCommand     = models.JanusCommand
+	JanusResponse    = models.JanusResponse
 	JSONRPCError      = models.JSONRPCError
 	JSONRPCErrorCode  = models.JSONRPCErrorCode
 	JSONRPCErrorData  = models.JSONRPCErrorData
@@ -150,18 +150,18 @@ var ParseYAML = specification.ParseYAML
 // Validate validates an Manifest
 var Validate = specification.Validate
 
-// NewSocketCommand creates a new socket command with generated UUID
-func NewSocketCommand(channelID, command string, args map[string]interface{}, timeout *float64) *SocketCommand {
-	return models.NewSocketCommand(channelID, command, args, timeout)
+// NewJanusCommand creates a new socket command with generated UUID
+func NewJanusCommand(channelID, command string, args map[string]interface{}, timeout *float64) *JanusCommand {
+	return models.NewJanusCommand(channelID, command, args, timeout)
 }
 
 // NewSuccessResponse creates a successful response for a command
-func NewSuccessResponse(commandID, channelID string, result map[string]interface{}) *SocketResponse {
+func NewSuccessResponse(commandID, channelID string, result map[string]interface{}) *JanusResponse {
 	return models.NewSuccessResponse(commandID, channelID, result)
 }
 
 // NewErrorResponse creates an error response for a command
-func NewErrorResponse(commandID, channelID string, err *JSONRPCError) *SocketResponse {
+func NewErrorResponse(commandID, channelID string, err *JSONRPCError) *JanusResponse {
 	return models.NewErrorResponse(commandID, channelID, err)
 }
 

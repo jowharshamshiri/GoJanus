@@ -100,13 +100,13 @@ func main() {
     defer client.Close()
     
     // Register async command handlers
-    err = client.RegisterCommandHandler("echo", func(cmd models.SocketCommand, args map[string]interface{}) (*models.SocketResponse, error) {
+    err = client.RegisterCommandHandler("echo", func(cmd models.JanusCommand, args map[string]interface{}) (*models.JanusResponse, error) {
         message, ok := args["message"].(string)
         if !ok {
             message = "No message provided"
         }
         
-        return &models.SocketResponse{
+        return &models.JanusResponse{
             CommandID: cmd.ID,
             ChannelID: cmd.ChannelID,
             Success:   true,

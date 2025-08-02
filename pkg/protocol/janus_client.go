@@ -235,7 +235,7 @@ func (client *JanusClient) ensureManifestLoaded() error {
 }
 
 // SendCommand sends a command via SOCK_DGRAM and waits for response
-func (client *JanusClient) SendCommand(ctx context.Context, command string, args map[string]interface{}, options ...CommandOptions) (*models.SocketResponse, error) {
+func (client *JanusClient) SendCommand(ctx context.Context, command string, args map[string]interface{}, options ...CommandOptions) (*models.JanusResponse, error) {
 	// Apply options
 	opts := mergeCommandOptions(options...)
 	
@@ -246,7 +246,7 @@ func (client *JanusClient) SendCommand(ctx context.Context, command string, args
 	responseSocketPath := client.janusClient.GenerateResponseSocketPath()
 	
 	// Create socket command
-	socketCommand := models.SocketCommand{
+	janusCommand := models.JanusCommand{
 		ID:        commandID,
 		ChannelID: client.channelID,
 		Command:   command,
@@ -289,7 +289,7 @@ func (client *JanusClient) SendCommand(ctx context.Context, command string, args
 	defer cancel()
 	
 	// Serialize command
-	commandData, err := json.Marshal(socketCommand)
+	commandData, err := json.Marshal(janusCommand)
 	if err != nil {
 		return nil, fmt.Errorf("failed to serialize command: %w", err)
 	}
@@ -301,7 +301,7 @@ func (client *JanusClient) SendCommand(ctx context.Context, command string, args
 	}
 	
 	// Deserialize response
-	var response models.SocketResponse
+	var response models.JanusResponse
 	if err := json.Unmarshal(responseData, &response); err != nil {
 		return nil, fmt.Errorf("failed to deserialize response: %w", err)
 	}
@@ -324,7 +324,7 @@ func (client *JanusClient) SendCommandNoResponse(ctx context.Context, command st
 	commandID := generateUUID()
 	
 	// Create socket command (no reply_to field)
-	socketCommand := models.SocketCommand{
+	janusCommand := models.JanusCommand{
 		ID:        commandID,
 		ChannelID: client.channelID,
 		Command:   command,
@@ -350,7 +350,7 @@ func (client *JanusClient) SendCommandNoResponse(ctx context.Context, command st
 	}
 	
 	// Serialize command
-	commandData, err := json.Marshal(socketCommand)
+	commandData, err := json.Marshal(janusCommand)
 	if err != nil {
 		return fmt.Errorf("failed to serialize command: %w", err)
 	}
@@ -505,8 +505,8 @@ func (client *JanusClient) Ping(ctx context.Context) bool {
 // MARK: - Advanced Client Features (Response Correlation System)
 
 // SendCommandAsync sends a command and returns a channel for receiving the response
-func (client *JanusClient) SendCommandAsync(ctx context.Context, command string, args map[string]interface{}) (<-chan *models.SocketResponse, <-chan error) {
-	responseChan := make(chan *models.SocketResponse, 1)
+func (client *JanusClient) SendCommandAsync(ctx context.Context, command string, args map[string]interface{}) (<-chan *models.JanusResponse, <-chan error) {
+	responseChan := make(chan *models.JanusResponse, 1)
 	errorChan := make(chan error, 1)
 
 	go func() {
@@ -522,9 +522,9 @@ func (client *JanusClient) SendCommandAsync(ctx context.Context, command string,
 }
 
 // SendCommandWithCorrelation sends a command with response correlation tracking
-func (client *JanusClient) SendCommandWithCorrelation(ctx context.Context, command string, args map[string]interface{}, timeout time.Duration) (<-chan *models.SocketResponse, <-chan error, string) {
+func (client *JanusClient) SendCommandWithCorrelation(ctx context.Context, command string, args map[string]interface{}, timeout time.Duration) (<-chan *models.JanusResponse, <-chan error, string) {
 	commandID := generateUUID()
-	responseChan := make(chan *models.SocketResponse, 1)
+	responseChan := make(chan *models.JanusResponse, 1)
 	errorChan := make(chan error, 1)
 
 	// Track the command in response tracker
@@ -541,7 +541,7 @@ func (client *JanusClient) SendCommandWithCorrelation(ctx context.Context, comma
 
 		// Create socket command with specific ID
 		timeoutSeconds := float64(timeout.Seconds())
-		socketCommand := models.SocketCommand{
+		janusCommand := models.JanusCommand{
 			ID:        commandID,
 			ChannelID: client.channelID,
 			Command:   command,
@@ -578,7 +578,7 @@ func (client *JanusClient) SendCommandWithCorrelation(ctx context.Context, comma
 		}
 
 		// Serialize and send command
-		commandData, err := json.Marshal(socketCommand)
+		commandData, err := json.Marshal(janusCommand)
 		if err != nil {
 			client.responseTracker.CancelCommand(commandID, fmt.Sprintf("failed to serialize command: %v", err))
 			return
@@ -592,7 +592,7 @@ func (client *JanusClient) SendCommandWithCorrelation(ctx context.Context, comma
 		}
 
 		// Parse response
-		var response models.SocketResponse
+		var response models.JanusResponse
 		if err := json.Unmarshal(responseData, &response); err != nil {
 			client.responseTracker.CancelCommand(commandID, fmt.Sprintf("failed to deserialize response: %v", err))
 			return
@@ -678,7 +678,7 @@ type ParallelCommand struct {
 // ParallelResult represents the result of a parallel command execution  
 type ParallelResult struct {
 	CommandID string                  `json:"commandId"`
-	Response  *models.SocketResponse  `json:"response,omitempty"`
+	Response  *models.JanusResponse  `json:"response,omitempty"`
 	Error     error                   `json:"error,omitempty"`
 }
 
@@ -689,7 +689,7 @@ type ChannelProxy struct {
 }
 
 // SendCommand sends a command through this channel proxy
-func (proxy *ChannelProxy) SendCommand(ctx context.Context, command string, args map[string]interface{}) (*models.SocketResponse, error) {
+func (proxy *ChannelProxy) SendCommand(ctx context.Context, command string, args map[string]interface{}) (*models.JanusResponse, error) {
 	// Temporarily override channel ID
 	originalChannelID := proxy.client.channelID
 	proxy.client.channelID = proxy.channelID
