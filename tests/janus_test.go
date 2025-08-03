@@ -7,8 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/user/GoJanus"
-	"github.com/user/GoJanus/pkg/models"
+	"github.com/jowharshamshiri/GoJanus/pkg/models"
+	"github.com/jowharshamshiri/GoJanus/pkg/protocol"
+	"github.com/jowharshamshiri/GoJanus/pkg/specification"
 )
 
 // TestManifestCreation tests basic Manifest model creation
@@ -55,7 +56,7 @@ func TestManifestJSONSerialization(t *testing.T) {
 	}
 	
 	// Deserialize back
-	var deserializedSpec gojanus.Manifest
+	var deserializedSpec specification.Manifest
 	err = json.Unmarshal(jsonData, &deserializedSpec)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal spec from JSON: %v", err)
@@ -85,7 +86,7 @@ func TestJanusCommandSerialization(t *testing.T) {
 	}
 	timeout := 30.0
 	
-	command := gojanus.NewJanusCommand("test-channel", "test-command", args, &timeout)
+	command := models.NewJanusCommand("test-channel", "test-command", args, &timeout)
 	
 	// Serialize to JSON
 	jsonData, err := command.ToJSON()
@@ -94,7 +95,7 @@ func TestJanusCommandSerialization(t *testing.T) {
 	}
 	
 	// Deserialize back
-	var deserializedCommand gojanus.JanusCommand
+	var deserializedCommand models.JanusCommand
 	err = deserializedCommand.FromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize command from JSON: %v", err)
@@ -141,7 +142,7 @@ func TestJanusResponseSerialization(t *testing.T) {
 		"data":    []interface{}{"item1", "item2"},
 	}
 	
-	response := gojanus.NewSuccessResponse("test-command-id", "test-channel", result)
+	response := models.NewSuccessResponse("test-command-id", "test-channel", result)
 	
 	// Serialize to JSON
 	jsonData, err := response.ToJSON()
@@ -150,7 +151,7 @@ func TestJanusResponseSerialization(t *testing.T) {
 	}
 	
 	// Deserialize back
-	var deserializedResponse gojanus.JanusResponse
+	var deserializedResponse models.JanusResponse
 	err = deserializedResponse.FromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize response from JSON: %v", err)
@@ -196,7 +197,7 @@ func TestAnyCodableStringValue(t *testing.T) {
 		"string_value": "test string",
 	}
 	
-	command := gojanus.NewJanusCommand("test-channel", "test-command", args, nil)
+	command := models.NewJanusCommand("test-channel", "test-command", args, nil)
 	
 	// Serialize and deserialize
 	jsonData, err := command.ToJSON()
@@ -204,7 +205,7 @@ func TestAnyCodableStringValue(t *testing.T) {
 		t.Fatalf("Failed to serialize command: %v", err)
 	}
 	
-	var deserializedCommand gojanus.JanusCommand
+	var deserializedCommand models.JanusCommand
 	err = deserializedCommand.FromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize command: %v", err)
@@ -227,7 +228,7 @@ func TestAnyCodableIntegerValue(t *testing.T) {
 		"int_value": 42,
 	}
 	
-	command := gojanus.NewJanusCommand("test-channel", "test-command", args, nil)
+	command := models.NewJanusCommand("test-channel", "test-command", args, nil)
 	
 	// Serialize and deserialize
 	jsonData, err := command.ToJSON()
@@ -235,7 +236,7 @@ func TestAnyCodableIntegerValue(t *testing.T) {
 		t.Fatalf("Failed to serialize command: %v", err)
 	}
 	
-	var deserializedCommand gojanus.JanusCommand
+	var deserializedCommand models.JanusCommand
 	err = deserializedCommand.FromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize command: %v", err)
@@ -260,7 +261,7 @@ func TestAnyCodableBooleanValue(t *testing.T) {
 		"bool_false": false,
 	}
 	
-	command := gojanus.NewJanusCommand("test-channel", "test-command", args, nil)
+	command := models.NewJanusCommand("test-channel", "test-command", args, nil)
 	
 	// Serialize and deserialize
 	jsonData, err := command.ToJSON()
@@ -268,7 +269,7 @@ func TestAnyCodableBooleanValue(t *testing.T) {
 		t.Fatalf("Failed to serialize command: %v", err)
 	}
 	
-	var deserializedCommand gojanus.JanusCommand
+	var deserializedCommand models.JanusCommand
 	err = deserializedCommand.FromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize command: %v", err)
@@ -300,7 +301,7 @@ func TestAnyCodableArrayValue(t *testing.T) {
 		"array_value": []interface{}{"item1", 2, true, []interface{}{"nested", "array"}},
 	}
 	
-	command := gojanus.NewJanusCommand("test-channel", "test-command", args, nil)
+	command := models.NewJanusCommand("test-channel", "test-command", args, nil)
 	
 	// Serialize and deserialize
 	jsonData, err := command.ToJSON()
@@ -308,7 +309,7 @@ func TestAnyCodableArrayValue(t *testing.T) {
 		t.Fatalf("Failed to serialize command: %v", err)
 	}
 	
-	var deserializedCommand gojanus.JanusCommand
+	var deserializedCommand models.JanusCommand
 	err = deserializedCommand.FromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize command: %v", err)
@@ -360,7 +361,7 @@ func TestJanusClientInitialization(t *testing.T) {
 	
 	// Create test Manifest and client for SOCK_DGRAM
 	_ = createTestManifest() // Load spec but don't use it - specification is now fetched dynamically
-	client, err := gojanus.NewJanusClient(testSocketPath, "test-channel")
+	client, err := protocol.New(testSocketPath, "test-channel")
 	if err != nil {
 		t.Fatalf("Failed to create SOCK_DGRAM client: %v", err)
 	}
@@ -393,20 +394,20 @@ func TestJanusClientInitialization(t *testing.T) {
 
 // Helper function to create a test Manifest
 // Matches Swift test helper patterns
-func createTestManifest() *gojanus.Manifest {
-	return &gojanus.Manifest{
+func createTestManifest() *specification.Manifest {
+	return &specification.Manifest{
 		Version:     "1.0.0",
 		Name:        "Test API",
 		Description: "Test Manifest",
-		Channels: map[string]*gojanus.ChannelSpec{
+		Channels: map[string]*specification.ChannelSpec{
 			"test-channel": {
 				Name:        "Test Channel",
 				Description: "Test channel description",
-				Commands: map[string]*gojanus.CommandSpec{
+				Commands: map[string]*specification.CommandSpec{
 					"test-command": {
 						Name:        "Test Command",
 						Description: "Test command description",
-						Args: map[string]*gojanus.ArgumentSpec{
+						Args: map[string]*specification.ArgumentSpec{
 							"test_arg": {
 								Name:        "Test Argument",
 								Type:        "string",
@@ -414,7 +415,7 @@ func createTestManifest() *gojanus.Manifest {
 								Required:    true,
 							},
 						},
-						Response: &gojanus.ResponseSpec{
+						Response: &specification.ResponseSpec{
 							Type:        "object",
 							Description: "Test response",
 						},

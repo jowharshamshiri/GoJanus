@@ -2,7 +2,7 @@ package server
 
 import (
 	"fmt"
-	"github.com/user/GoJanus/pkg/models"
+	"github.com/jowharshamshiri/GoJanus/pkg/models"
 )
 
 // HandlerResult represents the result of a handler execution

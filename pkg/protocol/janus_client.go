@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/user/GoJanus/pkg/core"
-	"github.com/user/GoJanus/pkg/models"
-	"github.com/user/GoJanus/pkg/specification"
+	"github.com/jowharshamshiri/GoJanus/pkg/core"
+	"github.com/jowharshamshiri/GoJanus/pkg/models"
+	"github.com/jowharshamshiri/GoJanus/pkg/specification"
 )
 
 // JanusClient is the main client interface for SOCK_DGRAM Unix socket communication

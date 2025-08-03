@@ -6,7 +6,7 @@ import (
 	"strings" 
 	"testing"
 
-	gojanus "github.com/user/GoJanus/pkg/specification"
+	gojanus "github.com/jowharshamshiri/GoJanus/pkg/specification"
 )
 
 // TestParseJSONSpecification tests parsing a valid JSON Manifest

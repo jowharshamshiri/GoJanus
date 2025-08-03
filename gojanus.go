@@ -50,10 +50,10 @@
 package gojanus
 
 import (
-	"github.com/user/GoJanus/pkg/core"
-	"github.com/user/GoJanus/pkg/models"
-	"github.com/user/GoJanus/pkg/protocol"
-	"github.com/user/GoJanus/pkg/specification"
+	"github.com/jowharshamshiri/GoJanus/pkg/core"
+	"github.com/jowharshamshiri/GoJanus/pkg/models"
+	"github.com/jowharshamshiri/GoJanus/pkg/protocol"
+	"github.com/jowharshamshiri/GoJanus/pkg/specification"
 )
 
 // Version represents the library version

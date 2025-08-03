@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/user/GoJanus/pkg/models"
+	"github.com/jowharshamshiri/GoJanus/pkg/models"
 )
 
 const (

@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/user/GoJanus/pkg/server"
-	"github.com/user/GoJanus/pkg/models"
-	"github.com/user/GoJanus/pkg/protocol"
+	"github.com/jowharshamshiri/GoJanus/pkg/server"
+	"github.com/jowharshamshiri/GoJanus/pkg/models"
+	"github.com/jowharshamshiri/GoJanus/pkg/protocol"
 )
 
 func TestServerCreation(t *testing.T) {

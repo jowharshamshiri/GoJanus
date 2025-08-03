@@ -1,4 +1,4 @@
-module github.com/user/GoJanus
+module github.com/jowharshamshiri/GoJanus
 
 go 1.21
 

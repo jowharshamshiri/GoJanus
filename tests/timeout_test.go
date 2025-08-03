@@ -8,8 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/user/GoJanus"
-	"github.com/user/GoJanus/pkg/protocol"
+	"github.com/jowharshamshiri/GoJanus/pkg/models"
+	"github.com/jowharshamshiri/GoJanus/pkg/protocol"
+	"github.com/jowharshamshiri/GoJanus/pkg/specification"
 )
 
 // TestCommandTimeoutConfiguration tests timeout configuration for commands
@@ -22,7 +23,7 @@ func TestCommandTimeoutConfiguration(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	_ = createTimeoutTestManifest() // Load spec but don't use it - specification is now fetched dynamically
-	client, err := gojanus.NewJanusClient(testSocketPath, "timeout-channel")
+	client, err := protocol.New(testSocketPath, "timeout-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -76,7 +77,7 @@ func TestTimeoutCallbackMechanisms(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	_ = createTimeoutTestManifest() // Load spec but don't use it - specification is now fetched dynamically
-	client, err := gojanus.NewJanusClient(testSocketPath, "timeout-channel")
+	client, err := protocol.New(testSocketPath, "timeout-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -114,7 +115,7 @@ func TestUUIDGeneration(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	_ = createTimeoutTestManifest() // Load spec but don't use it - specification is now fetched dynamically
-	client, err := gojanus.NewJanusClient(testSocketPath, "timeout-channel")
+	client, err := protocol.New(testSocketPath, "timeout-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -125,9 +126,9 @@ func TestUUIDGeneration(t *testing.T) {
 		"test_param": "value",
 	}
 	
-	command1 := gojanus.NewJanusCommand("timeout-channel", "timeout-command", args, nil)
-	command2 := gojanus.NewJanusCommand("timeout-channel", "timeout-command", args, nil)
-	command3 := gojanus.NewJanusCommand("timeout-channel", "timeout-command", args, nil)
+	command1 := models.NewJanusCommand("timeout-channel", "timeout-command", args, nil)
+	command2 := models.NewJanusCommand("timeout-channel", "timeout-command", args, nil)
+	command3 := models.NewJanusCommand("timeout-channel", "timeout-command", args, nil)
 	
 	// Verify UUIDs are different
 	if command1.ID == command2.ID {
@@ -167,7 +168,7 @@ func TestMultipleConcurrentTimeouts(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	_ = createTimeoutTestManifest() // Load spec but don't use it - specification is now fetched dynamically
-	client, err := gojanus.NewJanusClient(testSocketPath, "timeout-channel")
+	client, err := protocol.New(testSocketPath, "timeout-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -213,7 +214,7 @@ func TestDefaultTimeoutBehavior(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	_ = createTimeoutTestManifest() // Load spec but don't use it - specification is now fetched dynamically
-	client, err := gojanus.NewJanusClient(testSocketPath, "timeout-channel")
+	client, err := protocol.New(testSocketPath, "timeout-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -244,7 +245,7 @@ func TestDefaultTimeoutBehavior(t *testing.T) {
 // Matches Swift: testTimeoutErrorMessageFormatting()
 func TestTimeoutErrorMessageFormatting(t *testing.T) {
 	// Test creating timeout-related error messages
-	timeoutError := gojanus.NewJSONRPCError(gojanus.HandlerTimeout, "No response received within timeout period")
+	timeoutError := models.NewJSONRPCError(models.HandlerTimeout, "No response received within timeout period")
 	
 	errorString := timeoutError.Error()
 	
@@ -261,7 +262,7 @@ func TestTimeoutErrorMessageFormatting(t *testing.T) {
 	}
 	
 	// Test error without details
-	simpleTimeoutError := gojanus.NewJSONRPCError(gojanus.HandlerTimeout, "")
+	simpleTimeoutError := models.NewJSONRPCError(models.HandlerTimeout, "")
 	
 	simpleErrorString := simpleTimeoutError.Error()
 	
@@ -288,7 +289,7 @@ func TestJanusCommandTimeoutFieldSerialization(t *testing.T) {
 	
 	// Test command with timeout
 	timeout := 45.0
-	commandWithTimeout := gojanus.NewJanusCommand("timeout-channel", "timeout-command", args, &timeout)
+	commandWithTimeout := models.NewJanusCommand("timeout-channel", "timeout-command", args, &timeout)
 	
 	// Serialize to JSON
 	jsonData, err := commandWithTimeout.ToJSON()
@@ -297,7 +298,7 @@ func TestJanusCommandTimeoutFieldSerialization(t *testing.T) {
 	}
 	
 	// Deserialize back
-	var deserializedCommand gojanus.JanusCommand
+	var deserializedCommand models.JanusCommand
 	err = deserializedCommand.FromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize command with timeout: %v", err)
@@ -311,7 +312,7 @@ func TestJanusCommandTimeoutFieldSerialization(t *testing.T) {
 	}
 	
 	// Test command without timeout
-	commandWithoutTimeout := gojanus.NewJanusCommand("timeout-channel", "timeout-command", args, nil)
+	commandWithoutTimeout := models.NewJanusCommand("timeout-channel", "timeout-command", args, nil)
 	
 	// Serialize to JSON
 	jsonData, err = commandWithoutTimeout.ToJSON()
@@ -320,7 +321,7 @@ func TestJanusCommandTimeoutFieldSerialization(t *testing.T) {
 	}
 	
 	// Deserialize back
-	var deserializedCommandNoTimeout gojanus.JanusCommand
+	var deserializedCommandNoTimeout models.JanusCommand
 	err = deserializedCommandNoTimeout.FromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize command without timeout: %v", err)
@@ -342,7 +343,7 @@ func TestTimeoutValidation(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	_ = createTimeoutTestManifest() // Load spec but don't use it - specification is now fetched dynamically
-	client, err := gojanus.NewJanusClient(testSocketPath, "timeout-channel")
+	client, err := protocol.New(testSocketPath, "timeout-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -391,7 +392,7 @@ func TestTimeoutValidation(t *testing.T) {
 // Tests internal timeout management functionality
 func TestTimeoutManagerFunctionality(t *testing.T) {
 	// Test timeout manager creation and basic operations
-	manager := gojanus.NewTimeoutManager()
+	manager := protocol.NewTimeoutManager()
 	if manager == nil {
 		t.Fatal("Failed to create timeout manager")
 	}
@@ -453,20 +454,20 @@ func TestTimeoutManagerFunctionality(t *testing.T) {
 }
 
 // Helper function to create timeout test Manifest
-func createTimeoutTestManifest() *gojanus.Manifest {
-	return &gojanus.Manifest{
+func createTimeoutTestManifest() *specification.Manifest {
+	return &specification.Manifest{
 		Version:     "1.0.0",
 		Name:        "Timeout Test API",
 		Description: "Manifest for timeout testing",
-		Channels: map[string]*gojanus.ChannelSpec{
+		Channels: map[string]*specification.ChannelSpec{
 			"timeout-channel": {
 				Name:        "Timeout Channel",
 				Description: "Channel for timeout testing",
-				Commands: map[string]*gojanus.CommandSpec{
+				Commands: map[string]*specification.CommandSpec{
 					"timeout-command": {
 						Name:        "Timeout Command",
 						Description: "Command for timeout testing",
-						Args: map[string]*gojanus.ArgumentSpec{
+						Args: map[string]*specification.ArgumentSpec{
 							"test_param": {
 								Name:        "Test Parameter",
 								Type:        "string",
@@ -474,7 +475,7 @@ func createTimeoutTestManifest() *gojanus.Manifest {
 								Required:    true,
 							},
 						},
-						Response: &gojanus.ResponseSpec{
+						Response: &specification.ResponseSpec{
 							Type:        "object",
 							Description: "Timeout test response",
 						},

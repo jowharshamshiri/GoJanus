@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/user/GoJanus/pkg/models"
-	"github.com/user/GoJanus/pkg/server"
+	"github.com/jowharshamshiri/GoJanus/pkg/models"
+	"github.com/jowharshamshiri/GoJanus/pkg/server"
 )
 
 // TestDirectValueHandlers tests all direct value response handlers

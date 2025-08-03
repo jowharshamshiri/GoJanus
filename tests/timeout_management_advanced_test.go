@@ -6,7 +6,7 @@ import (
 	"testing" 
 	"time"
 	
-	"github.com/user/GoJanus/pkg/protocol"
+	"github.com/jowharshamshiri/GoJanus/pkg/protocol"
 )
 
 // TestTimeoutExtension tests the timeout extension capability

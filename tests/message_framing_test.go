@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/user/GoJanus/pkg/models"
-	"github.com/user/GoJanus/pkg/protocol"
+	"github.com/jowharshamshiri/GoJanus/pkg/models"
+	"github.com/jowharshamshiri/GoJanus/pkg/protocol"
 )
 
 func TestMessageFraming_EncodeMessage(t *testing.T) {

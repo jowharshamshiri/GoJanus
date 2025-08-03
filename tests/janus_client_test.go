@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/user/GoJanus"
-	"github.com/user/GoJanus/pkg/models"
-	"github.com/user/GoJanus/pkg/protocol"
-	"github.com/user/GoJanus/pkg/server"
+	"github.com/jowharshamshiri/GoJanus/pkg/models"
+	"github.com/jowharshamshiri/GoJanus/pkg/protocol"
+	"github.com/jowharshamshiri/GoJanus/pkg/server"
+	"github.com/jowharshamshiri/GoJanus/pkg/specification"
 )
 
 // TestClientInitializationWithValidSpec tests client creation with valid specification
@@ -24,7 +24,7 @@ func TestClientInitializationWithValidSpec(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	client, err := gojanus.NewJanusClient(testSocketPath, "test")
+	client, err := protocol.New(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client with valid spec: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestClientInitializationWithInvalidChannel(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	client, err := gojanus.NewJanusClient(testSocketPath, "nonexistent-channel")
+	client, err := protocol.New(testSocketPath, "nonexistent-channel")
 	if err != nil {
 		// Constructor should succeed - validation happens during sendCommand
 		t.Errorf("Constructor should not fail for invalid channel: %v", err)
@@ -86,7 +86,7 @@ func TestClientInitializationWithInvalidChannelFormat(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	// Test invalid channel ID format (contains invalid characters)
-	_, err := gojanus.NewJanusClient(testSocketPath, "invalid/channel")
+	_, err := protocol.New(testSocketPath, "invalid/channel")
 	if err == nil {
 		t.Error("Expected error for invalid channel format")
 		return
@@ -128,15 +128,15 @@ func TestRegisterValidCommandHandler(t *testing.T) {
 		}
 	}()
 	
-	client, err := gojanus.NewJanusClient(testSocketPath, "test")
+	client, err := protocol.New(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
 	// Register handler for existing command
-	handler := func(command *gojanus.JanusCommand) (*gojanus.JanusResponse, error) {
-		return gojanus.NewSuccessResponse(command.ID, command.ChannelID, map[string]interface{}{
+	handler := func(command *models.JanusCommand) (*models.JanusResponse, error) {
+		return models.NewSuccessResponse(command.ID, command.ChannelID, map[string]interface{}{
 			"message": "Handler executed successfully",
 		}), nil
 	}
@@ -156,15 +156,15 @@ func TestRegisterInvalidCommandHandler(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	client, err := gojanus.NewJanusClient(testSocketPath, "test")
+	client, err := protocol.New(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
 	// Try to register handler for nonexistent command
-	handler := func(command *gojanus.JanusCommand) (*gojanus.JanusResponse, error) {
-		return gojanus.NewSuccessResponse(command.ID, command.ChannelID, nil), nil
+	handler := func(command *models.JanusCommand) (*models.JanusResponse, error) {
+		return models.NewSuccessResponse(command.ID, command.ChannelID, nil), nil
 	}
 	
 	err = client.RegisterCommandHandler("nonexistent-command", handler)
@@ -187,7 +187,7 @@ func TestJanusCommandValidation(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	client, err := gojanus.NewJanusClient(testSocketPath, "test")
+	client, err := protocol.New(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -238,7 +238,7 @@ func TestCommandMessageSerialization(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	client, err := gojanus.NewJanusClient(testSocketPath, "test")
+	client, err := protocol.New(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -256,7 +256,7 @@ func TestCommandMessageSerialization(t *testing.T) {
 	}
 	
 	// Create command directly for serialization testing
-	command := gojanus.NewJanusCommand("test", "echo", args, nil)
+	command := models.NewJanusCommand("test", "echo", args, nil)
 	
 	// Test serialization
 	jsonData, err := command.ToJSON()
@@ -265,7 +265,7 @@ func TestCommandMessageSerialization(t *testing.T) {
 	}
 	
 	// Test deserialization
-	var deserializedCommand gojanus.JanusCommand
+	var deserializedCommand models.JanusCommand
 	err = deserializedCommand.FromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize command: %v", err)
@@ -336,14 +336,14 @@ func TestMultipleClientInstances(t *testing.T) {
 	}()
 	
 	// Create first client
-	client1, err := gojanus.NewJanusClient(testSocketPath1, "test")
+	client1, err := protocol.New(testSocketPath1, "test")
 	if err != nil {
 		t.Fatalf("Failed to create first client: %v", err)
 	}
 	defer client1.Close()
 	
 	// Create second client with different socket path and same channel
-	client2, err := gojanus.NewJanusClient(testSocketPath2, "test")
+	client2, err := protocol.New(testSocketPath2, "test")
 	if err != nil {
 		t.Fatalf("Failed to create second client: %v", err)
 	}
@@ -360,14 +360,14 @@ func TestMultipleClientInstances(t *testing.T) {
 	}
 	
 	// Register different handlers on each client
-	handler1 := func(command *gojanus.JanusCommand) (*gojanus.JanusResponse, error) {
-		return gojanus.NewSuccessResponse(command.ID, command.ChannelID, map[string]interface{}{
+	handler1 := func(command *models.JanusCommand) (*models.JanusResponse, error) {
+		return models.NewSuccessResponse(command.ID, command.ChannelID, map[string]interface{}{
 			"client": "client1",
 		}), nil
 	}
 	
-	handler2 := func(command *gojanus.JanusCommand) (*gojanus.JanusResponse, error) {
-		return gojanus.NewSuccessResponse(command.ID, command.ChannelID, map[string]interface{}{
+	handler2 := func(command *models.JanusCommand) (*models.JanusResponse, error) {
+		return models.NewSuccessResponse(command.ID, command.ChannelID, map[string]interface{}{
 			"client": "client2",
 		}), nil
 	}
@@ -414,18 +414,18 @@ func TestCommandHandlerWithAsyncOperations(t *testing.T) {
 		}
 	}()
 	
-	client, err := gojanus.NewJanusClient(testSocketPath, "test")
+	client, err := protocol.New(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
 	// Register async handler
-	asyncHandler := func(command *gojanus.JanusCommand) (*gojanus.JanusResponse, error) {
+	asyncHandler := func(command *models.JanusCommand) (*models.JanusResponse, error) {
 		// Simulate async operation
 		time.Sleep(10 * time.Millisecond)
 		
-		return gojanus.NewSuccessResponse(command.ID, command.ChannelID, map[string]interface{}{
+		return models.NewSuccessResponse(command.ID, command.ChannelID, map[string]interface{}{
 			"processed": true,
 			"timestamp": time.Now().Unix(),
 		}), nil
@@ -468,15 +468,15 @@ func TestCommandHandlerErrorHandling(t *testing.T) {
 		}
 	}()
 	
-	client, err := gojanus.NewJanusClient(testSocketPath, "test")
+	client, err := protocol.New(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
 	// Register error-producing handler
-	errorHandler := func(command *gojanus.JanusCommand) (*gojanus.JanusResponse, error) {
-		return nil, gojanus.NewJSONRPCError(gojanus.InternalError, "Simulated handler error")
+	errorHandler := func(command *models.JanusCommand) (*models.JanusResponse, error) {
+		return nil, models.NewJSONRPCError(models.InternalError, "Simulated handler error")
 	}
 	
 	err = client.RegisterCommandHandler("echo", errorHandler)
@@ -494,7 +494,7 @@ func TestManifestWithComplexArguments(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	client, err := gojanus.NewJanusClient(testSocketPath, "test")
+	client, err := protocol.New(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -576,7 +576,7 @@ func TestArgumentValidationConstraints(t *testing.T) {
 		}
 	}()
 	
-	client, err := gojanus.NewJanusClient(testSocketPath, "test")
+	client, err := protocol.New(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -618,14 +618,14 @@ func TestArgumentValidationConstraints(t *testing.T) {
 
 
 // loadTestManifest loads the test Manifest from test-spec.json
-func loadTestManifest() *gojanus.Manifest {
+func loadTestManifest() *specification.Manifest {
 	specPath := "../../tests/config/spec-command-test-api.json"
 	specData, err := os.ReadFile(specPath)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to read spec-command-test-api.json: %v", err))
 	}
 	
-	var manifest gojanus.Manifest
+	var manifest specification.Manifest
 	if err := json.Unmarshal(specData, &manifest); err != nil {
 		panic(fmt.Sprintf("Failed to parse spec-command-test-api.json: %v", err))
 	}

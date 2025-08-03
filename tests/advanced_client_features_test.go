@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/user/GoJanus/pkg/protocol"
+	"github.com/jowharshamshiri/GoJanus/pkg/protocol"
 )
 
 // TestResponseCorrelationSystem tests that responses are correctly correlated with requests

@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/user/GoJanus/pkg/models"
-	"github.com/user/GoJanus/pkg/server"
+	"github.com/jowharshamshiri/GoJanus/pkg/models"
+	"github.com/jowharshamshiri/GoJanus/pkg/server"
 )
 
 // Test helper for server testing
@@ -94,6 +94,8 @@ func TestMultiClientConnectionManagement(t *testing.T) {
 	for i := 0; i < clientCount; i++ {
 		wg.Add(1)
 		go func(clientID int) {
+			// Small delay to avoid socket path collisions
+			time.Sleep(time.Duration(clientID) * 10 * time.Millisecond)
 			defer wg.Done()
 			
 			// Create client datagram socket
@@ -104,8 +106,8 @@ func TestMultiClientConnectionManagement(t *testing.T) {
 			}
 			defer conn.Close()
 			
-			// Create response socket
-			responseSocketPath := filepath.Join("/tmp", fmt.Sprintf("cli%d.sock", clientID))
+			// Create response socket with unique path
+			responseSocketPath := filepath.Join("/tmp", fmt.Sprintf("cli%d_%d.sock", clientID, time.Now().UnixNano()))
 			responseAddr, _ := net.ResolveUnixAddr("unixgram", responseSocketPath)
 			responseConn, err := net.ListenUnixgram("unixgram", responseAddr)
 			if err != nil {
@@ -590,15 +592,18 @@ func TestCommandExecutionWithTimeout(t *testing.T) {
 
 // TestSocketFileCleanup validates configurable socket cleanup
 func TestSocketFileCleanup(t *testing.T) {
-	// Test cleanup on start
-	tempDir := filepath.Join(os.TempDir(), fmt.Sprintf("janus-cleanup-test-%d", time.Now().UnixNano()))
+	// Test cleanup on start - use shorter path to avoid macOS path limits
+	tempDir := "/tmp/janus-test"
 	os.MkdirAll(tempDir, 0755)
 	defer os.RemoveAll(tempDir)
 	
-	socketPath := filepath.Join(tempDir, "cleanup-test.sock")
+	socketPath := filepath.Join(tempDir, "cleanup.sock")
 	
-	// Create dummy socket file
-	file, _ := os.Create(socketPath)
+	// Create dummy socket file (regular file, not socket)
+	file, err := os.Create(socketPath)
+	if err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
 	file.Close()
 	
 	// Verify file exists
@@ -614,15 +619,38 @@ func TestSocketFileCleanup(t *testing.T) {
 	}
 	srv := server.NewJanusServer(config)
 	
+	// Set up server readiness detection
+	serverReady := make(chan bool, 1)
+	serverError := make(chan error, 1)
+	srv.On("listening", func(data interface{}) {
+		serverReady <- true
+	})
+	srv.On("error", func(data interface{}) {
+		if err, ok := data.(error); ok {
+			serverError <- err
+		}
+	})
+	
 	// Start server (should cleanup existing file)
 	go func() {
-		srv.StartListening()
+		if err := srv.StartListening(); err != nil {
+			serverError <- err
+		}
 	}()
-	time.Sleep(100 * time.Millisecond)
 	
-	// Verify server socket exists (SOCK_DGRAM doesn't support connection, so check file existence)
+	// Wait for server to be ready with timeout
+	select {
+	case <-serverReady:
+		// Server is ready
+	case err := <-serverError:
+		t.Fatalf("Server failed to start: %v", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("Server failed to start within timeout")
+	}
+	
+	// Verify server socket exists (SOCK_DGRAM creates socket file when listening)
 	if _, err := os.Stat(socketPath); err != nil {
-		t.Errorf("Server socket file doesn't exist after cleanup: %v", err)
+		t.Errorf("Server socket file doesn't exist after startup: %v", err)
 	}
 	
 	// Stop server

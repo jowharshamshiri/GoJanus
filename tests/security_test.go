@@ -8,8 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/user/GoJanus"
-	"github.com/user/GoJanus/pkg/protocol"
+	"github.com/jowharshamshiri/GoJanus/pkg/core"
+	"github.com/jowharshamshiri/GoJanus/pkg/models"
+	"github.com/jowharshamshiri/GoJanus/pkg/protocol"
+	"github.com/jowharshamshiri/GoJanus/pkg/specification"
 )
 
 // TestPathTraversalAttackPrevention tests prevention of path traversal attacks
@@ -32,7 +34,7 @@ func TestPathTraversalAttackPrevention(t *testing.T) {
 	}
 	
 	for _, maliciousPath := range maliciousPaths {
-		_, err := gojanus.NewJanusClient(maliciousPath, "security-channel")
+		_, err := protocol.New(maliciousPath, "security-channel")
 		if err == nil {
 			t.Errorf("Expected security error for malicious path: %s", maliciousPath)
 		}
@@ -57,7 +59,7 @@ func TestNullByteInjectionDetection(t *testing.T) {
 	}
 	
 	for _, nullBytePath := range nullBytePaths {
-		_, err := gojanus.NewJanusClient(nullBytePath, "security-channel")
+		_, err := protocol.New(nullBytePath, "security-channel")
 		if err == nil {
 			t.Errorf("Expected security error for null byte injection: %s", nullBytePath)
 		}
@@ -95,7 +97,7 @@ func TestChannelIDInjectionAttacks(t *testing.T) {
 	}
 	
 	for _, maliciousChannelID := range maliciousChannelIDs {
-		_, err := gojanus.NewJanusClient(testSocketPath, maliciousChannelID)
+		_, err := protocol.New(testSocketPath, maliciousChannelID)
 		if err == nil {
 			t.Errorf("Expected security error for malicious channel ID: %s", maliciousChannelID)
 			continue
@@ -118,7 +120,7 @@ func TestCommandInjectionInArguments(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	_ = createSecurityTestManifest() // Load spec but don't use it - specification is now fetched dynamically
-	client, err := gojanus.NewJanusClient(testSocketPath, "security-channel")
+	client, err := protocol.New(testSocketPath, "security-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -144,8 +146,8 @@ func TestCommandInjectionInArguments(t *testing.T) {
 		}
 		
 		// Test validation - should detect malicious content
-		validator := gojanus.NewSecurityValidator()
-		jsonData, _ := gojanus.NewJanusCommand("security-channel", "secure-command", args, nil).ToJSON()
+		validator := core.NewSecurityValidator()
+		jsonData, _ := models.NewJanusCommand("security-channel", "secure-command", args, nil).ToJSON()
 		
 		err := validator.ValidateMessageData(jsonData)
 		if err != nil && strings.Contains(injection, "\x00") {
@@ -176,7 +178,7 @@ func TestMalformedJSONAttackPrevention(t *testing.T) {
 	}
 	
 	for _, malformedData := range malformedJSONData {
-		_, err := gojanus.ParseJSON(malformedData)
+		_, err := specification.ParseJSON(malformedData)
 		if err == nil {
 			t.Errorf("Expected JSON parsing error for malformed data: %s", string(malformedData))
 		}
@@ -198,7 +200,7 @@ func TestUnicodeNormalizationAttacks(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	_ = createSecurityTestManifest() // Load spec but don't use it - specification is now fetched dynamically
-	client, err := gojanus.NewJanusClient(testSocketPath, "security-channel")
+	client, err := protocol.New(testSocketPath, "security-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -220,7 +222,7 @@ func TestUnicodeNormalizationAttacks(t *testing.T) {
 			"secure_param": unicodeText,
 		}
 		
-		command := gojanus.NewJanusCommand("security-channel", "secure-command", args, nil)
+		command := models.NewJanusCommand("security-channel", "secure-command", args, nil)
 		jsonData, err := command.ToJSON()
 		if err != nil {
 			t.Errorf("Failed to serialize Unicode text %s: %v", unicodeText, err)
@@ -228,7 +230,7 @@ func TestUnicodeNormalizationAttacks(t *testing.T) {
 		}
 		
 		// Validate the data
-		validator := gojanus.NewSecurityValidator()
+		validator := core.NewSecurityValidator()
 		err = validator.ValidateMessageData(jsonData)
 		if err != nil {
 			// If validation fails, it should be for a good reason
@@ -249,7 +251,7 @@ func TestMemoryExhaustionViaLargePayloads(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	_ = createSecurityTestManifest() // Load spec but don't use it - specification is now fetched dynamically
-	client, err := gojanus.NewJanusClient(testSocketPath, "security-channel")
+	client, err := protocol.New(testSocketPath, "security-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -262,7 +264,7 @@ func TestMemoryExhaustionViaLargePayloads(t *testing.T) {
 		"secure_param": largeString,
 	}
 	
-	command := gojanus.NewJanusCommand("security-channel", "secure-command", args, nil)
+	command := models.NewJanusCommand("security-channel", "secure-command", args, nil)
 	jsonData, err := command.ToJSON()
 	if err != nil {
 		// Large serialization might fail, which is acceptable
@@ -270,7 +272,7 @@ func TestMemoryExhaustionViaLargePayloads(t *testing.T) {
 	}
 	
 	// Validate the large message
-	validator := gojanus.NewSecurityValidator()
+	validator := core.NewSecurityValidator()
 	err = validator.ValidateMessageData(jsonData)
 	if err == nil {
 		t.Error("Expected validation error for overly large message data")
@@ -288,7 +290,7 @@ func TestResourceExhaustionViaConnectionFlooding(t *testing.T) {
 	
 	// Test creating many clients rapidly
 	maxAttempts := 200 // More than default max connections (100)
-	clients := make([]*gojanus.JanusClient, 0, maxAttempts)
+	clients := make([]*protocol.JanusClient, 0, maxAttempts)
 	
 	defer func() {
 		// Clean up all created clients
@@ -303,7 +305,7 @@ func TestResourceExhaustionViaConnectionFlooding(t *testing.T) {
 	
 	for i := 0; i < maxAttempts; i++ {
 		testSocketPath := fmt.Sprintf("/tmp/gojanus-flood-%d.sock", i)
-		client, err := gojanus.NewJanusClient(testSocketPath, "security-channel")
+		client, err := protocol.New(testSocketPath, "security-channel")
 		
 		if err != nil {
 			errorCount++
@@ -340,7 +342,7 @@ func TestConfigurationSecurityValidation(t *testing.T) {
 	_ = createSecurityTestManifest() // Load spec but don't use it - specification is now fetched dynamically
 	
 	// Test insecure configurations
-	insecureConfigs := []gojanus.JanusClientConfig{
+	insecureConfigs := []protocol.JanusClientConfig{
 		{
 			MaxMessageSize:   100,    // Too small
 			DefaultTimeout:   1 * time.Nanosecond, // Too short
@@ -350,7 +352,7 @@ func TestConfigurationSecurityValidation(t *testing.T) {
 	}
 	
 	for i, config := range insecureConfigs {
-		_, err := gojanus.NewJanusClientWithConfig(testSocketPath, "security-channel", config)
+		_, err := protocol.New(testSocketPath, "security-channel", config)
 		if err == nil {
 			t.Errorf("Expected configuration validation error for insecure config %d", i)
 			continue
@@ -373,7 +375,7 @@ func TestValidationBypassAttempts(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	spec := createSecurityTestManifest() // Create spec for validation bypass testing
-	client, err := gojanus.NewJanusClient(testSocketPath, "security-channel")
+	client, err := protocol.New(testSocketPath, "security-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -452,7 +454,7 @@ func TestSocketPathSecurityRestrictions(t *testing.T) {
 	}
 	
 	for _, restrictedPath := range restrictedPaths {
-		_, err := gojanus.NewJanusClient(restrictedPath, "security-channel")
+		_, err := protocol.New(restrictedPath, "security-channel")
 		if err == nil {
 			t.Errorf("Expected security error for restricted path: %s", restrictedPath)
 		}
@@ -470,7 +472,7 @@ func TestSocketPathSecurityRestrictions(t *testing.T) {
 	}
 	
 	for _, allowedPath := range allowedPaths {
-		client, err := gojanus.NewJanusClient(allowedPath, "security-channel")
+		client, err := protocol.New(allowedPath, "security-channel")
 		if err != nil {
 			t.Errorf("Expected allowed path to work: %s, got error: %v", allowedPath, err)
 		} else {
@@ -483,20 +485,20 @@ func TestSocketPathSecurityRestrictions(t *testing.T) {
 }
 
 // Helper function to create security test Manifest
-func createSecurityTestManifest() *gojanus.Manifest {
-	return &gojanus.Manifest{
+func createSecurityTestManifest() *specification.Manifest {
+	return &specification.Manifest{
 		Version:     "1.0.0",
 		Name:        "Security Test API",
 		Description: "Manifest for security testing",
-		Channels: map[string]*gojanus.ChannelSpec{
+		Channels: map[string]*specification.ChannelSpec{
 			"security-channel": {
 				Name:        "Security Channel",
 				Description: "Channel for security testing",
-				Commands: map[string]*gojanus.CommandSpec{
+				Commands: map[string]*specification.CommandSpec{
 					"secure-command": {
 						Name:        "Secure Command",
 						Description: "Command for security testing",
-						Args: map[string]*gojanus.ArgumentSpec{
+						Args: map[string]*specification.ArgumentSpec{
 							"secure_param": {
 								Name:        "Secure Parameter",
 								Type:        "string",
@@ -507,7 +509,7 @@ func createSecurityTestManifest() *gojanus.Manifest {
 								Pattern:     "^[a-zA-Z0-9_-]+$",
 							},
 						},
-						Response: &gojanus.ResponseSpec{
+						Response: &specification.ResponseSpec{
 							Type:        "object",
 							Description: "Security test response",
 						},
@@ -528,7 +530,7 @@ func TestDynamicMessageSizeDetection(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	client, err := gojanus.NewJanusClient(testSocketPath, "test")
+	client, err := protocol.New(testSocketPath, "test")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}

@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/user/GoJanus/pkg/models"
+	"github.com/jowharshamshiri/GoJanus/pkg/models"
 )
 
 
