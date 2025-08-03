@@ -539,12 +539,25 @@ func TestArgumentValidationConstraints(t *testing.T) {
 	// Register a custom command "validate_message" that requires non-empty message
 	srv.RegisterHandler("validate_message", server.NewObjectHandler(func(cmd *models.JanusCommand) (map[string]interface{}, error) {
 		// Validate that message argument exists and is not empty
-		if cmd.Args != nil {
-			if message, exists := cmd.Args["message"]; exists && message != "" {
-				return map[string]interface{}{"validated": message}, nil
-			}
+		if cmd.Args == nil {
+			return nil, models.NewJSONRPCError(models.InvalidParams, "message argument is required and cannot be empty")
 		}
-		return nil, models.NewJSONRPCError(models.InvalidParams, "message argument is required and cannot be empty")
+		
+		message, exists := cmd.Args["message"]
+		if !exists {
+			return nil, models.NewJSONRPCError(models.InvalidParams, "message argument is required and cannot be empty")
+		}
+		
+		messageStr, ok := message.(string)
+		if !ok {
+			return nil, models.NewJSONRPCError(models.InvalidParams, "message argument must be a string")
+		}
+		
+		if messageStr == "" {
+			return nil, models.NewJSONRPCError(models.InvalidParams, "message argument cannot be empty")
+		}
+		
+		return map[string]interface{}{"validated": message}, nil
 	}))
 	
 	// Start server in goroutine
@@ -585,13 +598,20 @@ func TestArgumentValidationConstraints(t *testing.T) {
 		"message": "",
 	}
 	
-	_, err = client.SendCommand(ctx, "validate_message", invalidArgs, protocol.CommandOptions{Timeout: 1*time.Second})
-	if err == nil {
-		t.Error("Expected validation error for empty message")
-	} else {
+	response, err := client.SendCommand(ctx, "validate_message", invalidArgs, protocol.CommandOptions{Timeout: 1*time.Second})
+	if err == nil && response.Success {
+		t.Errorf("Expected validation error for empty message, but got successful response: %+v", response)
+	} else if err != nil {
 		// Should get validation error from server
 		if !strings.Contains(err.Error(), "required") && !strings.Contains(err.Error(), "empty") && !strings.Contains(err.Error(), "INVALID_PARAMS") {
 			t.Errorf("Expected validation error, got: %v", err)
+		}
+	} else if response != nil && !response.Success {
+		// Server returned error response - this is what we expect
+		if response.Error == nil {
+			t.Error("Server returned error response but no error details")
+		} else if !strings.Contains(response.Error.Error(), "empty") {
+			t.Errorf("Expected empty message error, got: %v", response.Error)
 		}
 	}
 }

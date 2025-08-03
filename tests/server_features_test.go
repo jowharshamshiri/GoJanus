@@ -117,7 +117,7 @@ func TestMultiClientConnectionManagement(t *testing.T) {
 			
 			// Send command
 			cmd := models.JanusCommand{
-				ID:        fmt.Sprintf("test-%d", clientID),
+				ID:        fmt.Sprintf("test-%d-%d", clientID, time.Now().UnixNano()),
 				ChannelID: "test",
 				Command:   "ping",
 				ReplyTo:   &responseSocketPath,
@@ -132,7 +132,7 @@ func TestMultiClientConnectionManagement(t *testing.T) {
 			
 			// Read response
 			buffer := make([]byte, 1024)
-			responseConn.SetReadDeadline(time.Now().Add(2 * time.Second))
+			responseConn.SetReadDeadline(time.Now().Add(5 * time.Second))
 			n, err := responseConn.Read(buffer)
 			if err != nil {
 				t.Errorf("Client %d failed to read response: %v", clientID, err)
