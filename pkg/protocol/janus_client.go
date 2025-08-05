@@ -99,10 +99,13 @@ func fetchSpecificationFromServer(janusClient *core.JanusClient, socketPath stri
 	// Generate response socket path
 	responseSocketPath := fmt.Sprintf("/tmp/janus_spec_%d_%s.sock", time.Now().UnixNano(), generateRandomID())
 	
-	// Create spec command JSON
-	specCommand := map[string]interface{}{
-		"command":  "spec",
-		"reply_to": responseSocketPath,
+	// Create spec command with proper JanusCommand structure
+	specCommand := models.JanusCommand{
+		ID:        generateUUID(),
+		ChannelID: "default", // Use default channel for spec command
+		Command:   "spec",
+		ReplyTo:   &responseSocketPath,
+		Timestamp: float64(time.Now().Unix()),
 	}
 	
 	commandJSON, err := json.Marshal(specCommand)

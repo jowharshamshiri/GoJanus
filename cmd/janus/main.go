@@ -345,9 +345,10 @@ func getBuiltinCommandHandler(command string, manifest *specification.Manifest, 
 				if err := json.Unmarshal(specJSON, &specData); err != nil {
 					return nil, fmt.Errorf("failed to deserialize Manifest: %v", err)
 				}
-				return map[string]interface{}{
-					"specification": specData,
-				}, nil
+				if specMap, ok := specData.(map[string]interface{}); ok {
+					return specMap, nil
+				}
+				return nil, fmt.Errorf("failed to convert Manifest to map")
 			}
 			return nil, fmt.Errorf("no Manifest loaded on server")
 		}
