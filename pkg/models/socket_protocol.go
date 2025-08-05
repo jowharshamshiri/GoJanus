@@ -100,3 +100,65 @@ type CommandHandler func(command *JanusCommand) (*JanusResponse, error)
 // TimeoutHandler represents a function called when a command times out
 // Matches the Swift TimeoutHandler signature for compatibility
 type TimeoutHandler func(commandID string)
+
+// RequestHandle provides a user-friendly interface to track and manage requests
+// Hides internal UUID complexity from users
+type RequestHandle struct {
+	internalID string
+	command    string
+	channel    string
+	timestamp  time.Time
+	cancelled  bool
+}
+
+// NewRequestHandle creates a new request handle from internal UUID
+func NewRequestHandle(internalID, command, channel string) *RequestHandle {
+	return &RequestHandle{
+		internalID: internalID,
+		command:    command,
+		channel:    channel,
+		timestamp:  time.Now(),
+		cancelled:  false,
+	}
+}
+
+// GetCommand returns the command name for this request
+func (h *RequestHandle) GetCommand() string {
+	return h.command
+}
+
+// GetChannel returns the channel ID for this request
+func (h *RequestHandle) GetChannel() string {
+	return h.channel
+}
+
+// GetTimestamp returns when this request was created
+func (h *RequestHandle) GetTimestamp() time.Time {
+	return h.timestamp
+}
+
+// IsCancelled returns whether this request has been cancelled
+func (h *RequestHandle) IsCancelled() bool {
+	return h.cancelled
+}
+
+// GetInternalID returns the internal UUID (for internal use only)
+func (h *RequestHandle) GetInternalID() string {
+	return h.internalID
+}
+
+// MarkCancelled marks this handle as cancelled (internal use only)
+func (h *RequestHandle) MarkCancelled() {
+	h.cancelled = true
+}
+
+// RequestStatus represents the status of a tracked request
+type RequestStatus string
+
+const (
+	RequestStatusPending   RequestStatus = "pending"
+	RequestStatusCompleted RequestStatus = "completed"
+	RequestStatusFailed    RequestStatus = "failed"
+	RequestStatusCancelled RequestStatus = "cancelled"
+	RequestStatusTimeout   RequestStatus = "timeout"
+)

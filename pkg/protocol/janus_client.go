@@ -34,6 +34,10 @@ type JanusClient struct {
 	
 	// Response correlation system
 	responseTracker *ResponseTracker
+	
+	// Request lifecycle management (automatic ID system)
+	requestRegistry map[string]*models.RequestHandle
+	registryMutex   sync.RWMutex
 }
 
 // JanusClientConfig holds configuration for the datagram client
@@ -205,6 +209,7 @@ func New(socketPath, channelID string, config ...JanusClientConfig) (*JanusClien
 		handlers:        make(map[string]models.CommandHandler),
 		timeoutManager:  timeoutManager,
 		responseTracker: responseTracker,
+		requestRegistry: make(map[string]*models.RequestHandle),
 	}, nil
 }
 
@@ -386,6 +391,9 @@ func (client *JanusClient) Close() error {
 	client.handlers = make(map[string]models.CommandHandler)
 	client.handlerMutex.Unlock()
 	
+	// Cancel and clear all pending requests
+	client.CancelAllRequests()
+	
 	return nil
 }
 
@@ -444,6 +452,109 @@ func mergeCommandOptions(options ...CommandOptions) CommandOptions {
 	}
 	
 	return opts
+}
+
+// Automatic ID Management Methods (F0193-F0216)
+
+// SendCommandWithHandle sends a command and returns a RequestHandle for tracking
+// Hides UUID complexity from users while providing request lifecycle management
+func (client *JanusClient) SendCommandWithHandle(ctx context.Context, command string, args map[string]interface{}, options ...CommandOptions) (*models.RequestHandle, chan *models.JanusResponse, chan error) {
+	// Generate internal UUID (hidden from user)
+	commandID := generateUUID()
+	
+	// Create request handle for user
+	handle := models.NewRequestHandle(commandID, command, client.channelID)
+	
+	// Register the request handle
+	client.registryMutex.Lock()
+	client.requestRegistry[commandID] = handle
+	client.registryMutex.Unlock()
+	
+	// Create response and error channels
+	responseChan := make(chan *models.JanusResponse, 1)
+	errorChan := make(chan error, 1)
+	
+	// Execute command asynchronously
+	go func() {
+		defer func() {
+			// Clean up request handle when done
+			client.registryMutex.Lock()
+			delete(client.requestRegistry, commandID)
+			client.registryMutex.Unlock()
+		}()
+		
+		response, err := client.SendCommand(ctx, command, args, options...)
+		if err != nil {
+			errorChan <- err
+			return
+		}
+		
+		responseChan <- response
+	}()
+	
+	return handle, responseChan, errorChan
+}
+
+// GetRequestStatus returns the current status of a request by handle
+func (client *JanusClient) GetRequestStatus(handle *models.RequestHandle) models.RequestStatus {
+	if handle.IsCancelled() {
+		return models.RequestStatusCancelled
+	}
+	
+	client.registryMutex.RLock()
+	defer client.registryMutex.RUnlock()
+	
+	if _, exists := client.requestRegistry[handle.GetInternalID()]; exists {
+		return models.RequestStatusPending
+	}
+	
+	return models.RequestStatusCompleted
+}
+
+// CancelRequest cancels a pending request using its handle
+func (client *JanusClient) CancelRequest(handle *models.RequestHandle) error {
+	if handle.IsCancelled() {
+		return fmt.Errorf("request already cancelled")
+	}
+	
+	client.registryMutex.Lock()
+	defer client.registryMutex.Unlock()
+	
+	if _, exists := client.requestRegistry[handle.GetInternalID()]; !exists {
+		return fmt.Errorf("request not found or already completed")
+	}
+	
+	handle.MarkCancelled()
+	delete(client.requestRegistry, handle.GetInternalID())
+	
+	return nil
+}
+
+// GetPendingRequests returns handles for all pending requests
+func (client *JanusClient) GetPendingRequests() []*models.RequestHandle {
+	client.registryMutex.RLock()
+	defer client.registryMutex.RUnlock()
+	
+	handles := make([]*models.RequestHandle, 0, len(client.requestRegistry))
+	for _, handle := range client.requestRegistry {
+		handles = append(handles, handle)
+	}
+	
+	return handles
+}
+
+// CancelAllRequests cancels all pending requests
+func (client *JanusClient) CancelAllRequests() int {
+	client.registryMutex.Lock()
+	defer client.registryMutex.Unlock()
+	
+	count := len(client.requestRegistry)
+	for _, handle := range client.requestRegistry {
+		handle.MarkCancelled()
+	}
+	
+	client.requestRegistry = make(map[string]*models.RequestHandle)
+	return count
 }
 
 // Backward compatibility methods for tests
