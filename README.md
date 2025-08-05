@@ -23,6 +23,60 @@ go get github.com/jowharshamshiri/GoJanus
 
 ## Quick Start
 
+### API Specification (Manifest)
+
+Before creating servers or clients, you need a Manifest file defining your API:
+
+**my-api-spec.json:**
+```json
+{
+  "name": "My Application API",
+  "version": "1.0.0",
+  "description": "Example API for demonstration",
+  "channels": {
+    "default": {
+      "commands": {
+        "get_user": {
+          "description": "Retrieve user information",
+          "arguments": {
+            "user_id": {
+              "type": "string",
+              "required": true,
+              "description": "User identifier"
+            }
+          },
+          "response": {
+            "type": "object",
+            "properties": {
+              "id": {"type": "string"},
+              "name": {"type": "string"},
+              "email": {"type": "string"}
+            }
+          }
+        },
+        "update_profile": {
+          "description": "Update user profile",
+          "arguments": {
+            "user_id": {"type": "string", "required": true},
+            "name": {"type": "string", "required": false},
+            "email": {"type": "string", "required": false}
+          },
+          "response": {
+            "type": "object",
+            "properties": {
+              "success": {"type": "boolean"},
+              "updated_fields": {"type": "array"}
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+**Note**: Built-in commands (`ping`, `echo`, `get_info`, `validate`, `slow_process`, `spec`) are always available and cannot be overridden in Manifests.
+
 ### Simple Client Example
 
 ```go
@@ -35,25 +89,38 @@ import (
 )
 
 func main() {
-    // Create client with automatic Manifest fetching
-    client, err := protocol.New("/tmp/my_socket.sock", "my_channel")
+    // Create client - specification is fetched automatically from server
+    client, err := protocol.NewJanusClient("/tmp/my-server.sock", "default")
     if err != nil {
         panic(err)
     }
     defer client.Close()
     
-    // Send command - ID management is automatic
-    args := map[string]interface{}{
-        "message": "Hello World",
-    }
-    
-    ctx := context.Background()
-    response, err := client.SendCommand(ctx, "echo", args)
+    // Built-in commands (always available)
+    response, err := client.SendCommand("ping", nil)
     if err != nil {
         panic(err)
     }
     
-    fmt.Printf("Response: %+v\n", response)
+    if response.Success {
+        fmt.Printf("Server ping: %v\n", response.Result)
+    }
+    
+    // Custom command defined in Manifest (arguments validated automatically)
+    userArgs := map[string]interface{}{
+        "user_id": "user123",
+    }
+    
+    response, err = client.SendCommand("get_user", userArgs)
+    if err != nil {
+        panic(err)
+    }
+    
+    if response.Success {
+        fmt.Printf("User data: %v\n", response.Result)
+    } else {
+        fmt.Printf("Error: %v\n", response.Error)
+    }
 }
 ```
 
@@ -110,66 +177,175 @@ func main() {
 }
 ```
 
-### Server with Command Handlers
+### Server Usage
 
 ```go
 package main
 
 import (
     "fmt"
-    "github.com/jowharshamshiri/GoJanus/pkg/protocol"
+    "os"
+    "os/signal"
+    "syscall"
+    
+    "github.com/jowharshamshiri/GoJanus/pkg/server"
     "github.com/jowharshamshiri/GoJanus/pkg/models"
+    "github.com/jowharshamshiri/GoJanus/pkg/specification"
 )
 
 func main() {
-    // Create server client with automatic Manifest loading
-    client, err := protocol.New("/tmp/my_socket.sock", "my_channel")
+    // Load API specification from Manifest file
+    manifest, err := specification.ParseManifestFromFile("my-api-spec.json")
     if err != nil {
-        panic(err)
+        fmt.Printf("Failed to load manifest: %v\n", err)
+        return
     }
-    defer client.Close()
     
-    // Register command handlers - returns direct values
-    err = client.RegisterCommandHandler("echo", func(cmd *models.JanusCommand) (interface{}, error) {
-        message, ok := cmd.Args["message"].(string)
-        if !ok {
-            return nil, models.NewJSONRPCError(
-                models.JSONRPCErrorCodeInvalidParams,
-                "message parameter required",
-                nil,
-            )
+    // Create server with configuration
+    config := &server.ServerConfig{
+        SocketPath:        "/tmp/my-server.sock",
+        CleanupOnStart:    true,
+        CleanupOnShutdown: true,
+    }
+    srv := server.NewJanusServer(config)
+    
+    // Set the server's manifest for validation and spec command
+    srv.SetManifest(manifest)
+    
+    // Register handlers for commands defined in the Manifest
+    srv.RegisterHandler("get_user", server.NewObjectHandler(func(cmd *models.JanusCommand) (map[string]interface{}, error) {
+        // Extract user_id argument (validated by Manifest)
+        userID, exists := cmd.Args["user_id"]
+        if !exists {
+            return nil, &models.JSONRPCError{
+                Code:    models.InvalidParams,
+                Message: "Missing user_id argument",
+            }
         }
         
-        // Return direct value - no dictionary wrapping needed
+        userIDStr, ok := userID.(string)
+        if !ok {
+            return nil, &models.JSONRPCError{
+                Code:    models.InvalidParams,
+                Message: "user_id must be a string",
+            }
+        }
+        
+        // Simulate user lookup
         return map[string]interface{}{
-            "echo": message,
-            "timestamp": cmd.Timestamp,
+            "id":    userIDStr,
+            "name":  "John Doe",
+            "email": "john@example.com",
         }, nil
-    })
-    if err != nil {
-        panic(err)
-    }
+    }))
     
-    // Register async handler
-    err = client.RegisterAsyncCommandHandler("process_data", func(cmd *models.JanusCommand) (interface{}, error) {
-        // Simulate processing
-        data := cmd.Args["data"].(string)
-        result := fmt.Sprintf("Processed: %s", data)
+    srv.RegisterHandler("update_profile", server.NewObjectHandler(func(cmd *models.JanusCommand) (map[string]interface{}, error) {
+        if cmd.Args == nil {
+            return nil, &models.JSONRPCError{
+                Code:    models.InvalidParams,
+                Message: "No arguments provided",
+            }
+        }
+        
+        userID, exists := cmd.Args["user_id"]
+        if !exists {
+            return nil, &models.JSONRPCError{
+                Code:    models.InvalidParams,
+                Message: "Missing user_id argument",
+            }
+        }
+        
+        updatedFields := []string{}
+        if _, exists := cmd.Args["name"]; exists {
+            updatedFields = append(updatedFields, "name")
+        }
+        if _, exists := cmd.Args["email"]; exists {
+            updatedFields = append(updatedFields, "email")
+        }
         
         return map[string]interface{}{
-            "result": result,
-            "processed_at": time.Now().Unix(),
+            "success":        true,
+            "updated_fields": updatedFields,
         }, nil
-    })
+    }))
+    
+    // Handle graceful shutdown
+    c := make(chan os.Signal, 1)
+    signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+    
+    go func() {
+        <-c
+        fmt.Println("Shutting down server...")
+        srv.Stop()
+    }()
+    
+    // Start listening (blocks until stopped)
+    if err := srv.StartListening("/tmp/my-server.sock"); err != nil {
+        fmt.Printf("Server error: %v\n", err)
+    }
+}
+```
+
+### Client Usage
+
+```go
+package main
+
+import (
+    "fmt"
+    "time"
+    
+    "github.com/jowharshamshiri/GoJanus/pkg/protocol"
+)
+
+func main() {
+    // Create client - specification is fetched automatically from server
+    client, err := protocol.NewJanusClient("/tmp/my-server.sock", "default")
     if err != nil {
-        panic(err)
+        fmt.Printf("Failed to create client: %v\n", err)
+        return
     }
     
-    // Start listening for commands
-    fmt.Println("Server listening on /tmp/my_socket.sock...")
-    err = client.StartListening()
+    // Set timeout for commands
+    client.SetTimeout(30 * time.Second)
+    
+    // Built-in commands (always available)
+    response, err := client.SendCommand("ping", nil)
     if err != nil {
-        panic(err)
+        fmt.Printf("Ping failed: %v\n", err)
+        return
+    }
+    
+    if response.Success {
+        fmt.Printf("Server ping: %v\n", response.Result)
+    }
+    
+    // Custom command defined in Manifest (arguments validated automatically)
+    userArgs := map[string]interface{}{
+        "user_id": "user123",
+    }
+    
+    response, err = client.SendCommand("get_user", userArgs)
+    if err != nil {
+        fmt.Printf("Get user failed: %v\n", err)
+        return
+    }
+    
+    if response.Success {
+        fmt.Printf("User data: %v\n", response.Result)
+    } else {
+        fmt.Printf("Error: %v\n", response.Error)
+    }
+    
+    // Get server API specification
+    specResponse, err := client.SendCommand("spec", nil)
+    if err == nil && specResponse.Success {
+        fmt.Printf("Server API spec: %v\n", specResponse.Result)
+    }
+    
+    // Test connectivity
+    if client.Ping() {
+        fmt.Println("Server is responsive")
     }
 }
 ```
@@ -178,18 +354,13 @@ func main() {
 
 ```go
 // Send command without waiting for response
-err := client.SendCommandNoResponse(
-    context.Background(),
-    "log_event",
-    map[string]interface{}{
-        "event": "user_login",
-        "user_id": "12345",
-    },
-)
-if err != nil {
-    fmt.Printf("Failed to log event: %v\n", err)
-} else {
-    fmt.Println("Event logged successfully")
+logArgs := map[string]interface{}{
+    "level":   "info",
+    "message": "User profile updated",
+}
+
+if err := client.SendCommandNoResponse("log_event", logArgs); err != nil {
+    fmt.Printf("Fire-and-forget failed: %v\n", err)
 }
 ```
 
