@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/jowharshamshiri/GoJanus/pkg/models"
+	"GoJanus/pkg/models"
 )
 
 const (
@@ -21,7 +21,7 @@ type MessageFraming struct{}
 
 // SocketMessage represents the message envelope for framing
 type SocketMessage struct {
-	Type    string `json:"type"`    // "command" or "response"
+	Type    string `json:"type"`    // "request" or "response"
 	Payload string `json:"payload"` // Base64 encoded payload
 }
 
@@ -30,8 +30,8 @@ func (mf *MessageFraming) EncodeMessage(message interface{}) ([]byte, error) {
 	// Determine message type
 	var messageType string
 	switch message.(type) {
-	case models.JanusCommand, *models.JanusCommand:
-		messageType = "command"
+	case models.JanusRequest, *models.JanusRequest:
+		messageType = "request"
 	case models.JanusResponse, *models.JanusResponse:
 		messageType = "response"
 	default:
@@ -153,7 +153,7 @@ func (mf *MessageFraming) DecodeMessage(buffer []byte) (interface{}, []byte, err
 		}
 	}
 
-	if envelope.Type != "command" && envelope.Type != "response" {
+	if envelope.Type != "request" && envelope.Type != "response" {
 		return nil, buffer, &models.JSONRPCError{
 			Code:    models.MessageFramingError,
 			Message: fmt.Sprintf("Invalid message type: %s", envelope.Type),
@@ -163,18 +163,18 @@ func (mf *MessageFraming) DecodeMessage(buffer []byte) (interface{}, []byte, err
 
 	// Parse payload JSON directly (no base64 decoding needed)
 	var message interface{}
-	if envelope.Type == "command" {
-		var cmd models.JanusCommand
+	if envelope.Type == "request" {
+		var cmd models.JanusRequest
 		if err := json.Unmarshal([]byte(envelope.Payload), &cmd); err != nil {
 			return nil, buffer, &models.JSONRPCError{
 				Code:    models.MessageFramingError,
-				Message: fmt.Sprintf("Failed to parse command payload JSON: %v", err),
+				Message: fmt.Sprintf("Failed to parse request payload JSON: %v", err),
 				Data:    &models.JSONRPCErrorData{Details: "INVALID_PAYLOAD_JSON"},
 			}
 		}
 		
-		// Validate command structure
-		if err := mf.validateCommandStructure(&cmd); err != nil {
+		// Validate request structure
+		if err := mf.validateRequestStructure(&cmd); err != nil {
 			return nil, buffer, err
 		}
 		message = cmd
@@ -302,17 +302,17 @@ func (mf *MessageFraming) DecodeDirectMessage(buffer []byte) (interface{}, []byt
 
 	// Determine message type and parse accordingly
 	var message interface{}
-	if _, hasCommand := rawMessage["command"]; hasCommand {
-		var cmd models.JanusCommand
+	if _, hasRequest := rawMessage["request"]; hasRequest {
+		var cmd models.JanusRequest
 		if err := json.Unmarshal(messageBuffer, &cmd); err != nil {
 			return nil, buffer, &models.JSONRPCError{
 				Code:    models.MessageFramingError,
-				Message: fmt.Sprintf("Failed to parse command: %v", err),
-				Data:    &models.JSONRPCErrorData{Details: "INVALID_COMMAND"},
+				Message: fmt.Sprintf("Failed to parse request: %v", err),
+				Data:    &models.JSONRPCErrorData{Details: "INVALID_REQUEST"},
 			}
 		}
 		message = cmd
-	} else if _, hasCommandId := rawMessage["commandId"]; hasCommandId {
+	} else if _, hasRequestId := rawMessage["requestId"]; hasRequestId {
 		var resp models.JanusResponse
 		if err := json.Unmarshal(messageBuffer, &resp); err != nil {
 			return nil, buffer, &models.JSONRPCError{
@@ -333,27 +333,20 @@ func (mf *MessageFraming) DecodeDirectMessage(buffer []byte) (interface{}, []byt
 	return message, remainingBuffer, nil
 }
 
-// validateCommandStructure validates command structure
-func (mf *MessageFraming) validateCommandStructure(cmd *models.JanusCommand) error {
+// validateRequestStructure validates request structure
+func (mf *MessageFraming) validateRequestStructure(cmd *models.JanusRequest) error {
 	if cmd.ID == "" {
 		return &models.JSONRPCError{
 			Code:    models.MessageFramingError,
-			Message: "Command missing required string field: id",
-			Data:    &models.JSONRPCErrorData{Details: "MISSING_COMMAND_FIELD"},
+			Message: "Request missing required string field: id",
+			Data:    &models.JSONRPCErrorData{Details: "MISSING_REQUEST_FIELD"},
 		}
 	}
-	if cmd.ChannelID == "" {
+	if cmd.Request == "" {
 		return &models.JSONRPCError{
 			Code:    models.MessageFramingError,
-			Message: "Command missing required string field: channelId",
-			Data:    &models.JSONRPCErrorData{Details: "MISSING_COMMAND_FIELD"},
-		}
-	}
-	if cmd.Command == "" {
-		return &models.JSONRPCError{
-			Code:    models.MessageFramingError,
-			Message: "Command missing required string field: command",
-			Data:    &models.JSONRPCErrorData{Details: "MISSING_COMMAND_FIELD"},
+			Message: "Request missing required string field: request",
+			Data:    &models.JSONRPCErrorData{Details: "MISSING_REQUEST_FIELD"},
 		}
 	}
 	return nil
@@ -361,20 +354,14 @@ func (mf *MessageFraming) validateCommandStructure(cmd *models.JanusCommand) err
 
 // validateResponseStructure validates response structure
 func (mf *MessageFraming) validateResponseStructure(resp *models.JanusResponse) error {
-	if resp.CommandID == "" {
+	if resp.RequestID == "" {
 		return &models.JSONRPCError{
 			Code:    models.MessageFramingError,
-			Message: "Response missing required field: commandId",
+			Message: "Response missing required field: requestId",
 			Data:    &models.JSONRPCErrorData{Details: "MISSING_RESPONSE_FIELD"},
 		}
 	}
-	if resp.ChannelID == "" {
-		return &models.JSONRPCError{
-			Code:    models.MessageFramingError,
-			Message: "Response missing required field: channelId",
-			Data:    &models.JSONRPCErrorData{Details: "MISSING_RESPONSE_FIELD"},
-		}
-	}
+	// PRIME DIRECTIVE: Response no longer includes channelId field
 	return nil
 }
 

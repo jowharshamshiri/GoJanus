@@ -7,78 +7,78 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jowharshamshiri/GoJanus/pkg/models"
-	"github.com/jowharshamshiri/GoJanus/pkg/protocol"
-	"github.com/jowharshamshiri/GoJanus/pkg/specification"
+	"GoJanus/pkg/models"
+	"GoJanus/pkg/protocol"
+	"GoJanus/pkg/manifest"
 )
 
 // TestManifestCreation tests basic Manifest model creation
 // Matches Swift: testManifestCreation()
 func TestManifestCreation(t *testing.T) {
-	spec := createTestManifest() // Create spec for validation testing
+	manifest := createTestManifest() // Create manifest for validation testing
 	
-	if spec.Version != "1.0.0" {
-		t.Errorf("Expected version '1.0.0', got '%s'", spec.Version)
+	if manifest.Version != "1.0.0" {
+		t.Errorf("Expected version '1.0.0', got '%s'", manifest.Version)
 	}
 	
-	if spec.Name != "Test API" {
-		t.Errorf("Expected name 'Test API', got '%s'", spec.Name)
+	if manifest.Name != "Test API" {
+		t.Errorf("Expected name 'Test API', got '%s'", manifest.Name)
 	}
 	
-	if len(spec.Channels) != 1 {
-		t.Errorf("Expected 1 channel, got %d", len(spec.Channels))
+	if len(manifest.Channels) != 1 {
+		t.Errorf("Expected 1 channel, got %d", len(manifest.Channels))
 	}
 	
-	channel, exists := spec.Channels["test-channel"]
+	channel, exists := manifest.Channels["test-channel"]
 	if !exists {
 		t.Error("Expected 'test-channel' to exist")
 	}
 	
-	if len(channel.Commands) != 1 {
-		t.Errorf("Expected 1 command, got %d", len(channel.Commands))
+	if len(channel.Requests) != 1 {
+		t.Errorf("Expected 1 request, got %d", len(channel.Requests))
 	}
 	
-	_, exists = channel.Commands["test-command"]
+	_, exists = channel.Requests["test-request"]
 	if !exists {
-		t.Error("Expected 'test-command' to exist")
+		t.Error("Expected 'test-request' to exist")
 	}
 }
 
 // TestManifestJSONSerialization tests JSON serialization of Manifests
 // Matches Swift: testManifestJSONSerialization()
 func TestManifestJSONSerialization(t *testing.T) {
-	spec := createTestManifest() // Create spec for serialization testing
+	manifest := createTestManifest() // Create manifest for serialization testing
 	
 	// Serialize to JSON
-	jsonData, err := json.Marshal(spec)
+	jsonData, err := json.Marshal(manifest)
 	if err != nil {
-		t.Fatalf("Failed to marshal spec to JSON: %v", err)
+		t.Fatalf("Failed to marshal manifest to JSON: %v", err)
 	}
 	
 	// Deserialize back
-	var deserializedSpec specification.Manifest
-	err = json.Unmarshal(jsonData, &deserializedSpec)
+	var deserializedManifest manifest.Manifest
+	err = json.Unmarshal(jsonData, &deserializedManifest)
 	if err != nil {
-		t.Fatalf("Failed to unmarshal spec from JSON: %v", err)
+		t.Fatalf("Failed to unmarshal manifest from JSON: %v", err)
 	}
 	
 	// Verify integrity
-	if deserializedSpec.Version != spec.Version {
-		t.Errorf("Version mismatch after serialization: expected '%s', got '%s'", spec.Version, deserializedSpec.Version)
+	if deserializedManifest.Version != manifest.Version {
+		t.Errorf("Version mismatch after serialization: expected '%s', got '%s'", manifest.Version, deserializedManifest.Version)
 	}
 	
-	if deserializedSpec.Name != spec.Name {
-		t.Errorf("Name mismatch after serialization: expected '%s', got '%s'", spec.Name, deserializedSpec.Name)
+	if deserializedManifest.Name != manifest.Name {
+		t.Errorf("Name mismatch after serialization: expected '%s', got '%s'", manifest.Name, deserializedManifest.Name)
 	}
 	
-	if len(deserializedSpec.Channels) != len(spec.Channels) {
-		t.Errorf("Channel count mismatch after serialization: expected %d, got %d", len(spec.Channels), len(deserializedSpec.Channels))
+	if len(deserializedManifest.Channels) != len(manifest.Channels) {
+		t.Errorf("Channel count mismatch after serialization: expected %d, got %d", len(manifest.Channels), len(deserializedManifest.Channels))
 	}
 }
 
-// TestJanusCommandSerialization tests socket command JSON serialization
-// Matches Swift: testJanusCommandSerialization()
-func TestJanusCommandSerialization(t *testing.T) {
+// TestJanusRequestSerialization tests socket request JSON serialization
+// Matches Swift: testJanusRequestSerialization()
+func TestJanusRequestSerialization(t *testing.T) {
 	args := map[string]interface{}{
 		"test_string": "value",
 		"test_int":    42,
@@ -86,50 +86,50 @@ func TestJanusCommandSerialization(t *testing.T) {
 	}
 	timeout := 30.0
 	
-	command := models.NewJanusCommand("test-channel", "test-command", args, &timeout)
+	request := models.NewJanusRequest("test-channel", "test-request", args, &timeout)
 	
 	// Serialize to JSON
-	jsonData, err := command.ToJSON()
+	jsonData, err := request.ToJSON()
 	if err != nil {
-		t.Fatalf("Failed to serialize command to JSON: %v", err)
+		t.Fatalf("Failed to serialize request to JSON: %v", err)
 	}
 	
 	// Deserialize back
-	var deserializedCommand models.JanusCommand
-	err = deserializedCommand.FromJSON(jsonData)
+	var deserializedRequest models.JanusRequest
+	err = deserializedRequest.FromJSON(jsonData)
 	if err != nil {
-		t.Fatalf("Failed to deserialize command from JSON: %v", err)
+		t.Fatalf("Failed to deserialize request from JSON: %v", err)
 	}
 	
 	// Verify integrity
-	if deserializedCommand.ChannelID != command.ChannelID {
-		t.Errorf("ChannelID mismatch: expected '%s', got '%s'", command.ChannelID, deserializedCommand.ChannelID)
+	if deserializedRequest.ChannelID != request.ChannelID {
+		t.Errorf("ChannelID mismatch: expected '%s', got '%s'", request.ChannelID, deserializedRequest.ChannelID)
 	}
 	
-	if deserializedCommand.Command != command.Command {
-		t.Errorf("Command mismatch: expected '%s', got '%s'", command.Command, deserializedCommand.Command)
+	if deserializedRequest.Request != request.Request {
+		t.Errorf("Request mismatch: expected '%s', got '%s'", request.Request, deserializedRequest.Request)
 	}
 	
-	if *deserializedCommand.Timeout != *command.Timeout {
-		t.Errorf("Timeout mismatch: expected %f, got %f", *command.Timeout, *deserializedCommand.Timeout)
+	if *deserializedRequest.Timeout != *request.Timeout {
+		t.Errorf("Timeout mismatch: expected %f, got %f", *request.Timeout, *deserializedRequest.Timeout)
 	}
 	
 	// Verify arguments
-	if len(deserializedCommand.Args) != len(command.Args) {
-		t.Errorf("Args count mismatch: expected %d, got %d", len(command.Args), len(deserializedCommand.Args))
+	if len(deserializedRequest.Args) != len(request.Args) {
+		t.Errorf("Args count mismatch: expected %d, got %d", len(request.Args), len(deserializedRequest.Args))
 	}
 	
-	if deserializedCommand.Args["test_string"] != args["test_string"] {
-		t.Errorf("String arg mismatch: expected '%v', got '%v'", args["test_string"], deserializedCommand.Args["test_string"])
+	if deserializedRequest.Args["test_string"] != args["test_string"] {
+		t.Errorf("String arg mismatch: expected '%v', got '%v'", args["test_string"], deserializedRequest.Args["test_string"])
 	}
 	
 	// JSON numbers are float64
-	if deserializedCommand.Args["test_int"].(float64) != 42.0 {
-		t.Errorf("Int arg mismatch: expected 42, got %v", deserializedCommand.Args["test_int"])
+	if deserializedRequest.Args["test_int"].(float64) != 42.0 {
+		t.Errorf("Int arg mismatch: expected 42, got %v", deserializedRequest.Args["test_int"])
 	}
 	
-	if deserializedCommand.Args["test_bool"] != args["test_bool"] {
-		t.Errorf("Bool arg mismatch: expected '%v', got '%v'", args["test_bool"], deserializedCommand.Args["test_bool"])
+	if deserializedRequest.Args["test_bool"] != args["test_bool"] {
+		t.Errorf("Bool arg mismatch: expected '%v', got '%v'", args["test_bool"], deserializedRequest.Args["test_bool"])
 	}
 }
 
@@ -142,7 +142,7 @@ func TestJanusResponseSerialization(t *testing.T) {
 		"data":    []interface{}{"item1", "item2"},
 	}
 	
-	response := models.NewSuccessResponse("test-command-id", "test-channel", result)
+	response := models.NewSuccessResponse("test-request-id", "test-channel", result)
 	
 	// Serialize to JSON
 	jsonData, err := response.ToJSON()
@@ -158,8 +158,8 @@ func TestJanusResponseSerialization(t *testing.T) {
 	}
 	
 	// Verify integrity
-	if deserializedResponse.CommandID != response.CommandID {
-		t.Errorf("CommandID mismatch: expected '%s', got '%s'", response.CommandID, deserializedResponse.CommandID)
+	if deserializedResponse.RequestID != response.RequestID {
+		t.Errorf("RequestID mismatch: expected '%s', got '%s'", response.RequestID, deserializedResponse.RequestID)
 	}
 	
 	if deserializedResponse.ChannelID != response.ChannelID {
@@ -197,23 +197,23 @@ func TestAnyCodableStringValue(t *testing.T) {
 		"string_value": "test string",
 	}
 	
-	command := models.NewJanusCommand("test-channel", "test-command", args, nil)
+	request := models.NewJanusRequest("test-channel", "test-request", args, nil)
 	
 	// Serialize and deserialize
-	jsonData, err := command.ToJSON()
+	jsonData, err := request.ToJSON()
 	if err != nil {
-		t.Fatalf("Failed to serialize command: %v", err)
+		t.Fatalf("Failed to serialize request: %v", err)
 	}
 	
-	var deserializedCommand models.JanusCommand
-	err = deserializedCommand.FromJSON(jsonData)
+	var deserializedRequest models.JanusRequest
+	err = deserializedRequest.FromJSON(jsonData)
 	if err != nil {
-		t.Fatalf("Failed to deserialize command: %v", err)
+		t.Fatalf("Failed to deserialize request: %v", err)
 	}
 	
-	stringValue, ok := deserializedCommand.Args["string_value"].(string)
+	stringValue, ok := deserializedRequest.Args["string_value"].(string)
 	if !ok {
-		t.Fatalf("Expected string value, got %T", deserializedCommand.Args["string_value"])
+		t.Fatalf("Expected string value, got %T", deserializedRequest.Args["string_value"])
 	}
 	
 	if stringValue != "test string" {
@@ -228,24 +228,24 @@ func TestAnyCodableIntegerValue(t *testing.T) {
 		"int_value": 42,
 	}
 	
-	command := models.NewJanusCommand("test-channel", "test-command", args, nil)
+	request := models.NewJanusRequest("test-channel", "test-request", args, nil)
 	
 	// Serialize and deserialize
-	jsonData, err := command.ToJSON()
+	jsonData, err := request.ToJSON()
 	if err != nil {
-		t.Fatalf("Failed to serialize command: %v", err)
+		t.Fatalf("Failed to serialize request: %v", err)
 	}
 	
-	var deserializedCommand models.JanusCommand
-	err = deserializedCommand.FromJSON(jsonData)
+	var deserializedRequest models.JanusRequest
+	err = deserializedRequest.FromJSON(jsonData)
 	if err != nil {
-		t.Fatalf("Failed to deserialize command: %v", err)
+		t.Fatalf("Failed to deserialize request: %v", err)
 	}
 	
 	// JSON numbers are always float64 in Go
-	floatValue, ok := deserializedCommand.Args["int_value"].(float64)
+	floatValue, ok := deserializedRequest.Args["int_value"].(float64)
 	if !ok {
-		t.Fatalf("Expected float64 value (JSON number), got %T", deserializedCommand.Args["int_value"])
+		t.Fatalf("Expected float64 value (JSON number), got %T", deserializedRequest.Args["int_value"])
 	}
 	
 	if floatValue != 42.0 {
@@ -261,32 +261,32 @@ func TestAnyCodableBooleanValue(t *testing.T) {
 		"bool_false": false,
 	}
 	
-	command := models.NewJanusCommand("test-channel", "test-command", args, nil)
+	request := models.NewJanusRequest("test-channel", "test-request", args, nil)
 	
 	// Serialize and deserialize
-	jsonData, err := command.ToJSON()
+	jsonData, err := request.ToJSON()
 	if err != nil {
-		t.Fatalf("Failed to serialize command: %v", err)
+		t.Fatalf("Failed to serialize request: %v", err)
 	}
 	
-	var deserializedCommand models.JanusCommand
-	err = deserializedCommand.FromJSON(jsonData)
+	var deserializedRequest models.JanusRequest
+	err = deserializedRequest.FromJSON(jsonData)
 	if err != nil {
-		t.Fatalf("Failed to deserialize command: %v", err)
+		t.Fatalf("Failed to deserialize request: %v", err)
 	}
 	
-	trueValue, ok := deserializedCommand.Args["bool_true"].(bool)
+	trueValue, ok := deserializedRequest.Args["bool_true"].(bool)
 	if !ok {
-		t.Fatalf("Expected bool value for bool_true, got %T", deserializedCommand.Args["bool_true"])
+		t.Fatalf("Expected bool value for bool_true, got %T", deserializedRequest.Args["bool_true"])
 	}
 	
 	if !trueValue {
 		t.Error("Expected true, got false")
 	}
 	
-	falseValue, ok := deserializedCommand.Args["bool_false"].(bool)
+	falseValue, ok := deserializedRequest.Args["bool_false"].(bool)
 	if !ok {
-		t.Fatalf("Expected bool value for bool_false, got %T", deserializedCommand.Args["bool_false"])
+		t.Fatalf("Expected bool value for bool_false, got %T", deserializedRequest.Args["bool_false"])
 	}
 	
 	if falseValue {
@@ -301,23 +301,23 @@ func TestAnyCodableArrayValue(t *testing.T) {
 		"array_value": []interface{}{"item1", 2, true, []interface{}{"nested", "array"}},
 	}
 	
-	command := models.NewJanusCommand("test-channel", "test-command", args, nil)
+	request := models.NewJanusRequest("test-channel", "test-request", args, nil)
 	
 	// Serialize and deserialize
-	jsonData, err := command.ToJSON()
+	jsonData, err := request.ToJSON()
 	if err != nil {
-		t.Fatalf("Failed to serialize command: %v", err)
+		t.Fatalf("Failed to serialize request: %v", err)
 	}
 	
-	var deserializedCommand models.JanusCommand
-	err = deserializedCommand.FromJSON(jsonData)
+	var deserializedRequest models.JanusRequest
+	err = deserializedRequest.FromJSON(jsonData)
 	if err != nil {
-		t.Fatalf("Failed to deserialize command: %v", err)
+		t.Fatalf("Failed to deserialize request: %v", err)
 	}
 	
-	arrayValue, ok := deserializedCommand.Args["array_value"].([]interface{})
+	arrayValue, ok := deserializedRequest.Args["array_value"].([]interface{})
 	if !ok {
-		t.Fatalf("Expected []interface{} value, got %T", deserializedCommand.Args["array_value"])
+		t.Fatalf("Expected []interface{} value, got %T", deserializedRequest.Args["array_value"])
 	}
 	
 	if len(arrayValue) != 4 {
@@ -360,7 +360,7 @@ func TestJanusClientInitialization(t *testing.T) {
 	defer os.Remove(testSocketPath)
 	
 	// Create test Manifest and client for SOCK_DGRAM
-	_ = createTestManifest() // Load spec but don't use it - specification is now fetched dynamically
+	_ = createTestManifest() // Load manifest but don't use it - manifest is now fetched dynamically
 	client, err := protocol.New(testSocketPath, "test-channel")
 	if err != nil {
 		t.Fatalf("Failed to create SOCK_DGRAM client: %v", err)
@@ -375,13 +375,13 @@ func TestJanusClientInitialization(t *testing.T) {
 		t.Errorf("Expected channel 'test-channel', got '%s'", client.ChannelIdentifier())
 	}
 	
-	if client.Specification() != nil {
-		t.Error("Expected specification to be nil initially (Dynamic Specification Architecture)")
+	if client.Manifest() != nil {
+		t.Error("Expected manifest to be nil initially (Dynamic Manifest Architecture)")
 	}
 	
-	// Specification should be loaded on first use (but will fail with connection error)
+	// Manifest should be loaded on first use (but will fail with connection error)
 	ctx := context.Background()
-	_, err = client.SendCommand(ctx, "ping", nil)
+	_, err = client.SendRequest(ctx, "ping", nil)
 	if err == nil {
 		t.Error("Expected connection error when no server is running")
 	}
@@ -394,20 +394,20 @@ func TestJanusClientInitialization(t *testing.T) {
 
 // Helper function to create a test Manifest
 // Matches Swift test helper patterns
-func createTestManifest() *specification.Manifest {
-	return &specification.Manifest{
+func createTestManifest() *manifest.Manifest {
+	return &manifest.Manifest{
 		Version:     "1.0.0",
 		Name:        "Test API",
 		Description: "Test Manifest",
-		Channels: map[string]*specification.ChannelSpec{
+		Channels: map[string]*manifest.ChannelManifest{
 			"test-channel": {
 				Name:        "Test Channel",
 				Description: "Test channel description",
-				Commands: map[string]*specification.CommandSpec{
-					"test-command": {
-						Name:        "Test Command",
-						Description: "Test command description",
-						Args: map[string]*specification.ArgumentSpec{
+				Requests: map[string]*manifest.RequestManifest{
+					"test-request": {
+						Name:        "Test Request",
+						Description: "Test request description",
+						Args: map[string]*manifest.ArgumentManifest{
 							"test_arg": {
 								Name:        "Test Argument",
 								Type:        "string",
@@ -415,7 +415,7 @@ func createTestManifest() *specification.Manifest {
 								Required:    true,
 							},
 						},
-						Response: &specification.ResponseSpec{
+						Response: &manifest.ResponseManifest{
 							Type:        "object",
 							Description: "Test response",
 						},

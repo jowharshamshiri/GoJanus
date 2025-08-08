@@ -7,7 +7,7 @@ A production-ready Unix domain socket communication library for Go with **SOCK_D
 - **Connectionless SOCK_DGRAM**: Unix domain datagram sockets with reply-to mechanism
 - **Automatic ID Management**: RequestHandle system hides UUID complexity from users
 - **Cross-Language Compatibility**: Perfect compatibility with Rust, Swift, and TypeScript implementations  
-- **Dynamic Specification**: Server-provided Manifests with auto-fetch validation
+- **Dynamic Manifest**: Server-provided Manifests with auto-fetch validation
 - **Security Framework**: 27 comprehensive security mechanisms and attack prevention
 - **JSON-RPC 2.0 Compliance**: Standardized error codes and response format
 - **Performance Optimized**: Sub-millisecond response times with 500+ requests/second
@@ -23,11 +23,11 @@ go get github.com/jowharshamshiri/GoJanus
 
 ## Quick Start
 
-### API Specification (Manifest)
+### API Manifest (Manifest)
 
 Before creating servers or clients, you need a Manifest file defining your API:
 
-**my-api-spec.json:**
+**my-api-manifest.json:**
 ```json
 {
   "name": "My Application API",
@@ -35,7 +35,7 @@ Before creating servers or clients, you need a Manifest file defining your API:
   "description": "Example API for demonstration",
   "channels": {
     "default": {
-      "commands": {
+      "requests": {
         "get_user": {
           "description": "Retrieve user information",
           "arguments": {
@@ -75,7 +75,7 @@ Before creating servers or clients, you need a Manifest file defining your API:
 }
 ```
 
-**Note**: Built-in commands (`ping`, `echo`, `get_info`, `validate`, `slow_process`, `spec`) are always available and cannot be overridden in Manifests.
+**Note**: Built-in requests (`ping`, `echo`, `get_info`, `validate`, `slow_process`, `manifest`) are always available and cannot be overridden in Manifests.
 
 ### Simple Client Example
 
@@ -89,15 +89,15 @@ import (
 )
 
 func main() {
-    // Create client - specification is fetched automatically from server
+    // Create client - manifest is fetched automatically from server
     client, err := protocol.NewJanusClient("/tmp/my-server.sock", "default")
     if err != nil {
         panic(err)
     }
     defer client.Close()
     
-    // Built-in commands (always available)
-    response, err := client.SendCommand("ping", nil)
+    // Built-in requests (always available)
+    response, err := client.SendRequest("ping", nil)
     if err != nil {
         panic(err)
     }
@@ -106,12 +106,12 @@ func main() {
         fmt.Printf("Server ping: %v\n", response.Result)
     }
     
-    // Custom command defined in Manifest (arguments validated automatically)
+    // Custom request defined in Manifest (arguments validated automatically)
     userArgs := map[string]interface{}{
         "user_id": "user123",
     }
     
-    response, err = client.SendCommand("get_user", userArgs)
+    response, err = client.SendRequest("get_user", userArgs)
     if err != nil {
         panic(err)
     }
@@ -148,15 +148,15 @@ func main() {
         "data": "processing_task",
     }
     
-    // Send command with RequestHandle for tracking
-    handle, responseC, errC := client.SendCommandWithHandle(
+    // Send request with RequestHandle for tracking
+    handle, responseC, errC := client.SendRequestWithHandle(
         context.Background(),
         "process_data",
         args,
     )
     
     fmt.Printf("Request started: %s on channel %s\n", 
-        handle.GetCommand(), handle.GetChannel())
+        handle.GetRequest(), handle.GetChannel())
     
     // Can check status or cancel if needed
     if handle.IsCancelled() {
@@ -190,12 +190,12 @@ import (
     
     "github.com/jowharshamshiri/GoJanus/pkg/server"
     "github.com/jowharshamshiri/GoJanus/pkg/models"
-    "github.com/jowharshamshiri/GoJanus/pkg/specification"
+    "github.com/jowharshamshiri/GoJanus/pkg/manifest"
 )
 
 func main() {
-    // Load API specification from Manifest file
-    manifest, err := specification.ParseManifestFromFile("my-api-spec.json")
+    // Load API manifest from Manifest file
+    manifest, err := manifest.ParseManifestFromFile("my-api-manifest.json")
     if err != nil {
         fmt.Printf("Failed to load manifest: %v\n", err)
         return
@@ -209,11 +209,11 @@ func main() {
     }
     srv := server.NewJanusServer(config)
     
-    // Set the server's manifest for validation and spec command
+    // Set the server's manifest for validation and manifest request
     srv.SetManifest(manifest)
     
-    // Register handlers for commands defined in the Manifest
-    srv.RegisterHandler("get_user", server.NewObjectHandler(func(cmd *models.JanusCommand) (map[string]interface{}, error) {
+    // Register handlers for requests defined in the Manifest
+    srv.RegisterHandler("get_user", server.NewObjectHandler(func(cmd *models.JanusRequest) (map[string]interface{}, error) {
         // Extract user_id argument (validated by Manifest)
         userID, exists := cmd.Args["user_id"]
         if !exists {
@@ -239,7 +239,7 @@ func main() {
         }, nil
     }))
     
-    srv.RegisterHandler("update_profile", server.NewObjectHandler(func(cmd *models.JanusCommand) (map[string]interface{}, error) {
+    srv.RegisterHandler("update_profile", server.NewObjectHandler(func(cmd *models.JanusRequest) (map[string]interface{}, error) {
         if cmd.Args == nil {
             return nil, &models.JSONRPCError{
                 Code:    models.InvalidParams,
@@ -299,18 +299,18 @@ import (
 )
 
 func main() {
-    // Create client - specification is fetched automatically from server
+    // Create client - manifest is fetched automatically from server
     client, err := protocol.NewJanusClient("/tmp/my-server.sock", "default")
     if err != nil {
         fmt.Printf("Failed to create client: %v\n", err)
         return
     }
     
-    // Set timeout for commands
+    // Set timeout for requests
     client.SetTimeout(30 * time.Second)
     
-    // Built-in commands (always available)
-    response, err := client.SendCommand("ping", nil)
+    // Built-in requests (always available)
+    response, err := client.SendRequest("ping", nil)
     if err != nil {
         fmt.Printf("Ping failed: %v\n", err)
         return
@@ -320,12 +320,12 @@ func main() {
         fmt.Printf("Server ping: %v\n", response.Result)
     }
     
-    // Custom command defined in Manifest (arguments validated automatically)
+    // Custom request defined in Manifest (arguments validated automatically)
     userArgs := map[string]interface{}{
         "user_id": "user123",
     }
     
-    response, err = client.SendCommand("get_user", userArgs)
+    response, err = client.SendRequest("get_user", userArgs)
     if err != nil {
         fmt.Printf("Get user failed: %v\n", err)
         return
@@ -337,10 +337,10 @@ func main() {
         fmt.Printf("Error: %v\n", response.Error)
     }
     
-    // Get server API specification
-    specResponse, err := client.SendCommand("spec", nil)
-    if err == nil && specResponse.Success {
-        fmt.Printf("Server API spec: %v\n", specResponse.Result)
+    // Get server API manifest
+    manifestResponse, err := client.SendRequest("manifest", nil)
+    if err == nil && manifestResponse.Success {
+        fmt.Printf("Server API manifest: %v\n", manifestResponse.Result)
     }
     
     // Test connectivity
@@ -350,16 +350,16 @@ func main() {
 }
 ```
 
-### Fire-and-Forget Commands
+### Fire-and-Forget Requests
 
 ```go
-// Send command without waiting for response
+// Send request without waiting for response
 logArgs := map[string]interface{}{
     "level":   "info",
     "message": "User profile updated",
 }
 
-if err := client.SendCommandNoResponse("log_event", logArgs); err != nil {
+if err := client.SendRequestNoResponse("log_event", logArgs); err != nil {
     fmt.Printf("Fire-and-forget failed: %v\n", err)
 }
 ```
@@ -426,7 +426,7 @@ fmt.Printf("Pending requests: %d\n", len(handles))
 
 for _, handle := range handles {
     fmt.Printf("Request: %s on %s (created: %v)\n", 
-        handle.GetCommand(), 
+        handle.GetRequest(), 
         handle.GetChannel(), 
         handle.GetTimestamp())
     

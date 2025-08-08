@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jowharshamshiri/GoJanus/pkg/server"
-	"github.com/jowharshamshiri/GoJanus/pkg/models"
-	"github.com/jowharshamshiri/GoJanus/pkg/protocol"
+	"GoJanus/pkg/server"
+	"GoJanus/pkg/models"
+	"GoJanus/pkg/protocol"
 )
 
 func TestServerCreation(t *testing.T) {
@@ -31,8 +31,8 @@ func TestServerRegisterHandler(t *testing.T) {
 	}
 	srv := server.NewJanusServer(config)
 	
-	srv.RegisterHandler("test", server.NewObjectHandler(func(cmd *models.JanusCommand) (map[string]interface{}, error) {
-		return map[string]interface{}{"echo": cmd.Command}, nil
+	srv.RegisterHandler("test", server.NewObjectHandler(func(cmd *models.JanusRequest) (map[string]interface{}, error) {
+		return map[string]interface{}{"echo": cmd.Request}, nil
 	}))
 	
 	// Handler registration should succeed
@@ -50,7 +50,7 @@ func TestClientServerCommunication(t *testing.T) {
 		DefaultTimeout: 30,
 	}
 	srv := server.NewJanusServer(config)
-	srv.RegisterHandler("ping", server.NewObjectHandler(func(cmd *models.JanusCommand) (map[string]interface{}, error) {
+	srv.RegisterHandler("ping", server.NewObjectHandler(func(cmd *models.JanusRequest) (map[string]interface{}, error) {
 		return map[string]interface{}{
 			"message":   "pong",
 			"timestamp": time.Now().Unix(),
@@ -73,7 +73,7 @@ func TestClientServerCommunication(t *testing.T) {
 	}
 	defer client.Close()
 	
-	response, err := client.SendCommand(context.Background(), "ping", nil)
+	response, err := client.SendRequest(context.Background(), "ping", nil)
 	
 	// Stop server
 	srv.Stop()
@@ -104,7 +104,7 @@ func TestClientServerWithArgs(t *testing.T) {
 		DefaultTimeout: 30,
 	}
 	srv := server.NewJanusServer(config)
-	srv.RegisterHandler("echo", server.NewObjectHandler(func(cmd *models.JanusCommand) (map[string]interface{}, error) {
+	srv.RegisterHandler("echo", server.NewObjectHandler(func(cmd *models.JanusRequest) (map[string]interface{}, error) {
 		if cmd.Args == nil {
 			return nil, models.NewJSONRPCError(models.InvalidParams, "No arguments provided")
 		}
@@ -140,7 +140,7 @@ func TestClientServerWithArgs(t *testing.T) {
 		"message": "Hello, Server!",
 	}
 	
-	response, err := client.SendCommand(context.Background(), "echo", args)
+	response, err := client.SendRequest(context.Background(), "echo", args)
 	
 	// Stop server
 	srv.Stop()
@@ -173,11 +173,11 @@ func TestClientServerWithArgs(t *testing.T) {
 	}
 }
 
-func TestClientCommandNotFound(t *testing.T) {
+func TestClientRequestNotFound(t *testing.T) {
 	socketPath := "/tmp/test-go-high-level-notfound.sock"
 	defer os.Remove(socketPath)
 	
-	// Start server with a handler for a different command
+	// Start server with a handler for a different request
 	config := &server.ServerConfig{
 		SocketPath:     socketPath,
 		MaxConnections: 100,
@@ -185,8 +185,8 @@ func TestClientCommandNotFound(t *testing.T) {
 	}
 	srv := server.NewJanusServer(config)
 	
-	// Register a handler for a different command so "nonexistent" won't be found
-	srv.RegisterHandler("existingCommand", server.SyncHandler(func(cmd *models.JanusCommand) server.HandlerResult {
+	// Register a handler for a different request so "nonexistent" won't be found
+	srv.RegisterHandler("existingRequest", server.SyncHandler(func(cmd *models.JanusRequest) server.HandlerResult {
 		return server.HandlerResult{
 			Value: map[string]interface{}{
 				"result": "success",
@@ -204,14 +204,14 @@ func TestClientCommandNotFound(t *testing.T) {
 	// Give server time to start
 	time.Sleep(100 * time.Millisecond)
 	
-	// Test client with non-existent command
+	// Test client with non-existent request
 	client, err := protocol.New(socketPath, "test", protocol.DefaultJanusClientConfig())
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 	defer client.Close()
 	
-	response, err := client.SendCommand(context.Background(), "nonexistent", nil)
+	response, err := client.SendRequest(context.Background(), "nonexistent", nil)
 	
 	// Stop server
 	srv.Stop()
@@ -224,7 +224,7 @@ func TestClientCommandNotFound(t *testing.T) {
 	
 	// Should be unsuccessful
 	if response.Success {
-		t.Fatal("Expected command not found error")
+		t.Fatal("Expected request not found error")
 	}
 	
 	if response.Error == nil {
@@ -232,7 +232,7 @@ func TestClientCommandNotFound(t *testing.T) {
 	}
 	
 	if response.Error.Code != models.MethodNotFound {
-		t.Fatalf("Expected COMMAND_NOT_FOUND error, got %s", response.Error.Code)
+		t.Fatalf("Expected REQUEST_NOT_FOUND error, got %s", response.Error.Code)
 	}
 }
 
@@ -247,7 +247,7 @@ func TestClientFireAndForget(t *testing.T) {
 		DefaultTimeout: 30,
 	}
 	srv := server.NewJanusServer(config)
-	srv.RegisterHandler("log", server.NewObjectHandler(func(cmd *models.JanusCommand) (map[string]interface{}, error) {
+	srv.RegisterHandler("log", server.NewObjectHandler(func(cmd *models.JanusRequest) (map[string]interface{}, error) {
 		// Simulate logging
 		t.Logf("Logged: %v", cmd.Args)
 		return map[string]interface{}{"logged": true}, nil
@@ -274,7 +274,7 @@ func TestClientFireAndForget(t *testing.T) {
 		"message": "Test log message",
 	}
 	
-	err = client.SendCommandNoResponse(context.Background(), "log", args)
+	err = client.SendRequestNoResponse(context.Background(), "log", args)
 	
 	// Stop server
 	srv.Stop()
@@ -297,7 +297,7 @@ func TestClientTimeout(t *testing.T) {
 		DefaultTimeout: 30,
 	}
 	srv := server.NewJanusServer(config)
-	srv.RegisterHandler("slow", server.NewObjectHandler(func(cmd *models.JanusCommand) (map[string]interface{}, error) {
+	srv.RegisterHandler("slow", server.NewObjectHandler(func(cmd *models.JanusRequest) (map[string]interface{}, error) {
 		// Simulate slow processing
 		time.Sleep(10 * time.Second)
 		return map[string]interface{}{"done": true}, nil
@@ -319,7 +319,7 @@ func TestClientTimeout(t *testing.T) {
 	}
 	defer client.Close()
 	
-	_, err = client.SendCommand(context.Background(), "slow", nil)
+	_, err = client.SendRequest(context.Background(), "slow", nil)
 	
 	// Stop server
 	srv.Stop()
@@ -342,7 +342,7 @@ func TestClientPing(t *testing.T) {
 		DefaultTimeout: 30,
 	}
 	srv := server.NewJanusServer(config)
-	srv.RegisterHandler("ping", server.NewObjectHandler(func(cmd *models.JanusCommand) (map[string]interface{}, error) {
+	srv.RegisterHandler("ping", server.NewObjectHandler(func(cmd *models.JanusRequest) (map[string]interface{}, error) {
 		return map[string]interface{}{"message": "pong"}, nil
 	}))
 	
@@ -386,7 +386,7 @@ func TestMultipleHandlers(t *testing.T) {
 	}
 	srv := server.NewJanusServer(config)
 	
-	srv.RegisterHandler("add", server.NewObjectHandler(func(cmd *models.JanusCommand) (map[string]interface{}, error) {
+	srv.RegisterHandler("add", server.NewObjectHandler(func(cmd *models.JanusRequest) (map[string]interface{}, error) {
 		if cmd.Args == nil {
 			return nil, models.NewJSONRPCError(models.InvalidParams, "Missing arguments")
 		}
@@ -401,7 +401,7 @@ func TestMultipleHandlers(t *testing.T) {
 		return map[string]interface{}{"result": a + b}, nil
 	}))
 	
-	srv.RegisterHandler("multiply", server.NewObjectHandler(func(cmd *models.JanusCommand) (map[string]interface{}, error) {
+	srv.RegisterHandler("multiply", server.NewObjectHandler(func(cmd *models.JanusRequest) (map[string]interface{}, error) {
 		if cmd.Args == nil {
 			return nil, models.NewJSONRPCError(models.InvalidParams, "Missing arguments")
 		}
@@ -440,15 +440,15 @@ func TestMultipleHandlers(t *testing.T) {
 	}
 	
 	// Test addition
-	addResponse, err := client.SendCommand(context.Background(), "add", args)
+	addResponse, err := client.SendRequest(context.Background(), "add", args)
 	if err != nil {
-		t.Fatalf("Add command failed: %v", err)
+		t.Fatalf("Add request failed: %v", err)
 	}
 	
 	// Test multiplication
-	multResponse, err := client.SendCommand(context.Background(), "multiply", args)
+	multResponse, err := client.SendRequest(context.Background(), "multiply", args)
 	if err != nil {
-		t.Fatalf("Multiply command failed: %v", err)
+		t.Fatalf("Multiply request failed: %v", err)
 	}
 	
 	// Stop server

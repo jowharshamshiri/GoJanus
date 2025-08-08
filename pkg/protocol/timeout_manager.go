@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// TimeoutManager manages bilateral timeout handling for commands
+// TimeoutManager manages bilateral timeout handling for requests
 // Matches Swift timeout management functionality exactly
 type TimeoutManager struct {
 	timeouts map[string]*timeoutEntry
@@ -32,25 +32,25 @@ func NewTimeoutManager() *TimeoutManager {
 	}
 }
 
-// RegisterTimeout registers a timeout for a command ID
+// RegisterTimeout registers a timeout for a request ID
 // Matches Swift bilateral timeout management
-func (tm *TimeoutManager) RegisterTimeout(commandID string, timeout time.Duration, callback func()) {
-	tm.registerTimeoutWithErrorCallback(commandID, timeout, callback, nil)
+func (tm *TimeoutManager) RegisterTimeout(requestID string, timeout time.Duration, callback func()) {
+	tm.registerTimeoutWithErrorCallback(requestID, timeout, callback, nil)
 }
 
 // RegisterTimeoutWithErrorCallback registers a timeout with error handling callback
 // Matches TypeScript error-handled registration pattern
-func (tm *TimeoutManager) RegisterTimeoutWithErrorCallback(commandID string, timeout time.Duration, callback func(), errorCallback func(error)) {
-	tm.registerTimeoutWithErrorCallback(commandID, timeout, callback, errorCallback)
+func (tm *TimeoutManager) RegisterTimeoutWithErrorCallback(requestID string, timeout time.Duration, callback func(), errorCallback func(error)) {
+	tm.registerTimeoutWithErrorCallback(requestID, timeout, callback, errorCallback)
 }
 
 // Internal method for timeout registration with optional error callback
-func (tm *TimeoutManager) registerTimeoutWithErrorCallback(commandID string, timeout time.Duration, callback func(), errorCallback func(error)) {
+func (tm *TimeoutManager) registerTimeoutWithErrorCallback(requestID string, timeout time.Duration, callback func(), errorCallback func(error)) {
 	tm.mutex.Lock()
 	defer tm.mutex.Unlock()
 	
 	// Cancel existing timeout if any
-	if existing, exists := tm.timeouts[commandID]; exists {
+	if existing, exists := tm.timeouts[requestID]; exists {
 		existing.timer.Stop()
 		tm.stats.totalCancelled++
 	}
@@ -69,7 +69,7 @@ func (tm *TimeoutManager) registerTimeoutWithErrorCallback(commandID string, tim
 	registeredAt := time.Now()
 	timer := time.AfterFunc(timeout, func() {
 		tm.mutex.Lock()
-		delete(tm.timeouts, commandID)
+		delete(tm.timeouts, requestID)
 		tm.stats.totalExpired++
 		tm.mutex.Unlock()
 		
@@ -78,7 +78,7 @@ func (tm *TimeoutManager) registerTimeoutWithErrorCallback(commandID string, tim
 		}
 	})
 	
-	tm.timeouts[commandID] = &timeoutEntry{
+	tm.timeouts[requestID] = &timeoutEntry{
 		timer:         timer,
 		callback:      callback,
 		errorCallback: errorCallback,
@@ -87,15 +87,15 @@ func (tm *TimeoutManager) registerTimeoutWithErrorCallback(commandID string, tim
 	}
 }
 
-// CancelTimeout cancels a timeout for a command ID
+// CancelTimeout cancels a timeout for a request ID
 // Called when a response is received before timeout
-func (tm *TimeoutManager) CancelTimeout(commandID string) bool {
+func (tm *TimeoutManager) CancelTimeout(requestID string) bool {
 	tm.mutex.Lock()
 	defer tm.mutex.Unlock()
 	
-	if entry, exists := tm.timeouts[commandID]; exists {
+	if entry, exists := tm.timeouts[requestID]; exists {
 		entry.timer.Stop()
-		delete(tm.timeouts, commandID)
+		delete(tm.timeouts, requestID)
 		tm.stats.totalCancelled++
 		return true
 	}
@@ -103,13 +103,13 @@ func (tm *TimeoutManager) CancelTimeout(commandID string) bool {
 	return false
 }
 
-// ExtendTimeout extends an existing timeout by the specified duration
+// ExtendTimeout extends an existing timeout by the manifestified duration
 // Matches Swift/TypeScript timeout extension capability
-func (tm *TimeoutManager) ExtendTimeout(commandID string, extension time.Duration) bool {
+func (tm *TimeoutManager) ExtendTimeout(requestID string, extension time.Duration) bool {
 	tm.mutex.Lock()
 	defer tm.mutex.Unlock()
 	
-	entry, exists := tm.timeouts[commandID]
+	entry, exists := tm.timeouts[requestID]
 	if !exists {
 		return false
 	}
@@ -123,7 +123,7 @@ func (tm *TimeoutManager) ExtendTimeout(commandID string, extension time.Duratio
 	
 	entry.timer = time.AfterFunc(newTimeout, func() {
 		tm.mutex.Lock()
-		delete(tm.timeouts, commandID)
+		delete(tm.timeouts, requestID)
 		tm.stats.totalExpired++
 		tm.mutex.Unlock()
 		
@@ -133,7 +133,7 @@ func (tm *TimeoutManager) ExtendTimeout(commandID string, extension time.Duratio
 	})
 	
 	// Update the entry in the map
-	tm.timeouts[commandID] = entry
+	tm.timeouts[requestID] = entry
 	
 	return true
 }
@@ -143,9 +143,9 @@ func (tm *TimeoutManager) Close() {
 	tm.mutex.Lock()
 	defer tm.mutex.Unlock()
 	
-	for commandID, entry := range tm.timeouts {
+	for requestID, entry := range tm.timeouts {
 		entry.timer.Stop()
-		delete(tm.timeouts, commandID)
+		delete(tm.timeouts, requestID)
 		tm.stats.totalCancelled++
 	}
 }
@@ -243,9 +243,9 @@ func (tm *TimeoutManager) RegisterBilateralTimeout(requestID string, responseID 
 
 // CancelBilateralTimeout cancels both request and response timeouts
 // Matches TypeScript implementation pattern
-func (tm *TimeoutManager) CancelBilateralTimeout(baseCommandID string) int {
-	requestID := baseCommandID + "-request"
-	responseID := baseCommandID + "-response"
+func (tm *TimeoutManager) CancelBilateralTimeout(baseRequestID string) int {
+	requestID := baseRequestID + "-request"
+	responseID := baseRequestID + "-response"
 	
 	cancelledCount := 0
 	

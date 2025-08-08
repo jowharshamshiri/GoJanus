@@ -29,7 +29,7 @@ const (
 	SecurityViolation     JSONRPCErrorCode = -32009
 	ResourceLimitExceeded JSONRPCErrorCode = -32010
 	
-	// Janus-specific protocol error codes (-32011 to -32020)
+	// Janus-manifestific protocol error codes (-32011 to -32020)
 	MessageFramingError   JSONRPCErrorCode = -32011
 	ResponseTrackingError JSONRPCErrorCode = -32012
 	ManifestValidationError JSONRPCErrorCode = -32013
@@ -107,7 +107,7 @@ func (code JSONRPCErrorCode) Message() string {
 	case ValidationFailed:
 		return "Validation failed"
 	case HandlerTimeout:
-		return "Command timed out"
+		return "Request timed out"
 	case SocketTransportError:
 		return "Socket error"
 	case ConfigurationError:
@@ -152,7 +152,7 @@ func (e *JSONRPCError) Error() string {
 	return fmt.Sprintf("JSON-RPC Error %d: %s", int(e.Code), e.Message)
 }
 
-// NewJSONRPCError creates a new JSON-RPC error with the specified code
+// NewJSONRPCError creates a new JSON-RPC error with the manifestified code
 func NewJSONRPCError(code JSONRPCErrorCode, details string) *JSONRPCError {
 	error := &JSONRPCError{
 		Code:    code,
@@ -182,7 +182,7 @@ func NewJSONRPCErrorWithContext(code JSONRPCErrorCode, details string, context m
 	return error
 }
 
-// NewValidationError creates a validation-specific JSON-RPC error
+// NewValidationError creates a validation-manifestific JSON-RPC error
 func NewValidationError(field string, value interface{}, details string, constraints map[string]interface{}) *JSONRPCError {
 	return &JSONRPCError{
 		Code:    ValidationFailed,
@@ -229,7 +229,7 @@ func (e *JSONRPCError) UnmarshalJSON(data []byte) error {
 // Legacy error code mapping for backward compatibility
 func MapLegacyErrorCode(legacyCode string) JSONRPCErrorCode {
 	switch legacyCode {
-	case "UNKNOWN_COMMAND":
+	case "UNKNOWN_REQUEST":
 		return MethodNotFound
 	case "VALIDATION_ERROR":
 		return ValidationFailed

@@ -4,19 +4,19 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/jowharshamshiri/GoJanus/pkg/models"
-	"github.com/jowharshamshiri/GoJanus/pkg/protocol"
+	"GoJanus/pkg/models"
+	"GoJanus/pkg/protocol"
 )
 
 func TestMessageFraming_EncodeMessage(t *testing.T) {
 	framing := protocol.NewMessageFraming()
 	
-	t.Run("should encode a command message", func(t *testing.T) {
-		command := models.NewJanusCommand("test-service", "ping", nil, nil)
+	t.Run("should encode a request message", func(t *testing.T) {
+		request := models.NewJanusRequest("test-service", "ping", nil, nil)
 		
-		encoded, err := framing.EncodeMessage(command)
+		encoded, err := framing.EncodeMessage(request)
 		if err != nil {
-			t.Fatalf("Failed to encode command: %v", err)
+			t.Fatalf("Failed to encode request: %v", err)
 		}
 		
 		if len(encoded) <= protocol.LengthPrefixSize {
@@ -33,7 +33,7 @@ func TestMessageFraming_EncodeMessage(t *testing.T) {
 	
 	t.Run("should encode a response message", func(t *testing.T) {
 		response := &models.JanusResponse{
-			CommandID: "550e8400-e29b-41d4-a716-446655440000",
+			RequestID: "550e8400-e29b-41d4-a716-446655440000",
 			ChannelID: "test-service",
 			Success:   true,
 			Result:    map[string]interface{}{"pong": true},
@@ -51,13 +51,13 @@ func TestMessageFraming_EncodeMessage(t *testing.T) {
 	})
 	
 	t.Run("should reject messages that are too large", func(t *testing.T) {
-		// Create a command with very large args
+		// Create a request with very large args
 		largeArgs := make(map[string]interface{})
 		largeArgs["data"] = string(make([]byte, 20*1024*1024)) // 20MB
 		
-		command := models.NewJanusCommand("test-service", "large", largeArgs, nil)
+		request := models.NewJanusRequest("test-service", "large", largeArgs, nil)
 		
-		_, err := framing.EncodeMessage(command)
+		_, err := framing.EncodeMessage(request)
 		if err == nil {
 			t.Error("Expected error for oversized message")
 		}
@@ -76,44 +76,44 @@ func TestMessageFraming_EncodeMessage(t *testing.T) {
 func TestMessageFraming_DecodeMessage(t *testing.T) {
 	framing := protocol.NewMessageFraming()
 	
-	t.Run("should decode a command message", func(t *testing.T) {
-		originalCommand := models.NewJanusCommand("test-service", "ping", nil, nil)
+	t.Run("should decode a request message", func(t *testing.T) {
+		originalRequest := models.NewJanusRequest("test-service", "ping", nil, nil)
 		
-		encoded, err := framing.EncodeMessage(originalCommand)
+		encoded, err := framing.EncodeMessage(originalRequest)
 		if err != nil {
-			t.Fatalf("Failed to encode command: %v", err)
+			t.Fatalf("Failed to encode request: %v", err)
 		}
 		
 		decoded, remaining, err := framing.DecodeMessage(encoded)
 		if err != nil {
-			t.Fatalf("Failed to decode command: %v", err)
+			t.Fatalf("Failed to decode request: %v", err)
 		}
 		
 		if len(remaining) != 0 {
 			t.Errorf("Expected no remaining buffer, got %d bytes", len(remaining))
 		}
 		
-		decodedCommand, ok := decoded.(models.JanusCommand)
+		decodedRequest, ok := decoded.(models.JanusRequest)
 		if !ok {
-			t.Fatalf("Decoded message is not a JanusCommand")
+			t.Fatalf("Decoded message is not a JanusRequest")
 		}
 		
-		if decodedCommand.ID != originalCommand.ID {
-			t.Errorf("Command ID mismatch: expected %s, got %s", originalCommand.ID, decodedCommand.ID)
+		if decodedRequest.ID != originalRequest.ID {
+			t.Errorf("Request ID mismatch: expected %s, got %s", originalRequest.ID, decodedRequest.ID)
 		}
 		
-		if decodedCommand.ChannelID != originalCommand.ChannelID {
-			t.Errorf("Channel ID mismatch: expected %s, got %s", originalCommand.ChannelID, decodedCommand.ChannelID)
+		if decodedRequest.ChannelID != originalRequest.ChannelID {
+			t.Errorf("Channel ID mismatch: expected %s, got %s", originalRequest.ChannelID, decodedRequest.ChannelID)
 		}
 		
-		if decodedCommand.Command != originalCommand.Command {
-			t.Errorf("Command mismatch: expected %s, got %s", originalCommand.Command, decodedCommand.Command)
+		if decodedRequest.Request != originalRequest.Request {
+			t.Errorf("Request mismatch: expected %s, got %s", originalRequest.Request, decodedRequest.Request)
 		}
 	})
 	
 	t.Run("should decode a response message", func(t *testing.T) {
 		originalResponse := &models.JanusResponse{
-			CommandID: "550e8400-e29b-41d4-a716-446655440000",
+			RequestID: "550e8400-e29b-41d4-a716-446655440000",
 			ChannelID: "test-service",
 			Success:   true,
 			Result:    map[string]interface{}{"pong": true},
@@ -139,8 +139,8 @@ func TestMessageFraming_DecodeMessage(t *testing.T) {
 			t.Fatalf("Decoded message is not a JanusResponse")
 		}
 		
-		if decodedResponse.CommandID != originalResponse.CommandID {
-			t.Errorf("Command ID mismatch: expected %s, got %s", originalResponse.CommandID, decodedResponse.CommandID)
+		if decodedResponse.RequestID != originalResponse.RequestID {
+			t.Errorf("Request ID mismatch: expected %s, got %s", originalResponse.RequestID, decodedResponse.RequestID)
 		}
 		
 		if decodedResponse.Success != originalResponse.Success {
@@ -149,18 +149,18 @@ func TestMessageFraming_DecodeMessage(t *testing.T) {
 	})
 	
 	t.Run("should handle multiple messages in buffer", func(t *testing.T) {
-		command := models.NewJanusCommand("test-service", "ping", nil, nil)
+		request := models.NewJanusRequest("test-service", "ping", nil, nil)
 		response := &models.JanusResponse{
-			CommandID: "550e8400-e29b-41d4-a716-446655440000",
+			RequestID: "550e8400-e29b-41d4-a716-446655440000",
 			ChannelID: "test-service",
 			Success:   true,
 			Result:    map[string]interface{}{"pong": true},
 			Timestamp: 1722248201,
 		}
 		
-		encoded1, err := framing.EncodeMessage(command)
+		encoded1, err := framing.EncodeMessage(request)
 		if err != nil {
-			t.Fatalf("Failed to encode command: %v", err)
+			t.Fatalf("Failed to encode request: %v", err)
 		}
 		
 		encoded2, err := framing.EncodeMessage(response)
@@ -176,8 +176,8 @@ func TestMessageFraming_DecodeMessage(t *testing.T) {
 			t.Fatalf("Failed to decode first message: %v", err)
 		}
 		
-		if _, ok := message1.(models.JanusCommand); !ok {
-			t.Error("First message should be a command")
+		if _, ok := message1.(models.JanusRequest); !ok {
+			t.Error("First message should be a request")
 		}
 		
 		// Extract second message
@@ -214,10 +214,10 @@ func TestMessageFraming_DecodeMessage(t *testing.T) {
 	})
 	
 	t.Run("should return error for incomplete message", func(t *testing.T) {
-		command := models.NewJanusCommand("test-service", "ping", nil, nil)
-		encoded, err := framing.EncodeMessage(command)
+		request := models.NewJanusRequest("test-service", "ping", nil, nil)
+		encoded, err := framing.EncodeMessage(request)
 		if err != nil {
-			t.Fatalf("Failed to encode command: %v", err)
+			t.Fatalf("Failed to encode request: %v", err)
 		}
 		
 		// Truncate the message
@@ -261,16 +261,16 @@ func TestMessageFraming_ExtractMessages(t *testing.T) {
 	framing := protocol.NewMessageFraming()
 	
 	t.Run("should extract multiple complete messages", func(t *testing.T) {
-		command := models.NewJanusCommand("test-service", "ping", nil, nil)
+		request := models.NewJanusRequest("test-service", "ping", nil, nil)
 		response := &models.JanusResponse{
-			CommandID: "550e8400-e29b-41d4-a716-446655440000",
+			RequestID: "550e8400-e29b-41d4-a716-446655440000",
 			ChannelID: "test-service",
 			Success:   true,
 			Result:    map[string]interface{}{"pong": true},
 			Timestamp: 1722248201,
 		}
 		
-		encoded1, _ := framing.EncodeMessage(command)
+		encoded1, _ := framing.EncodeMessage(request)
 		encoded2, _ := framing.EncodeMessage(response)
 		combined := append(encoded1, encoded2...)
 		
@@ -287,8 +287,8 @@ func TestMessageFraming_ExtractMessages(t *testing.T) {
 			t.Errorf("Expected no remaining buffer, got %d bytes", len(remaining))
 		}
 		
-		if _, ok := messages[0].(models.JanusCommand); !ok {
-			t.Error("First message should be a command")
+		if _, ok := messages[0].(models.JanusRequest); !ok {
+			t.Error("First message should be a request")
 		}
 		
 		if _, ok := messages[1].(models.JanusResponse); !ok {
@@ -297,16 +297,16 @@ func TestMessageFraming_ExtractMessages(t *testing.T) {
 	})
 	
 	t.Run("should handle partial messages", func(t *testing.T) {
-		command := models.NewJanusCommand("test-service", "ping", nil, nil)
+		request := models.NewJanusRequest("test-service", "ping", nil, nil)
 		response := &models.JanusResponse{
-			CommandID: "550e8400-e29b-41d4-a716-446655440000",
+			RequestID: "550e8400-e29b-41d4-a716-446655440000",
 			ChannelID: "test-service",
 			Success:   true,
 			Result:    map[string]interface{}{"pong": true},
 			Timestamp: 1722248201,
 		}
 		
-		encoded1, _ := framing.EncodeMessage(command)
+		encoded1, _ := framing.EncodeMessage(request)
 		encoded2, _ := framing.EncodeMessage(response)
 		combined := append(encoded1, encoded2...)
 		
@@ -326,8 +326,8 @@ func TestMessageFraming_ExtractMessages(t *testing.T) {
 			t.Errorf("Expected 10 bytes remaining (partial second message), got %d", len(remaining))
 		}
 		
-		if _, ok := messages[0].(models.JanusCommand); !ok {
-			t.Error("First message should be a command")
+		if _, ok := messages[0].(models.JanusRequest); !ok {
+			t.Error("First message should be a request")
 		}
 	})
 	
@@ -368,14 +368,14 @@ func TestMessageFraming_CalculateFramedSize(t *testing.T) {
 	framing := protocol.NewMessageFraming()
 	
 	t.Run("should calculate correct framed size", func(t *testing.T) {
-		command := models.NewJanusCommand("test-service", "ping", nil, nil)
+		request := models.NewJanusRequest("test-service", "ping", nil, nil)
 		
-		size, err := framing.CalculateFramedSize(command)
+		size, err := framing.CalculateFramedSize(request)
 		if err != nil {
 			t.Fatalf("Failed to calculate framed size: %v", err)
 		}
 		
-		encoded, err := framing.EncodeMessage(command)
+		encoded, err := framing.EncodeMessage(request)
 		if err != nil {
 			t.Fatalf("Failed to encode message: %v", err)
 		}
@@ -390,9 +390,9 @@ func TestMessageFraming_DirectMessage(t *testing.T) {
 	framing := protocol.NewMessageFraming()
 	
 	t.Run("should encode direct message without envelope", func(t *testing.T) {
-		command := models.NewJanusCommand("test-service", "ping", nil, nil)
+		request := models.NewJanusRequest("test-service", "ping", nil, nil)
 		
-		encoded, err := framing.EncodeDirectMessage(command)
+		encoded, err := framing.EncodeDirectMessage(request)
 		if err != nil {
 			t.Fatalf("Failed to encode direct message: %v", err)
 		}
@@ -402,16 +402,16 @@ func TestMessageFraming_DirectMessage(t *testing.T) {
 		}
 		
 		// Should be smaller than envelope version (no envelope overhead)
-		envelopeEncoded, _ := framing.EncodeMessage(command)
+		envelopeEncoded, _ := framing.EncodeMessage(request)
 		if len(encoded) >= len(envelopeEncoded) {
 			t.Errorf("Direct message should be smaller than envelope message: %d >= %d", len(encoded), len(envelopeEncoded))
 		}
 	})
 	
 	t.Run("should decode direct message without envelope", func(t *testing.T) {
-		originalCommand := models.NewJanusCommand("test-service", "ping", nil, nil)
+		originalRequest := models.NewJanusRequest("test-service", "ping", nil, nil)
 		
-		encoded, err := framing.EncodeDirectMessage(originalCommand)
+		encoded, err := framing.EncodeDirectMessage(originalRequest)
 		if err != nil {
 			t.Fatalf("Failed to encode direct message: %v", err)
 		}
@@ -425,20 +425,20 @@ func TestMessageFraming_DirectMessage(t *testing.T) {
 			t.Errorf("Expected no remaining buffer, got %d bytes", len(remaining))
 		}
 		
-		decodedCommand, ok := decoded.(models.JanusCommand)
+		decodedRequest, ok := decoded.(models.JanusRequest)
 		if !ok {
-			t.Fatalf("Decoded message is not a JanusCommand")
+			t.Fatalf("Decoded message is not a JanusRequest")
 		}
 		
-		if decodedCommand.ID != originalCommand.ID {
-			t.Errorf("Command ID mismatch: expected %s, got %s", originalCommand.ID, decodedCommand.ID)
+		if decodedRequest.ID != originalRequest.ID {
+			t.Errorf("Request ID mismatch: expected %s, got %s", originalRequest.ID, decodedRequest.ID)
 		}
 	})
 	
-	t.Run("should roundtrip command through direct encoding", func(t *testing.T) {
-		originalCommand := models.NewJanusCommand("test-service", "ping", nil, nil)
+	t.Run("should roundtrip request through direct encoding", func(t *testing.T) {
+		originalRequest := models.NewJanusRequest("test-service", "ping", nil, nil)
 		
-		encoded, err := framing.EncodeDirectMessage(originalCommand)
+		encoded, err := framing.EncodeDirectMessage(originalRequest)
 		if err != nil {
 			t.Fatalf("Failed to encode: %v", err)
 		}
@@ -448,20 +448,20 @@ func TestMessageFraming_DirectMessage(t *testing.T) {
 			t.Fatalf("Failed to decode: %v", err)
 		}
 		
-		decodedCommand := decoded.(models.JanusCommand)
+		decodedRequest := decoded.(models.JanusRequest)
 		
 		// Compare JSON representations for deep equality
-		originalJSON, _ := json.Marshal(originalCommand)
-		decodedJSON, _ := json.Marshal(decodedCommand)
+		originalJSON, _ := json.Marshal(originalRequest)
+		decodedJSON, _ := json.Marshal(decodedRequest)
 		
 		if string(originalJSON) != string(decodedJSON) {
-			t.Errorf("Command roundtrip failed:\nOriginal: %s\nDecoded:  %s", originalJSON, decodedJSON)
+			t.Errorf("Request roundtrip failed:\nOriginal: %s\nDecoded:  %s", originalJSON, decodedJSON)
 		}
 	})
 	
 	t.Run("should roundtrip response through direct encoding", func(t *testing.T) {
 		originalResponse := &models.JanusResponse{
-			CommandID: "550e8400-e29b-41d4-a716-446655440000",
+			RequestID: "550e8400-e29b-41d4-a716-446655440000",
 			ChannelID: "test-service",
 			Success:   true,
 			Result:    map[string]interface{}{"pong": true},

@@ -6,12 +6,12 @@ import (
 	"strings" 
 	"testing"
 
-	gojanus "github.com/jowharshamshiri/GoJanus/pkg/specification"
+	gojanus "GoJanus/pkg/manifest"
 )
 
-// TestParseJSONSpecification tests parsing a valid JSON Manifest
-// Matches Swift: testParseJSONSpecification()
-func TestParseJSONSpecification(t *testing.T) {
+// TestParseJSONManifest tests parsing a valid JSON Manifest
+// Matches Swift: testParseJSONManifest()
+func TestParseJSONManifest(t *testing.T) {
 	jsonData := `{
 		"version": "1.0.0",
 		"name": "Test API",
@@ -20,10 +20,10 @@ func TestParseJSONSpecification(t *testing.T) {
 			"test-channel": {
 				"name": "Test Channel",
 				"description": "Test channel",
-				"commands": {
-					"test-command": {
-						"name": "Test Command",
-						"description": "Test command",
+				"requests": {
+					"test-request": {
+						"name": "Test Request",
+						"description": "Test request",
 						"args": {
 							"arg1": {
 								"name": "Argument 1",
@@ -42,42 +42,42 @@ func TestParseJSONSpecification(t *testing.T) {
 		}
 	}`
 	
-	spec, err := gojanus.ParseJSON([]byte(jsonData))
+	manifest, err := gojanus.ParseJSON([]byte(jsonData))
 	if err != nil {
-		t.Fatalf("Failed to parse JSON specification: %v", err)
+		t.Fatalf("Failed to parse JSON manifest: %v", err)
 	}
 	
-	if spec.Version != "1.0.0" {
-		t.Errorf("Expected version '1.0.0', got '%s'", spec.Version)
+	if manifest.Version != "1.0.0" {
+		t.Errorf("Expected version '1.0.0', got '%s'", manifest.Version)
 	}
 	
-	if spec.Name != "Test API" {
-		t.Errorf("Expected name 'Test API', got '%s'", spec.Name)
+	if manifest.Name != "Test API" {
+		t.Errorf("Expected name 'Test API', got '%s'", manifest.Name)
 	}
 	
-	if len(spec.Channels) != 1 {
-		t.Errorf("Expected 1 channel, got %d", len(spec.Channels))
+	if len(manifest.Channels) != 1 {
+		t.Errorf("Expected 1 channel, got %d", len(manifest.Channels))
 	}
 	
-	channel, exists := spec.Channels["test-channel"]
+	channel, exists := manifest.Channels["test-channel"]
 	if !exists {
 		t.Fatal("Expected 'test-channel' to exist")
 	}
 	
-	if len(channel.Commands) != 1 {
-		t.Errorf("Expected 1 command, got %d", len(channel.Commands))
+	if len(channel.Requests) != 1 {
+		t.Errorf("Expected 1 request, got %d", len(channel.Requests))
 	}
 	
-	command, exists := channel.Commands["test-command"]
+	request, exists := channel.Requests["test-request"]
 	if !exists {
-		t.Fatal("Expected 'test-command' to exist")
+		t.Fatal("Expected 'test-request' to exist")
 	}
 	
-	if len(command.Args) != 1 {
-		t.Errorf("Expected 1 argument, got %d", len(command.Args))
+	if len(request.Args) != 1 {
+		t.Errorf("Expected 1 argument, got %d", len(request.Args))
 	}
 	
-	arg, exists := command.Args["arg1"]
+	arg, exists := request.Args["arg1"]
 	if !exists {
 		t.Fatal("Expected 'arg1' to exist")
 	}
@@ -91,9 +91,9 @@ func TestParseJSONSpecification(t *testing.T) {
 	}
 }
 
-// TestParseYAMLSpecification tests parsing a valid YAML Manifest
-// Matches Swift: testParseYAMLSpecification()
-func TestParseYAMLSpecification(t *testing.T) {
+// TestParseYAMLManifest tests parsing a valid YAML Manifest
+// Matches Swift: testParseYAMLManifest()
+func TestParseYAMLManifest(t *testing.T) {
 	yamlData := `
 version: "1.0.0"
 name: "Test API"
@@ -102,10 +102,10 @@ channels:
   test-channel:
     name: "Test Channel"
     description: "Test channel"
-    commands:
-      test-command:
-        name: "Test Command"
-        description: "Test command"
+    requests:
+      test-request:
+        name: "Test Request"
+        description: "Test request"
         args:
           arg1:
             name: "Argument 1"
@@ -117,34 +117,34 @@ channels:
           description: "Test response"
 `
 	
-	spec, err := gojanus.ParseYAML([]byte(yamlData))
+	manifest, err := gojanus.ParseYAML([]byte(yamlData))
 	if err != nil {
-		t.Fatalf("Failed to parse YAML specification: %v", err)
+		t.Fatalf("Failed to parse YAML manifest: %v", err)
 	}
 	
-	if spec.Version != "1.0.0" {
-		t.Errorf("Expected version '1.0.0', got '%s'", spec.Version)
+	if manifest.Version != "1.0.0" {
+		t.Errorf("Expected version '1.0.0', got '%s'", manifest.Version)
 	}
 	
-	if spec.Name != "Test API" {
-		t.Errorf("Expected name 'Test API', got '%s'", spec.Name)
+	if manifest.Name != "Test API" {
+		t.Errorf("Expected name 'Test API', got '%s'", manifest.Name)
 	}
 	
-	if len(spec.Channels) != 1 {
-		t.Errorf("Expected 1 channel, got %d", len(spec.Channels))
+	if len(manifest.Channels) != 1 {
+		t.Errorf("Expected 1 channel, got %d", len(manifest.Channels))
 	}
 	
-	channel, exists := spec.Channels["test-channel"]
+	channel, exists := manifest.Channels["test-channel"]
 	if !exists {
 		t.Fatal("Expected 'test-channel' to exist")
 	}
 	
-	command, exists := channel.Commands["test-command"]
+	request, exists := channel.Requests["test-request"]
 	if !exists {
-		t.Fatal("Expected 'test-command' to exist")
+		t.Fatal("Expected 'test-request' to exist")
 	}
 	
-	arg, exists := command.Args["arg1"]
+	arg, exists := request.Args["arg1"]
 	if !exists {
 		t.Fatal("Expected 'arg1' to exist")
 	}
@@ -154,24 +154,24 @@ channels:
 	}
 }
 
-// TestValidateValidSpecification tests validation of a valid specification
-// Matches Swift: testValidateValidSpecification()
-func TestValidateValidSpecification(t *testing.T) {
-	spec := createValidManifest()
+// TestValidateValidManifest tests validation of a valid manifest
+// Matches Swift: testValidateValidManifest()
+func TestValidateValidManifest(t *testing.T) {
+	manifest := createValidManifest()
 	
-	err := gojanus.Validate(spec)
+	err := gojanus.Validate(manifest)
 	if err != nil {
-		t.Errorf("Valid specification should not produce validation error: %v", err)
+		t.Errorf("Valid manifest should not produce validation error: %v", err)
 	}
 }
 
-// TestValidateSpecificationWithEmptyVersion tests validation failure for empty version
-// Matches Swift: testValidateSpecificationWithEmptyVersion()
-func TestValidateSpecificationWithEmptyVersion(t *testing.T) {
-	spec := createValidManifest()
-	spec.Version = ""
+// TestValidateManifestWithEmptyVersion tests validation failure for empty version
+// Matches Swift: testValidateManifestWithEmptyVersion()
+func TestValidateManifestWithEmptyVersion(t *testing.T) {
+	manifest := createValidManifest()
+	manifest.Version = ""
 	
-	err := gojanus.Validate(spec)
+	err := gojanus.Validate(manifest)
 	if err == nil {
 		t.Error("Expected validation error for empty version")
 	}
@@ -181,13 +181,13 @@ func TestValidateSpecificationWithEmptyVersion(t *testing.T) {
 	}
 }
 
-// TestValidateSpecificationWithNoChannels tests validation failure for no channels
-// Matches Swift: testValidateSpecificationWithNoChannels()
-func TestValidateSpecificationWithNoChannels(t *testing.T) {
-	spec := createValidManifest()
-	spec.Channels = make(map[string]*gojanus.ChannelSpec)
+// TestValidateManifestWithNoChannels tests validation failure for no channels
+// Matches Swift: testValidateManifestWithNoChannels()
+func TestValidateManifestWithNoChannels(t *testing.T) {
+	manifest := createValidManifest()
+	manifest.Channels = make(map[string]*gojanus.ChannelManifest)
 	
-	err := gojanus.Validate(spec)
+	err := gojanus.Validate(manifest)
 	if err == nil {
 		t.Error("Expected validation error for no channels")
 	}
@@ -197,17 +197,17 @@ func TestValidateSpecificationWithNoChannels(t *testing.T) {
 	}
 }
 
-// TestValidateSpecificationWithEmptyChannelId tests validation failure for empty channel ID
-// Matches Swift: testValidateSpecificationWithEmptyChannelId()
-func TestValidateSpecificationWithEmptyChannelId(t *testing.T) {
-	spec := createValidManifest()
+// TestValidateManifestWithEmptyChannelId tests validation failure for empty channel ID
+// Matches Swift: testValidateManifestWithEmptyChannelId()
+func TestValidateManifestWithEmptyChannelId(t *testing.T) {
+	manifest := createValidManifest()
 	
 	// Add channel with empty ID
-	channelSpec := spec.Channels["test-channel"]
-	delete(spec.Channels, "test-channel")
-	spec.Channels[""] = channelSpec
+	channelManifest := manifest.Channels["test-channel"]
+	delete(manifest.Channels, "test-channel")
+	manifest.Channels[""] = channelManifest
 	
-	err := gojanus.Validate(spec)
+	err := gojanus.Validate(manifest)
 	if err == nil {
 		t.Error("Expected validation error for empty channel ID")
 	}
@@ -217,58 +217,58 @@ func TestValidateSpecificationWithEmptyChannelId(t *testing.T) {
 	}
 }
 
-// TestValidateSpecificationWithNoCommands tests validation failure for no commands
-// Matches Swift: testValidateSpecificationWithNoCommands()
-func TestValidateSpecificationWithNoCommands(t *testing.T) {
-	spec := createValidManifest()
-	spec.Channels["test-channel"].Commands = make(map[string]*gojanus.CommandSpec)
+// TestValidateManifestWithNoRequests tests validation failure for no requests
+// Matches Swift: testValidateManifestWithNoRequests()
+func TestValidateManifestWithNoRequests(t *testing.T) {
+	manifest := createValidManifest()
+	manifest.Channels["test-channel"].Requests = make(map[string]*gojanus.RequestManifest)
 	
-	err := gojanus.Validate(spec)
+	err := gojanus.Validate(manifest)
 	if err == nil {
-		t.Error("Expected validation error for no commands")
+		t.Error("Expected validation error for no requests")
 	}
 	
-	if !strings.Contains(err.Error(), "at least one command") {
-		t.Errorf("Expected commands-related error, got: %v", err)
+	if !strings.Contains(err.Error(), "at least one request") {
+		t.Errorf("Expected requests-related error, got: %v", err)
 	}
 }
 
-// TestValidateSpecificationWithEmptyCommandName tests validation failure for empty command name
-// Matches Swift: testValidateSpecificationWithEmptyCommandName()
-func TestValidateSpecificationWithEmptyCommandName(t *testing.T) {
-	spec := createValidManifest()
+// TestValidateManifestWithEmptyRequestName tests validation failure for empty request name
+// Matches Swift: testValidateManifestWithEmptyRequestName()
+func TestValidateManifestWithEmptyRequestName(t *testing.T) {
+	manifest := createValidManifest()
 	
-	// Add command with empty name
-	commandSpec := spec.Channels["test-channel"].Commands["test-command"]
-	delete(spec.Channels["test-channel"].Commands, "test-command")
-	spec.Channels["test-channel"].Commands[""] = commandSpec
+	// Add request with empty name
+	requestManifest := manifest.Channels["test-channel"].Requests["test-request"]
+	delete(manifest.Channels["test-channel"].Requests, "test-request")
+	manifest.Channels["test-channel"].Requests[""] = requestManifest
 	
-	err := gojanus.Validate(spec)
+	err := gojanus.Validate(manifest)
 	if err == nil {
-		t.Error("Expected validation error for empty command name")
+		t.Error("Expected validation error for empty request name")
 	}
 	
-	if !strings.Contains(err.Error(), "command name cannot be empty") {
-		t.Errorf("Expected command name error, got: %v", err)
+	if !strings.Contains(err.Error(), "request name cannot be empty") {
+		t.Errorf("Expected request name error, got: %v", err)
 	}
 }
 
-// TestValidateSpecificationWithInvalidValidation tests validation failure for invalid argument spec
-// Matches Swift: testValidateSpecificationWithInvalidValidation()
-func TestValidateSpecificationWithInvalidValidation(t *testing.T) {
-	spec := createValidManifest()
+// TestValidateManifestWithInvalidValidation tests validation failure for invalid argument manifest
+// Matches Swift: testValidateManifestWithInvalidValidation()
+func TestValidateManifestWithInvalidValidation(t *testing.T) {
+	manifest := createValidManifest()
 	
-	// Add invalid argument specification (empty type)
-	spec.Channels["test-channel"].Commands["test-command"].Args["invalid_arg"] = &gojanus.ArgumentSpec{
+	// Add invalid argument manifest (empty type)
+	manifest.Channels["test-channel"].Requests["test-request"].Args["invalid_arg"] = &gojanus.ArgumentManifest{
 		Name:        "Invalid Argument",
 		Type:        "", // Empty type should cause validation error
 		Description: "Invalid argument",
 		Required:    true,
 	}
 	
-	err := gojanus.Validate(spec)
+	err := gojanus.Validate(manifest)
 	if err == nil {
-		t.Error("Expected validation error for invalid argument specification")
+		t.Error("Expected validation error for invalid argument manifest")
 	}
 	
 	if !strings.Contains(err.Error(), "type is required") {
@@ -276,13 +276,13 @@ func TestValidateSpecificationWithInvalidValidation(t *testing.T) {
 	}
 }
 
-// TestValidateSpecificationWithInvalidRegexPattern tests validation failure for invalid regex
-// Matches Swift: testValidateSpecificationWithInvalidRegexPattern()
-func TestValidateSpecificationWithInvalidRegexPattern(t *testing.T) {
-	spec := createValidManifest()
+// TestValidateManifestWithInvalidRegexPattern tests validation failure for invalid regex
+// Matches Swift: testValidateManifestWithInvalidRegexPattern()
+func TestValidateManifestWithInvalidRegexPattern(t *testing.T) {
+	manifest := createValidManifest()
 	
 	// Add argument with invalid regex pattern
-	spec.Channels["test-channel"].Commands["test-command"].Args["regex_arg"] = &gojanus.ArgumentSpec{
+	manifest.Channels["test-channel"].Requests["test-request"].Args["regex_arg"] = &gojanus.ArgumentManifest{
 		Name:        "Regex Argument",
 		Type:        "string",
 		Description: "Argument with invalid regex",
@@ -290,7 +290,7 @@ func TestValidateSpecificationWithInvalidRegexPattern(t *testing.T) {
 		Pattern:     "[invalid-regex(", // Invalid regex pattern
 	}
 	
-	err := gojanus.Validate(spec)
+	err := gojanus.Validate(manifest)
 	if err == nil {
 		t.Error("Expected validation error for invalid regex pattern")
 	}
@@ -308,8 +308,8 @@ func TestParseInvalidJSON(t *testing.T) {
 		"name": "Test API",
 		"channels": {
 			"test-channel": {
-				"commands": {
-					"test-command": {
+				"requests": {
+					"test-request": {
 						// Invalid comment in JSON
 					}
 				}
@@ -371,10 +371,10 @@ func TestParseFromJSONFile(t *testing.T) {
 			"file-channel": {
 				"name": "File Channel",
 				"description": "Test channel from file",
-				"commands": {
-					"file-command": {
-						"name": "File Command",
-						"description": "Test command from file"
+				"requests": {
+					"file-request": {
+						"name": "File Request",
+						"description": "Test request from file"
 					}
 				}
 			}
@@ -386,20 +386,20 @@ func TestParseFromJSONFile(t *testing.T) {
 		t.Fatalf("Failed to write JSON file: %v", err)
 	}
 	
-	spec, err := gojanus.ParseFromFile(jsonFile)
+	manifest, err := gojanus.ParseFromFile(jsonFile)
 	if err != nil {
 		t.Fatalf("Failed to parse JSON file: %v", err)
 	}
 	
-	if spec.Name != "File Test API" {
-		t.Errorf("Expected name 'File Test API', got '%s'", spec.Name)
+	if manifest.Name != "File Test API" {
+		t.Errorf("Expected name 'File Test API', got '%s'", manifest.Name)
 	}
 	
-	if len(spec.Channels) != 1 {
-		t.Errorf("Expected 1 channel, got %d", len(spec.Channels))
+	if len(manifest.Channels) != 1 {
+		t.Errorf("Expected 1 channel, got %d", len(manifest.Channels))
 	}
 	
-	channel, exists := spec.Channels["file-channel"]
+	channel, exists := manifest.Channels["file-channel"]
 	if !exists {
 		t.Fatal("Expected 'file-channel' to exist")
 	}
@@ -428,10 +428,10 @@ channels:
   yaml-channel:
     name: "YAML Channel"
     description: "Test channel from YAML file"
-    commands:
-      yaml-command:
-        name: "YAML Command"
-        description: "Test command from YAML file"
+    requests:
+      yaml-request:
+        name: "YAML Request"
+        description: "Test request from YAML file"
 `
 	
 	err = os.WriteFile(yamlFile, []byte(yamlData), 0644)
@@ -439,20 +439,20 @@ channels:
 		t.Fatalf("Failed to write YAML file: %v", err)
 	}
 	
-	spec, err := gojanus.ParseFromFile(yamlFile)
+	manifest, err := gojanus.ParseFromFile(yamlFile)
 	if err != nil {
 		t.Fatalf("Failed to parse YAML file: %v", err)
 	}
 	
-	if spec.Name != "YAML Test API" {
-		t.Errorf("Expected name 'YAML Test API', got '%s'", spec.Name)
+	if manifest.Name != "YAML Test API" {
+		t.Errorf("Expected name 'YAML Test API', got '%s'", manifest.Name)
 	}
 	
-	if len(spec.Channels) != 1 {
-		t.Errorf("Expected 1 channel, got %d", len(spec.Channels))
+	if len(manifest.Channels) != 1 {
+		t.Errorf("Expected 1 channel, got %d", len(manifest.Channels))
 	}
 	
-	channel, exists := spec.Channels["yaml-channel"]
+	channel, exists := manifest.Channels["yaml-channel"]
 	if !exists {
 		t.Fatal("Expected 'yaml-channel' to exist")
 	}
@@ -471,7 +471,7 @@ func TestParseMultipleFiles(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 	
-	// Create first specification file (base)
+	// Create first manifest file (base)
 	baseFile := filepath.Join(tempDir, "base.json")
 	baseData := `{
 		"version": "1.0.0",
@@ -481,10 +481,10 @@ func TestParseMultipleFiles(t *testing.T) {
 			"base-channel": {
 				"name": "Base Channel",
 				"description": "Base channel",
-				"commands": {
-					"base-command": {
-						"name": "Base Command",
-						"description": "Base command"
+				"requests": {
+					"base-request": {
+						"name": "Base Request",
+						"description": "Base request"
 					}
 				}
 			}
@@ -511,20 +511,20 @@ func TestParseMultipleFiles(t *testing.T) {
 		t.Fatalf("Failed to write base file: %v", err)
 	}
 	
-	// Create second specification file (additional)
+	// Create second manifest file (additional)
 	additionalFile := filepath.Join(tempDir, "additional.json")
 	additionalData := `{
 		"version": "1.0.0",
-		"name": "Additional Spec",
+		"name": "Additional Manifest",
 		"description": "Additional Manifest",
 		"channels": {
 			"additional-channel": {
 				"name": "Additional Channel",
 				"description": "Additional channel",
-				"commands": {
-					"additional-command": {
-						"name": "Additional Command",
-						"description": "Additional command"
+				"requests": {
+					"additional-request": {
+						"name": "Additional Request",
+						"description": "Additional request"
 					}
 				}
 			}
@@ -553,41 +553,41 @@ func TestParseMultipleFiles(t *testing.T) {
 	
 	// Parse multiple files using parser instance method
 	parser := gojanus.NewManifestParser()
-	spec, err := parser.ParseMultipleFiles([]string{baseFile, additionalFile})
+	manifest, err := parser.ParseMultipleFiles([]string{baseFile, additionalFile})
 	if err != nil {
 		t.Fatalf("Failed to parse multiple files: %v", err)
 	}
 	
 	// Verify merged result
-	if spec.Name != "Multi-File Test API" {
-		t.Errorf("Expected base name 'Multi-File Test API', got '%s'", spec.Name)
+	if manifest.Name != "Multi-File Test API" {
+		t.Errorf("Expected base name 'Multi-File Test API', got '%s'", manifest.Name)
 	}
 	
-	if len(spec.Channels) != 2 {
-		t.Errorf("Expected 2 channels after merge, got %d", len(spec.Channels))
+	if len(manifest.Channels) != 2 {
+		t.Errorf("Expected 2 channels after merge, got %d", len(manifest.Channels))
 	}
 	
 	// Verify base channel exists
-	if _, exists := spec.Channels["base-channel"]; !exists {
+	if _, exists := manifest.Channels["base-channel"]; !exists {
 		t.Error("Expected 'base-channel' to exist after merge")
 	}
 	
 	// Verify additional channel exists
-	if _, exists := spec.Channels["additional-channel"]; !exists {
+	if _, exists := manifest.Channels["additional-channel"]; !exists {
 		t.Error("Expected 'additional-channel' to exist after merge")
 	}
 	
-	if len(spec.Models) != 2 {
-		t.Errorf("Expected 2 models after merge, got %d", len(spec.Models))
+	if len(manifest.Models) != 2 {
+		t.Errorf("Expected 2 models after merge, got %d", len(manifest.Models))
 	}
 	
 	// Verify base model exists
-	if _, exists := spec.Models["BaseModel"]; !exists {
+	if _, exists := manifest.Models["BaseModel"]; !exists {
 		t.Error("Expected 'BaseModel' to exist after merge")
 	}
 	
 	// Verify additional model exists
-	if _, exists := spec.Models["AdditionalModel"]; !exists {
+	if _, exists := manifest.Models["AdditionalModel"]; !exists {
 		t.Error("Expected 'AdditionalModel' to exist after merge")
 	}
 }
@@ -609,9 +609,9 @@ func TestParseMultipleFilesWithConflict(t *testing.T) {
 		"channels": {
 			"conflict-channel": {
 				"name": "Base Channel",
-				"commands": {
-					"test-command": {
-						"name": "Test Command"
+				"requests": {
+					"test-request": {
+						"name": "Test Request"
 					}
 				}
 			}
@@ -627,13 +627,13 @@ func TestParseMultipleFilesWithConflict(t *testing.T) {
 	conflictFile := filepath.Join(tempDir, "conflict.json")
 	conflictData := `{
 		"version": "1.0.0",
-		"name": "Conflict Spec",
+		"name": "Conflict Manifest",
 		"channels": {
 			"conflict-channel": {
 				"name": "Conflicting Channel",
-				"commands": {
-					"different-command": {
-						"name": "Different Command"
+				"requests": {
+					"different-request": {
+						"name": "Different Request"
 					}
 				}
 			}
@@ -657,18 +657,18 @@ func TestParseMultipleFilesWithConflict(t *testing.T) {
 	}
 }
 
-// TestSpecificationMerging tests direct specification merging functionality
-func TestSpecificationMerging(t *testing.T) {
-	// Create base specification
-	baseSpec := &gojanus.Manifest{
+// TestManifestMerging tests direct manifest merging functionality
+func TestManifestMerging(t *testing.T) {
+	// Create base manifest
+	baseManifest := &gojanus.Manifest{
 		Version: "1.0.0",
 		Name:    "Base API",
-		Channels: map[string]*gojanus.ChannelSpec{
+		Channels: map[string]*gojanus.ChannelManifest{
 			"base-channel": {
 				Name: "Base Channel",
-				Commands: map[string]*gojanus.CommandSpec{
-					"base-command": {
-						Name: "Base Command",
+				Requests: map[string]*gojanus.RequestManifest{
+					"base-request": {
+						Name: "Base Request",
 					},
 				},
 			},
@@ -681,16 +681,16 @@ func TestSpecificationMerging(t *testing.T) {
 		},
 	}
 	
-	// Create additional specification
-	additionalSpec := &gojanus.Manifest{
+	// Create additional manifest
+	additionalManifest := &gojanus.Manifest{
 		Version: "1.0.0",
 		Name:    "Additional API",
-		Channels: map[string]*gojanus.ChannelSpec{
+		Channels: map[string]*gojanus.ChannelManifest{
 			"additional-channel": {
 				Name: "Additional Channel",
-				Commands: map[string]*gojanus.CommandSpec{
-					"additional-command": {
-						Name: "Additional Command",
+				Requests: map[string]*gojanus.RequestManifest{
+					"additional-request": {
+						Name: "Additional Request",
 					},
 				},
 			},
@@ -703,37 +703,37 @@ func TestSpecificationMerging(t *testing.T) {
 		},
 	}
 	
-	// Merge specifications using parser method
+	// Merge manifests using parser method
 	parser := gojanus.NewManifestParser()
-	err := parser.MergeSpecifications(baseSpec, additionalSpec)
+	err := parser.MergeManifests(baseManifest, additionalManifest)
 	if err != nil {
-		t.Fatalf("Failed to merge specifications: %v", err)
+		t.Fatalf("Failed to merge manifests: %v", err)
 	}
 	
 	// Verify merge results
-	if len(baseSpec.Channels) != 2 {
-		t.Errorf("Expected 2 channels after merge, got %d", len(baseSpec.Channels))
+	if len(baseManifest.Channels) != 2 {
+		t.Errorf("Expected 2 channels after merge, got %d", len(baseManifest.Channels))
 	}
 	
-	if len(baseSpec.Models) != 2 {
-		t.Errorf("Expected 2 models after merge, got %d", len(baseSpec.Models))
+	if len(baseManifest.Models) != 2 {
+		t.Errorf("Expected 2 models after merge, got %d", len(baseManifest.Models))
 	}
 	
 	// Verify both channels exist
-	if _, exists := baseSpec.Channels["base-channel"]; !exists {
+	if _, exists := baseManifest.Channels["base-channel"]; !exists {
 		t.Error("Expected 'base-channel' to exist after merge")
 	}
 	
-	if _, exists := baseSpec.Channels["additional-channel"]; !exists {
+	if _, exists := baseManifest.Channels["additional-channel"]; !exists {
 		t.Error("Expected 'additional-channel' to exist after merge")
 	}
 	
 	// Verify both models exist
-	if _, exists := baseSpec.Models["BaseModel"]; !exists {
+	if _, exists := baseManifest.Models["BaseModel"]; !exists {
 		t.Error("Expected 'BaseModel' to exist after merge")
 	}
 	
-	if _, exists := baseSpec.Models["AdditionalModel"]; !exists {
+	if _, exists := baseManifest.Models["AdditionalModel"]; !exists {
 		t.Error("Expected 'AdditionalModel' to exist after merge")
 	}
 }
@@ -747,9 +747,9 @@ func TestStaticInterfaceMethods(t *testing.T) {
 		"channels": {
 			"static-channel": {
 				"name": "Static Channel",
-				"commands": {
-					"static-command": {
-						"name": "Static Command"
+				"requests": {
+					"static-request": {
+						"name": "Static Request"
 					}
 				}
 			}
@@ -762,53 +762,53 @@ name: "Static YAML API"
 channels:
   static-yaml-channel:
     name: "Static YAML Channel"
-    commands:
-      static-yaml-command:
-        name: "Static YAML Command"
+    requests:
+      static-yaml-request:
+        name: "Static YAML Request"
 `
 	
 	// Test static ParseJSON
-	spec1, err := gojanus.ParseJSON([]byte(jsonData))
+	manifest1, err := gojanus.ParseJSON([]byte(jsonData))
 	if err != nil {
 		t.Fatalf("Static ParseJSON failed: %v", err)
 	}
 	
-	if spec1.Name != "Static Test API" {
-		t.Errorf("Expected name 'Static Test API', got '%s'", spec1.Name)
+	if manifest1.Name != "Static Test API" {
+		t.Errorf("Expected name 'Static Test API', got '%s'", manifest1.Name)
 	}
 	
 	// Test static ParseJSONString  
-	spec2, err := gojanus.ParseJSONString(jsonData)
+	manifest2, err := gojanus.ParseJSONString(jsonData)
 	if err != nil {
 		t.Fatalf("Static ParseJSONString failed: %v", err)
 	}
 	
-	if spec2.Name != "Static Test API" {
-		t.Errorf("Expected name 'Static Test API', got '%s'", spec2.Name)
+	if manifest2.Name != "Static Test API" {
+		t.Errorf("Expected name 'Static Test API', got '%s'", manifest2.Name)
 	}
 	
 	// Test static ParseYAML
-	spec3, err := gojanus.ParseYAML([]byte(yamlData))
+	manifest3, err := gojanus.ParseYAML([]byte(yamlData))
 	if err != nil {
 		t.Fatalf("Static ParseYAML failed: %v", err)
 	}
 	
-	if spec3.Name != "Static YAML API" {
-		t.Errorf("Expected name 'Static YAML API', got '%s'", spec3.Name)
+	if manifest3.Name != "Static YAML API" {
+		t.Errorf("Expected name 'Static YAML API', got '%s'", manifest3.Name)
 	}
 	
 	// Test static ParseYAMLString
-	spec4, err := gojanus.ParseYAMLString(yamlData)
+	manifest4, err := gojanus.ParseYAMLString(yamlData)
 	if err != nil {
 		t.Fatalf("Static ParseYAMLString failed: %v", err)
 	}
 	
-	if spec4.Name != "Static YAML API" {
-		t.Errorf("Expected name 'Static YAML API', got '%s'", spec4.Name)
+	if manifest4.Name != "Static YAML API" {
+		t.Errorf("Expected name 'Static YAML API', got '%s'", manifest4.Name)
 	}
 	
 	// Test static Validate
-	err = gojanus.Validate(spec1)
+	err = gojanus.Validate(manifest1)
 	if err != nil {
 		t.Errorf("Static Validate failed: %v", err)
 	}
@@ -827,25 +827,25 @@ channels:
 	}
 	
 	// Test static ParseFromFile
-	spec5, err := gojanus.ParseFromFile(staticFile)
+	manifest5, err := gojanus.ParseFromFile(staticFile)
 	if err != nil {
 		t.Fatalf("Static ParseFromFile failed: %v", err)
 	}
 	
-	if spec5.Name != "Static Test API" {
-		t.Errorf("Expected name 'Static Test API', got '%s'", spec5.Name)
+	if manifest5.Name != "Static Test API" {
+		t.Errorf("Expected name 'Static Test API', got '%s'", manifest5.Name)
 	}
 }
 
-// TestJSONYAMLSerialization tests serialization of specifications back to JSON/YAML
+// TestJSONYAMLSerialization tests serialization of manifests back to JSON/YAML
 func TestJSONYAMLSerialization(t *testing.T) {
-	// Create test specification
-	spec := createValidManifest()
+	// Create test manifest
+	manifest := createValidManifest()
 	
 	parser := gojanus.NewManifestParser()
 	
 	// Test JSON serialization
-	jsonBytes, err := parser.SerializeToJSON(spec)
+	jsonBytes, err := parser.SerializeToJSON(manifest)
 	if err != nil {
 		t.Fatalf("Failed to serialize to JSON: %v", err)
 	}
@@ -855,17 +855,17 @@ func TestJSONYAMLSerialization(t *testing.T) {
 	}
 	
 	// Verify JSON is valid by parsing it back
-	reparsedSpec, err := gojanus.ParseJSON(jsonBytes)
+	reparsedManifest, err := gojanus.ParseJSON(jsonBytes)
 	if err != nil {
 		t.Fatalf("Failed to reparse serialized JSON: %v", err)
 	}
 	
-	if reparsedSpec.Name != spec.Name {
-		t.Errorf("Expected name '%s', got '%s' after JSON round-trip", spec.Name, reparsedSpec.Name)
+	if reparsedManifest.Name != manifest.Name {
+		t.Errorf("Expected name '%s', got '%s' after JSON round-trip", manifest.Name, reparsedManifest.Name)
 	}
 	
 	// Test YAML serialization
-	yamlBytes, err := parser.SerializeToYAML(spec)
+	yamlBytes, err := parser.SerializeToYAML(manifest)
 	if err != nil {
 		t.Fatalf("Failed to serialize to YAML: %v", err)
 	}
@@ -875,13 +875,13 @@ func TestJSONYAMLSerialization(t *testing.T) {
 	}
 	
 	// Verify YAML is valid by parsing it back
-	reparsedYAMLSpec, err := gojanus.ParseYAML(yamlBytes)
+	reparsedYAMLManifest, err := gojanus.ParseYAML(yamlBytes)
 	if err != nil {
 		t.Fatalf("Failed to reparse serialized YAML: %v", err)
 	}
 	
-	if reparsedYAMLSpec.Name != spec.Name {
-		t.Errorf("Expected name '%s', got '%s' after YAML round-trip", spec.Name, reparsedYAMLSpec.Name)
+	if reparsedYAMLManifest.Name != manifest.Name {
+		t.Errorf("Expected name '%s', got '%s' after YAML round-trip", manifest.Name, reparsedYAMLManifest.Name)
 	}
 }
 
@@ -892,15 +892,15 @@ func createValidManifest() *gojanus.Manifest {
 		Version:     "1.0.0",
 		Name:        "Valid Test API",
 		Description: "Valid test Manifest",
-		Channels: map[string]*gojanus.ChannelSpec{
+		Channels: map[string]*gojanus.ChannelManifest{
 			"test-channel": {
 				Name:        "Test Channel",
 				Description: "Test channel description",
-				Commands: map[string]*gojanus.CommandSpec{
-					"test-command": {
-						Name:        "Test Command",
-						Description: "Test command description",
-						Args: map[string]*gojanus.ArgumentSpec{
+				Requests: map[string]*gojanus.RequestManifest{
+					"test-request": {
+						Name:        "Test Request",
+						Description: "Test request description",
+						Args: map[string]*gojanus.ArgumentManifest{
 							"test_arg": {
 								Name:        "Test Argument",
 								Type:        "string",
@@ -908,7 +908,7 @@ func createValidManifest() *gojanus.Manifest {
 								Required:    true,
 							},
 						},
-						Response: &gojanus.ResponseSpec{
+						Response: &gojanus.ResponseManifest{
 							Type:        "object",
 							Description: "Test response",
 						},
@@ -922,7 +922,7 @@ func createValidManifest() *gojanus.Manifest {
 				Name:        "Test Model",
 				Type:        "object",
 				Description: "Test model description",
-				Properties: map[string]*gojanus.ArgumentSpec{
+				Properties: map[string]*gojanus.ArgumentManifest{
 					"id": {
 						Name:        "ID",
 						Type:        "string",

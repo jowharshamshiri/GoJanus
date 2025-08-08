@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jowharshamshiri/GoJanus/pkg/models"
+	"GoJanus/pkg/models"
 )
 
 
@@ -30,7 +30,7 @@ type JanusServerEvents struct {
 	Listening     []EventHandler
 	Connection    []EventHandler
 	Disconnection []EventHandler
-	Command       []EventHandler
+	Request       []EventHandler
 	Response      []EventHandler
 	Error         []EventHandler
 }
@@ -66,7 +66,7 @@ func NewJanusServer(config *ServerConfig) *JanusServer {
 			Listening:     make([]EventHandler, 0),
 			Connection:    make([]EventHandler, 0),
 			Disconnection: make([]EventHandler, 0),
-			Command:       make([]EventHandler, 0),
+			Request:       make([]EventHandler, 0),
 			Response:      make([]EventHandler, 0),
 			Error:         make([]EventHandler, 0),
 		},
@@ -76,7 +76,7 @@ func NewJanusServer(config *ServerConfig) *JanusServer {
 
 // Event system methods (EventEmitter pattern)
 
-// On registers an event handler for the specified event type
+// On registers an event handler for the manifestified event type
 func (s *JanusServer) On(eventType string, handler EventHandler) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -92,8 +92,8 @@ func (s *JanusServer) On(eventType string, handler EventHandler) {
 		s.events.Connection = append(s.events.Connection, handler)
 	case "disconnection":
 		s.events.Disconnection = append(s.events.Disconnection, handler)
-	case "command":
-		s.events.Command = append(s.events.Command, handler)
+	case "request":
+		s.events.Request = append(s.events.Request, handler)
 	case "response":
 		s.events.Response = append(s.events.Response, handler)
 	case "error":
@@ -101,7 +101,7 @@ func (s *JanusServer) On(eventType string, handler EventHandler) {
 	}
 }
 
-// Emit triggers all handlers for the specified event type
+// Emit triggers all handlers for the manifestified event type
 func (s *JanusServer) Emit(eventType string, data interface{}) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
@@ -118,8 +118,8 @@ func (s *JanusServer) Emit(eventType string, data interface{}) {
 		handlers = s.events.Connection
 	case "disconnection":
 		handlers = s.events.Disconnection
-	case "command":
-		handlers = s.events.Command
+	case "request":
+		handlers = s.events.Request
 	case "response":
 		handlers = s.events.Response
 	case "error":
@@ -146,19 +146,19 @@ func (s *JanusServer) CleanupSocketFile() error {
 	return nil
 }
 
-// RegisterHandler registers an enhanced command handler
+// RegisterHandler registers an enhanced request handler
 //
 // Example:
-//   server.RegisterHandler("custom_ping", NewStringHandler(func(cmd *models.JanusCommand) (string, error) {
+//   server.RegisterHandler("custom_ping", NewStringHandler(func(cmd *models.JanusRequest) (string, error) {
 //       return "pong", nil
 //   }))
 //
-// Note: Built-in commands (ping, echo, get_info, spec, validate, slow_process) cannot be overridden
-func (s *JanusServer) RegisterHandler(command string, handler CommandHandler) error {
-	return s.handlerRegistry.RegisterHandler(command, handler)
+// Note: Built-in requests (ping, echo, get_info, manifest, validate, slow_process) cannot be overridden
+func (s *JanusServer) RegisterHandler(request string, handler RequestHandler) error {
+	return s.handlerRegistry.RegisterHandler(request, handler)
 }
 
-// StartListening starts the server and begins listening for commands
+// StartListening starts the server and begins listening for requests
 // This method blocks until the server is stopped
 //
 // Example:
@@ -212,7 +212,7 @@ func (s *JanusServer) StartListening() error {
 		}
 	}()
 
-	fmt.Println("Server ready to receive commands")
+	fmt.Println("Server ready to receive requests")
 	s.Emit("listening", nil)
 
 	// Buffer for incoming datagrams
@@ -273,26 +273,26 @@ func (s *JanusServer) isRunning() bool {
 // handleDatagram processes a single datagram
 // SOCK_DGRAM connectionless implementation
 func (s *JanusServer) handleDatagram(data []byte, clientAddr *net.UnixAddr) {
-	// Parse command from datagram
-	var cmd models.JanusCommand
+	// Parse request from datagram
+	var cmd models.JanusRequest
 	if err := json.Unmarshal(data, &cmd); err != nil {
-		fmt.Printf("Failed to decode command: %v\n", err)
-		s.Emit("error", fmt.Errorf("failed to decode command: %w", err))
+		fmt.Printf("Failed to decode request: %v\n", err)
+		s.Emit("error", fmt.Errorf("failed to decode request: %w", err))
 		return
 	}
 
-	fmt.Printf("Received command: %s (ID: %s)\n", cmd.Command, cmd.ID)
+	fmt.Printf("Received request: %s (ID: %s)\n", cmd.Request, cmd.ID)
 	
-	// Emit command event
-	s.Emit("command", map[string]interface{}{
-		"command":  &cmd,
+	// Emit request event
+	s.Emit("request", map[string]interface{}{
+		"request":  &cmd,
 		"clientId": clientAddr.String(),
 	})
 
-	// Process command
-	response := s.processCommand(&cmd)
+	// Process request
+	response := s.processRequest(&cmd)
 
-	// Send response back to reply_to address if specified
+	// Send response back to reply_to address if manifestified
 	if cmd.ReplyTo != nil && *cmd.ReplyTo != "" {
 		s.sendResponse(response, *cmd.ReplyTo)
 		
@@ -304,7 +304,7 @@ func (s *JanusServer) handleDatagram(data []byte, clientAddr *net.UnixAddr) {
 	}
 }
 
-// sendResponse sends a response to the specified reply-to address
+// sendResponse sends a response to the manifestified reply-to address
 // SOCK_DGRAM reply mechanism
 func (s *JanusServer) sendResponse(response *models.JanusResponse, replyToPath string) {
 	// Marshal response to JSON
@@ -335,56 +335,36 @@ func (s *JanusServer) sendResponse(response *models.JanusResponse, replyToPath s
 	}
 }
 
-// processCommand executes the appropriate handler for a command
-func (s *JanusServer) processCommand(cmd *models.JanusCommand) *models.JanusResponse {
-	// Check for built-in commands first
-	if builtinResult, handled := s.handleBuiltinCommand(cmd); handled {
+// processRequest executes the appropriate handler for a request
+func (s *JanusServer) processRequest(cmd *models.JanusRequest) *models.JanusResponse {
+	// Check for built-in requests first
+	if builtinResult, handled := s.handleBuiltinRequest(cmd); handled {
 		return builtinResult
 	}
 
 	// Execute handler using enhanced handler registry
-	result, err := s.handlerRegistry.ExecuteHandler(cmd.Command, cmd)
+	result, err := s.handlerRegistry.ExecuteHandler(cmd.Request, cmd)
 	
 	var response *models.JanusResponse
 	
 	if err != nil {
-		response = &models.JanusResponse{
-			CommandID: cmd.ID,
-			ChannelID: cmd.ChannelID,
-			Success:   false,
-			Result:    nil,
-			Error:     err,
-			Timestamp: float64(time.Now().Unix()),
-		}
+		response = models.NewErrorResponse(cmd.ID, err)
 	} else {
-		response = &models.JanusResponse{
-			CommandID: cmd.ID,
-			ChannelID: cmd.ChannelID,
-			Success:   true,
-			Result:    result,
-			Error:     nil,
-			Timestamp: float64(time.Now().Unix()),
-		}
+		response = models.NewSuccessResponse(cmd.ID, result)
 	}
 
 	return response
 }
 
-// handleBuiltinCommand handles built-in commands that are always available
-func (s *JanusServer) handleBuiltinCommand(cmd *models.JanusCommand) (*models.JanusResponse, bool) {
-	switch cmd.Command {
+// handleBuiltinRequest handles built-in requests that are always available
+func (s *JanusServer) handleBuiltinRequest(cmd *models.JanusRequest) (*models.JanusResponse, bool) {
+	switch cmd.Request {
 	case "ping":
-		return &models.JanusResponse{
-			CommandID: cmd.ID,
-			ChannelID: cmd.ChannelID,
-			Success:   true,
-			Result: map[string]interface{}{
-				"message":   "pong",
-				"timestamp": float64(time.Now().Unix()),
-			},
-			Error:     nil,
-			Timestamp: float64(time.Now().Unix()),
-		}, true
+		result := map[string]interface{}{
+			"message":   "pong",
+			"timestamp": float64(time.Now().Unix()),
+		}
+		return models.NewSuccessResponse(cmd.ID, result), true
 
 	case "echo":
 		message := ""
@@ -395,102 +375,30 @@ func (s *JanusServer) handleBuiltinCommand(cmd *models.JanusCommand) (*models.Ja
 				}
 			}
 		}
-		return &models.JanusResponse{
-			CommandID: cmd.ID,
-			ChannelID: cmd.ChannelID,
-			Success:   true,
-			Result: map[string]interface{}{
-				"echo":      message,
-				"timestamp": float64(time.Now().Unix()),
-			},
-			Error:     nil,
-			Timestamp: float64(time.Now().Unix()),
-		}, true
+		result := map[string]interface{}{
+			"echo":      message,
+			"timestamp": float64(time.Now().Unix()),
+		}
+		return models.NewSuccessResponse(cmd.ID, result), true
 
 	case "get_info":
-		return &models.JanusResponse{
-			CommandID: cmd.ID,
-			ChannelID: cmd.ChannelID,
-			Success:   true,
-			Result: map[string]interface{}{
-				"implementation": "go",
-				"version":        "1.0.0",
-				"architecture":   "SOCK_DGRAM",
-				"timestamp":      float64(time.Now().Unix()),
-			},
-			Error:     nil,
-			Timestamp: float64(time.Now().Unix()),
-		}, true
+		result := map[string]interface{}{
+			"implementation": "go",
+			"version":        "1.0.0",
+			"architecture":   "SOCK_DGRAM",
+			"timestamp":      float64(time.Now().Unix()),
+		}
+		return models.NewSuccessResponse(cmd.ID, result), true
 
-	case "spec":
+	case "manifest":
 		// Return a basic Manifest matching the expected format
 		manifest := map[string]interface{}{
 			"version":     "1.0.0",
 			"name":        "Go Janus Test API",
 			"description": "Test Manifest for Go implementation",
-			"channels": map[string]interface{}{
-				"test": map[string]interface{}{
-					"name":        "Test Channel",
-					"description": "Test channel for Go implementation",
-					"commands": map[string]interface{}{
-						"ping": map[string]interface{}{
-							"name":        "Ping",
-							"description": "Basic connectivity test",
-							"args":        map[string]interface{}{},
-							"response": map[string]interface{}{
-								"type": "object",
-								"properties": map[string]interface{}{
-									"message": map[string]interface{}{
-										"type":        "string",
-										"description": "Pong response",
-									},
-									"timestamp": map[string]interface{}{
-										"type":        "number",
-										"description": "Response timestamp",
-									},
-								},
-							},
-							"errorCodes": []string{"INTERNAL_ERROR"},
-						},
-						"echo": map[string]interface{}{
-							"name":        "Echo",
-							"description": "Echo back the input",
-							"args": map[string]interface{}{
-								"message": map[string]interface{}{
-									"name":        "Message",
-									"type":        "string",
-									"description": "Message to echo",
-									"required":    true,
-								},
-							},
-							"response": map[string]interface{}{
-								"type": "object",
-								"properties": map[string]interface{}{
-									"message": map[string]interface{}{
-										"type":        "string",
-										"description": "Echoed message",
-									},
-									"timestamp": map[string]interface{}{
-										"type":        "number",
-										"description": "Response timestamp",
-									},
-								},
-							},
-							"errorCodes": []string{"INVALID_ARGUMENT", "INTERNAL_ERROR"},
-						},
-					},
-				},
-			},
 			"models": map[string]interface{}{},
 		}
-		return &models.JanusResponse{
-			CommandID: cmd.ID,
-			ChannelID: cmd.ChannelID,
-			Success:   true,
-			Result:    manifest,
-			Error:     nil,
-			Timestamp: float64(time.Now().Unix()),
-		}, true
+		return models.NewSuccessResponse(cmd.ID, manifest), true
 
 	case "validate":
 		// Basic JSON validation
@@ -499,32 +407,19 @@ func (s *JanusServer) handleBuiltinCommand(cmd *models.JanusCommand) (*models.Ja
 			"message":   "JSON is valid",
 			"timestamp": float64(time.Now().Unix()),
 		}
-		return &models.JanusResponse{
-			CommandID: cmd.ID,
-			ChannelID: cmd.ChannelID,
-			Success:   true,
-			Result:    result,
-			Error:     nil,
-			Timestamp: float64(time.Now().Unix()),
-		}, true
+		return models.NewSuccessResponse(cmd.ID, result), true
 
 	case "slow_process":
 		// Simulate slow processing
 		time.Sleep(2 * time.Second)
-		return &models.JanusResponse{
-			CommandID: cmd.ID,
-			ChannelID: cmd.ChannelID,
-			Success:   true,
-			Result: map[string]interface{}{
-				"processed":  true,
-				"delay":      2,
-				"timestamp":  float64(time.Now().Unix()),
-			},
-			Error:     nil,
-			Timestamp: float64(time.Now().Unix()),
-		}, true
+		result := map[string]interface{}{
+			"processed":  true,
+			"delay":      2,
+			"timestamp":  float64(time.Now().Unix()),
+		}
+		return models.NewSuccessResponse(cmd.ID, result), true
 
 	default:
-		return nil, false // Not a built-in command
+		return nil, false // Not a built-in request
 	}
 }

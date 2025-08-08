@@ -9,15 +9,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jowharshamshiri/GoJanus/pkg/models"
-	"github.com/jowharshamshiri/GoJanus/pkg/protocol"
-	"github.com/jowharshamshiri/GoJanus/pkg/server"
-	"github.com/jowharshamshiri/GoJanus/pkg/specification"
+	"GoJanus/pkg/models"
+	"GoJanus/pkg/protocol"
+	"GoJanus/pkg/server"
+	"GoJanus/pkg/manifest"
 )
 
-// TestClientInitializationWithValidSpec tests client creation with valid specification
-// Matches Swift: testClientInitializationWithValidSpec()
-func TestClientInitializationWithValidSpec(t *testing.T) {
+// TestClientInitializationWithValidManifest tests client creation with valid manifest
+// Matches Swift: testClientInitializationWithValidManifest()
+func TestClientInitializationWithValidManifest(t *testing.T) {
 	testSocketPath := "/tmp/gojanus-client-test.sock"
 	
 	// Clean up before and after test
@@ -26,7 +26,7 @@ func TestClientInitializationWithValidSpec(t *testing.T) {
 	
 	client, err := protocol.New(testSocketPath, "test")
 	if err != nil {
-		t.Fatalf("Failed to create client with valid spec: %v", err)
+		t.Fatalf("Failed to create client with valid manifest: %v", err)
 	}
 	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
@@ -38,10 +38,10 @@ func TestClientInitializationWithValidSpec(t *testing.T) {
 		t.Errorf("Expected channel 'test', got '%s'", client.ChannelIdentifier())
 	}
 	
-	// In Dynamic Specification Architecture, specifications are auto-fetched from server
-	// For this test, we expect the specification to be nil since no server is running
-	if client.Specification() != nil {
-		t.Error("Expected specification to be nil when no server is running")
+	// In Dynamic Manifest Architecture, manifests are auto-fetched from server
+	// For this test, we expect the manifest to be nil since no server is running
+	if client.Manifest() != nil {
+		t.Error("Expected manifest to be nil when no server is running")
 	}
 }
 
@@ -56,15 +56,15 @@ func TestClientInitializationWithInvalidChannel(t *testing.T) {
 	
 	client, err := protocol.New(testSocketPath, "nonexistent-channel")
 	if err != nil {
-		// Constructor should succeed - validation happens during sendCommand
+		// Constructor should succeed - validation happens during sendRequest
 		t.Errorf("Constructor should not fail for invalid channel: %v", err)
 		return
 	}
 	defer client.Close()
 	
-	// Now test that sending a command fails due to connection error (no server)
+	// Now test that sending a request fails due to connection error (no server)
 	ctx := context.Background()
-	_, err = client.SendCommand(ctx, "ping", nil)
+	_, err = client.SendRequest(ctx, "ping", nil)
 	if err == nil {
 		t.Error("Expected connection error when no server is running")
 		return
@@ -97,9 +97,9 @@ func TestClientInitializationWithInvalidChannelFormat(t *testing.T) {
 	}
 }
 
-// TestRegisterValidCommandHandler tests registering a valid command handler
-// Matches Swift: testRegisterValidCommandHandler()
-func TestRegisterValidCommandHandler(t *testing.T) {
+// TestRegisterValidRequestHandler tests registering a valid request handler
+// Matches Swift: testRegisterValidRequestHandler()
+func TestRegisterValidRequestHandler(t *testing.T) {
 	testSocketPath := "/tmp/gojanus-client-test.sock"
 	
 	// Clean up before and after test
@@ -134,22 +134,22 @@ func TestRegisterValidCommandHandler(t *testing.T) {
 	}
 	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
-	// Register handler for existing command
-	handler := func(command *models.JanusCommand) (*models.JanusResponse, error) {
-		return models.NewSuccessResponse(command.ID, command.ChannelID, map[string]interface{}{
+	// Register handler for existing request
+	handler := func(request *models.JanusRequest) (*models.JanusResponse, error) {
+		return models.NewSuccessResponse(request.ID, request.ChannelID, map[string]interface{}{
 			"message": "Handler executed successfully",
 		}), nil
 	}
 	
-	err = client.RegisterCommandHandler("echo", handler)
+	err = client.RegisterRequestHandler("echo", handler)
 	if err != nil {
-		t.Errorf("Failed to register valid command handler: %v", err)
+		t.Errorf("Failed to register valid request handler: %v", err)
 	}
 }
 
-// TestRegisterInvalidCommandHandler tests registering handler for nonexistent command
-// Matches Swift: testRegisterInvalidCommandHandler()
-func TestRegisterInvalidCommandHandler(t *testing.T) {
+// TestRegisterInvalidRequestHandler tests registering handler for nonexistent request
+// Matches Swift: testRegisterInvalidRequestHandler()
+func TestRegisterInvalidRequestHandler(t *testing.T) {
 	testSocketPath := "/tmp/gojanus-client-test.sock"
 	
 	// Clean up before and after test
@@ -162,14 +162,14 @@ func TestRegisterInvalidCommandHandler(t *testing.T) {
 	}
 	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
-	// Try to register handler for nonexistent command
-	handler := func(command *models.JanusCommand) (*models.JanusResponse, error) {
-		return models.NewSuccessResponse(command.ID, command.ChannelID, nil), nil
+	// Try to register handler for nonexistent request
+	handler := func(request *models.JanusRequest) (*models.JanusResponse, error) {
+		return models.NewSuccessResponse(request.ID, request.ChannelID, nil), nil
 	}
 	
-	err = client.RegisterCommandHandler("nonexistent-command", handler)
+	err = client.RegisterRequestHandler("nonexistent-request", handler)
 	if err == nil {
-		t.Error("Expected error for nonexistent command")
+		t.Error("Expected error for nonexistent request")
 	}
 	
 	// Should get connection error since no server is running
@@ -178,9 +178,9 @@ func TestRegisterInvalidCommandHandler(t *testing.T) {
 	}
 }
 
-// TestJanusCommandValidation tests socket command validation against specification
-// Matches Swift: testJanusCommandValidation()
-func TestJanusCommandValidation(t *testing.T) {
+// TestJanusRequestValidation tests socket request validation against manifest
+// Matches Swift: testJanusRequestValidation()
+func TestJanusRequestValidation(t *testing.T) {
 	testSocketPath := "/tmp/gojanus-client-test.sock"
 	
 	// Clean up before and after test
@@ -201,8 +201,8 @@ func TestJanusCommandValidation(t *testing.T) {
 	}
 	
 	// This should fail with connection error (expected since no server running)
-	// but the command validation should pass
-	_, err = client.SendCommand(ctx, "echo", validArgs, protocol.CommandOptions{Timeout: 1*time.Second})
+	// but the request validation should pass
+	_, err = client.SendRequest(ctx, "echo", validArgs, protocol.RequestOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected connection error since no server is running")
 	}
@@ -217,21 +217,21 @@ func TestJanusCommandValidation(t *testing.T) {
 		"wrong_field": "value",
 	}
 	
-	_, err = client.SendCommand(ctx, "echo", invalidArgs, protocol.CommandOptions{Timeout: 1*time.Second})
+	_, err = client.SendRequest(ctx, "echo", invalidArgs, protocol.RequestOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected error for invalid arguments")
 	}
 	
 	// Since no server is running, we'll get connection error not validation error
-	// This is expected behavior with Dynamic Specification Architecture
+	// This is expected behavior with Dynamic Manifest Architecture
 	if !strings.Contains(err.Error(), "dial") && !strings.Contains(err.Error(), "connection") && !strings.Contains(err.Error(), "no such file") {
 		t.Errorf("Expected connection-related error, got: %v", err)
 	}
 }
 
-// TestCommandMessageSerialization tests command message serialization
-// Matches Swift: testCommandMessageSerialization()
-func TestCommandMessageSerialization(t *testing.T) {
+// TestRequestMessageSerialization tests request message serialization
+// Matches Swift: testRequestMessageSerialization()
+func TestRequestMessageSerialization(t *testing.T) {
 	testSocketPath := "/tmp/gojanus-client-test.sock"
 	
 	// Clean up before and after test
@@ -255,33 +255,33 @@ func TestCommandMessageSerialization(t *testing.T) {
 		"pages":  200,
 	}
 	
-	// Create command directly for serialization testing
-	command := models.NewJanusCommand("test", "echo", args, nil)
+	// Create request directly for serialization testing
+	request := models.NewJanusRequest("test", "echo", args, nil)
 	
 	// Test serialization
-	jsonData, err := command.ToJSON()
+	jsonData, err := request.ToJSON()
 	if err != nil {
-		t.Fatalf("Failed to serialize command: %v", err)
+		t.Fatalf("Failed to serialize request: %v", err)
 	}
 	
 	// Test deserialization
-	var deserializedCommand models.JanusCommand
-	err = deserializedCommand.FromJSON(jsonData)
+	var deserializedRequest models.JanusRequest
+	err = deserializedRequest.FromJSON(jsonData)
 	if err != nil {
-		t.Fatalf("Failed to deserialize command: %v", err)
+		t.Fatalf("Failed to deserialize request: %v", err)
 	}
 	
 	// Verify integrity
-	if deserializedCommand.ChannelID != command.ChannelID {
-		t.Errorf("ChannelID mismatch: expected '%s', got '%s'", command.ChannelID, deserializedCommand.ChannelID)
+	if deserializedRequest.ChannelID != request.ChannelID {
+		t.Errorf("ChannelID mismatch: expected '%s', got '%s'", request.ChannelID, deserializedRequest.ChannelID)
 	}
 	
-	if deserializedCommand.Command != command.Command {
-		t.Errorf("Command mismatch: expected '%s', got '%s'", command.Command, deserializedCommand.Command)
+	if deserializedRequest.Request != request.Request {
+		t.Errorf("Request mismatch: expected '%s', got '%s'", request.Request, deserializedRequest.Request)
 	}
 	
-	if len(deserializedCommand.Args) != len(command.Args) {
-		t.Errorf("Args count mismatch: expected %d, got %d", len(command.Args), len(deserializedCommand.Args))
+	if len(deserializedRequest.Args) != len(request.Args) {
+		t.Errorf("Args count mismatch: expected %d, got %d", len(request.Args), len(deserializedRequest.Args))
 	}
 }
 
@@ -360,32 +360,32 @@ func TestMultipleClientInstances(t *testing.T) {
 	}
 	
 	// Register different handlers on each client
-	handler1 := func(command *models.JanusCommand) (*models.JanusResponse, error) {
-		return models.NewSuccessResponse(command.ID, command.ChannelID, map[string]interface{}{
+	handler1 := func(request *models.JanusRequest) (*models.JanusResponse, error) {
+		return models.NewSuccessResponse(request.ID, request.ChannelID, map[string]interface{}{
 			"client": "client1",
 		}), nil
 	}
 	
-	handler2 := func(command *models.JanusCommand) (*models.JanusResponse, error) {
-		return models.NewSuccessResponse(command.ID, command.ChannelID, map[string]interface{}{
+	handler2 := func(request *models.JanusRequest) (*models.JanusResponse, error) {
+		return models.NewSuccessResponse(request.ID, request.ChannelID, map[string]interface{}{
 			"client": "client2",
 		}), nil
 	}
 	
-	err = client1.RegisterCommandHandler("echo", handler1)
+	err = client1.RegisterRequestHandler("echo", handler1)
 	if err != nil {
 		t.Errorf("Failed to register handler on client1: %v", err)
 	}
 	
-	err = client2.RegisterCommandHandler("ping", handler2)
+	err = client2.RegisterRequestHandler("ping", handler2)
 	if err != nil {
 		t.Errorf("Failed to register handler on client2: %v", err)
 	}
 }
 
-// TestCommandHandlerWithAsyncOperations tests command handler with async operations
-// Matches Swift: testCommandHandlerWithAsyncOperations()
-func TestCommandHandlerWithAsyncOperations(t *testing.T) {
+// TestRequestHandlerWithAsyncOperations tests request handler with async operations
+// Matches Swift: testRequestHandlerWithAsyncOperations()
+func TestRequestHandlerWithAsyncOperations(t *testing.T) {
 	testSocketPath := "/tmp/gojanus-client-test.sock"
 	
 	// Clean up before and after test
@@ -421,25 +421,25 @@ func TestCommandHandlerWithAsyncOperations(t *testing.T) {
 	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
 	// Register async handler
-	asyncHandler := func(command *models.JanusCommand) (*models.JanusResponse, error) {
+	asyncHandler := func(request *models.JanusRequest) (*models.JanusResponse, error) {
 		// Simulate async operation
 		time.Sleep(10 * time.Millisecond)
 		
-		return models.NewSuccessResponse(command.ID, command.ChannelID, map[string]interface{}{
+		return models.NewSuccessResponse(request.ID, request.ChannelID, map[string]interface{}{
 			"processed": true,
 			"timestamp": time.Now().Unix(),
 		}), nil
 	}
 	
-	err = client.RegisterCommandHandler("echo", asyncHandler)
+	err = client.RegisterRequestHandler("echo", asyncHandler)
 	if err != nil {
 		t.Errorf("Failed to register async handler: %v", err)
 	}
 }
 
-// TestCommandHandlerErrorHandling tests command handler error handling
-// Matches Swift: testCommandHandlerErrorHandling()
-func TestCommandHandlerErrorHandling(t *testing.T) {
+// TestRequestHandlerErrorHandling tests request handler error handling
+// Matches Swift: testRequestHandlerErrorHandling()
+func TestRequestHandlerErrorHandling(t *testing.T) {
 	testSocketPath := "/tmp/gojanus-client-test.sock"
 	
 	// Clean up before and after test
@@ -475,11 +475,11 @@ func TestCommandHandlerErrorHandling(t *testing.T) {
 	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
 	// Register error-producing handler
-	errorHandler := func(command *models.JanusCommand) (*models.JanusResponse, error) {
+	errorHandler := func(request *models.JanusRequest) (*models.JanusResponse, error) {
 		return nil, models.NewJSONRPCError(models.InternalError, "Simulated handler error")
 	}
 	
-	err = client.RegisterCommandHandler("echo", errorHandler)
+	err = client.RegisterRequestHandler("echo", errorHandler)
 	if err != nil {
 		t.Errorf("Failed to register error handler: %v", err)
 	}
@@ -500,7 +500,7 @@ func TestManifestWithComplexArguments(t *testing.T) {
 	}
 	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
-	// Test complex arguments for echo command (which accepts a message argument)
+	// Test complex arguments for echo request (which accepts a message argument)
 	complexArgs := map[string]interface{}{
 		"message": "Complex Task with detailed description and high priority due 2025-12-31T23:59:59Z",
 	}
@@ -509,7 +509,7 @@ func TestManifestWithComplexArguments(t *testing.T) {
 	
 	// This should fail with connection error (expected since no server running)
 	// but the argument validation should pass
-	_, err = client.SendCommand(ctx, "echo", complexArgs, protocol.CommandOptions{Timeout: 1*time.Second})
+	_, err = client.SendRequest(ctx, "echo", complexArgs, protocol.RequestOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected connection error since no server is running")
 	}
@@ -529,15 +529,15 @@ func TestArgumentValidationConstraints(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	// Start server with custom command that validates arguments
+	// Start server with custom request that validates arguments
 	config := &server.ServerConfig{
 		SocketPath:     testSocketPath,
 		MaxConnections: 100,
 		DefaultTimeout: 30,
 	}
 	srv := server.NewJanusServer(config)
-	// Register a custom command "validate_message" that requires non-empty message
-	srv.RegisterHandler("validate_message", server.NewObjectHandler(func(cmd *models.JanusCommand) (map[string]interface{}, error) {
+	// Register a custom request "validate_message" that requires non-empty message
+	srv.RegisterHandler("validate_message", server.NewObjectHandler(func(cmd *models.JanusRequest) (map[string]interface{}, error) {
 		// Validate that message argument exists and is not empty
 		if cmd.Args == nil {
 			return nil, models.NewJSONRPCError(models.InvalidParams, "message argument is required and cannot be empty")
@@ -588,7 +588,7 @@ func TestArgumentValidationConstraints(t *testing.T) {
 		"message": "hello world",
 	}
 	
-	_, err = client.SendCommand(ctx, "validate_message", validArgs, protocol.CommandOptions{Timeout: 1*time.Second})
+	_, err = client.SendRequest(ctx, "validate_message", validArgs, protocol.RequestOptions{Timeout: 1*time.Second})
 	if err != nil {
 		t.Errorf("Valid arguments should not fail: %v", err)
 	}
@@ -598,7 +598,7 @@ func TestArgumentValidationConstraints(t *testing.T) {
 		"message": "",
 	}
 	
-	response, err := client.SendCommand(ctx, "validate_message", invalidArgs, protocol.CommandOptions{Timeout: 1*time.Second})
+	response, err := client.SendRequest(ctx, "validate_message", invalidArgs, protocol.RequestOptions{Timeout: 1*time.Second})
 	if err == nil && response.Success {
 		t.Errorf("Expected validation error for empty message, but got successful response: %+v", response)
 	} else if err != nil {
@@ -617,17 +617,17 @@ func TestArgumentValidationConstraints(t *testing.T) {
 }
 
 
-// loadTestManifest loads the test Manifest from test-spec.json
-func loadTestManifest() *specification.Manifest {
-	specPath := "../../tests/config/spec-command-test-api.json"
-	specData, err := os.ReadFile(specPath)
+// loadTestManifest loads the test Manifest from test-manifest.json
+func loadTestManifest() *manifest.Manifest {
+	manifestPath := "../../tests/config/manifest-request-test-api.json"
+	manifestData, err := os.ReadFile(manifestPath)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to read spec-command-test-api.json: %v", err))
+		panic(fmt.Sprintf("Failed to read manifest-request-test-api.json: %v", err))
 	}
 	
-	var manifest specification.Manifest
-	if err := json.Unmarshal(specData, &manifest); err != nil {
-		panic(fmt.Sprintf("Failed to parse spec-command-test-api.json: %v", err))
+	var manifest manifest.Manifest
+	if err := json.Unmarshal(manifestData, &manifest); err != nil {
+		panic(fmt.Sprintf("Failed to parse manifest-request-test-api.json: %v", err))
 	}
 	
 	return &manifest

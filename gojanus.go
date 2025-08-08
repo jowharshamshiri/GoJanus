@@ -4,7 +4,7 @@
 // This package implements SOCK_DGRAM connectionless Unix domain socket communication:
 // - Core Layer: Low-level Unix datagram socket communication with security validation
 // - Protocol Layer: High-level API client with datagram messaging and reply-to mechanism
-// - Specification Layer: Manifest parsing and validation engine
+// - Manifest Layer: Manifest parsing and validation engine
 //
 // Key Features:
 // - Connectionless SOCK_DGRAM communication
@@ -18,7 +18,7 @@
 // Example Usage:
 //
 //	// Parse Manifest
-//	spec, err := specification.ParseFromFile("manifest.json")
+//	manifest, err := manifest.ParseFromFile("manifest.json")
 //	if err != nil {
 //		log.Fatal(err)
 //	}
@@ -27,15 +27,15 @@
 //	client, err := protocol.NewJanusClient(
 //		"/tmp/my-service.sock",
 //		"library-management",
-//		spec,
+//		manifest,
 //	)
 //	if err != nil {
 //		log.Fatal(err)
 //	}
 //	defer client.Close()
 //
-//	// Send command
-//	response, err := client.SendCommand(
+//	// Send request
+//	response, err := client.SendRequest(
 //		context.Background(),
 //		"get-book",
 //		map[string]interface{}{"id": "123"},
@@ -50,10 +50,10 @@
 package gojanus
 
 import (
-	"github.com/jowharshamshiri/GoJanus/pkg/core"
-	"github.com/jowharshamshiri/GoJanus/pkg/models"
-	"github.com/jowharshamshiri/GoJanus/pkg/protocol"
-	"github.com/jowharshamshiri/GoJanus/pkg/specification"
+	"GoJanus/pkg/core"
+	"GoJanus/pkg/models"
+	"GoJanus/pkg/protocol"
+	"GoJanus/pkg/manifest"
 )
 
 // Version represents the library version
@@ -77,26 +77,25 @@ type (
 
 // Model types
 type (
-	JanusCommand     = models.JanusCommand
+	JanusRequest     = models.JanusRequest
 	JanusResponse    = models.JanusResponse
 	JSONRPCError      = models.JSONRPCError
 	JSONRPCErrorCode  = models.JSONRPCErrorCode
 	JSONRPCErrorData  = models.JSONRPCErrorData
 	SocketMessage     = models.SocketMessage
-	CommandHandler    = models.CommandHandler
+	RequestHandler    = models.RequestHandler
 	TimeoutHandler    = models.TimeoutHandler
 )
 
-// Specification types
+// Manifest types
 type (
-	Manifest       = specification.Manifest
-	ManifestParser = specification.ManifestParser
-	ChannelSpec            = specification.ChannelSpec
-	CommandSpec            = specification.CommandSpec
-	ArgumentSpec           = specification.ArgumentSpec
-	ResponseSpec           = specification.ResponseSpec
-	ModelDefinition        = specification.ModelDefinition
-	ValidationError        = specification.ValidationError
+	Manifest       = manifest.Manifest
+	ManifestParser = manifest.ManifestParser
+	RequestManifest            = manifest.RequestManifest
+	ArgumentManifest           = manifest.ArgumentManifest
+	ResponseManifest           = manifest.ResponseManifest
+	ModelDefinition        = manifest.ModelDefinition
+	ValidationError        = manifest.ValidationError
 )
 
 // Convenience constructors
@@ -112,18 +111,18 @@ func NewCoreClientWithConfig(socketPath string, config CoreClientConfig) (*CoreJ
 }
 
 // NewJanusClient creates a new Janus datagram client with default configuration
-func NewJanusClient(socketPath, channelID string) (*JanusClient, error) {
-	return protocol.New(socketPath, channelID)
+func NewJanusClient(socketPath string) (*JanusClient, error) {
+	return protocol.New(socketPath)
 }
 
 // NewJanusClientWithConfig creates a new Janus datagram client with custom configuration
-func NewJanusClientWithConfig(socketPath, channelID string, config JanusClientConfig) (*JanusClient, error) {
-	return protocol.New(socketPath, channelID, config)
+func NewJanusClientWithConfig(socketPath string, config JanusClientConfig) (*JanusClient, error) {
+	return protocol.New(socketPath, config)
 }
 
 // NewManifestParser creates a new Manifest parser
 func NewManifestParser() *ManifestParser {
-	return specification.NewManifestParser()
+	return manifest.NewManifestParser()
 }
 
 // NewSecurityValidator creates a new security validator
@@ -139,33 +138,33 @@ func NewTimeoutManager() *TimeoutManager {
 // Direct function exports (no legacy wrappers)
 
 // ParseFromFile parses an Manifest from a file
-var ParseFromFile = specification.ParseFromFile
+var ParseFromFile = manifest.ParseFromFile
 
 // ParseJSON parses an Manifest from JSON data  
-var ParseJSON = specification.ParseJSON
+var ParseJSON = manifest.ParseJSON
 
 // ParseYAML parses an Manifest from YAML data
-var ParseYAML = specification.ParseYAML
+var ParseYAML = manifest.ParseYAML
 
 // Validate validates an Manifest
-var Validate = specification.Validate
+var Validate = manifest.Validate
 
-// NewJanusCommand creates a new socket command with generated UUID
-func NewJanusCommand(channelID, command string, args map[string]interface{}, timeout *float64) *JanusCommand {
-	return models.NewJanusCommand(channelID, command, args, timeout)
+// NewJanusRequest creates a new socket request with generated UUID
+func NewJanusRequest(request string, args map[string]interface{}, timeout *float64) *JanusRequest {
+	return models.NewJanusRequest(request, args, timeout)
 }
 
-// NewSuccessResponse creates a successful response for a command
-func NewSuccessResponse(commandID, channelID string, result map[string]interface{}) *JanusResponse {
-	return models.NewSuccessResponse(commandID, channelID, result)
+// NewSuccessResponse creates a successful response for a request
+func NewSuccessResponse(requestID string, result interface{}) *JanusResponse {
+	return models.NewSuccessResponse(requestID, result)
 }
 
-// NewErrorResponse creates an error response for a command
-func NewErrorResponse(commandID, channelID string, err *JSONRPCError) *JanusResponse {
-	return models.NewErrorResponse(commandID, channelID, err)
+// NewErrorResponse creates an error response for a request
+func NewErrorResponse(requestID string, err *models.JSONRPCError) *JanusResponse {
+	return models.NewErrorResponse(requestID, err)
 }
 
-// NewJSONRPCError creates a new JSON-RPC error with the specified code
+// NewJSONRPCError creates a new JSON-RPC error with the manifestified code
 func NewJSONRPCError(code JSONRPCErrorCode, details string) *JSONRPCError {
 	return models.NewJSONRPCError(code, details)
 }
@@ -217,7 +216,7 @@ func GetSupportedFeatures() []string {
 	return []string{
 		"Connectionless SOCK_DGRAM Communication",
 		"Reply-To Response Mechanism",
-		"UUID Command Tracking",
+		"UUID Request Tracking",
 		"Ephemeral Socket Patterns",
 		"25+ Security Mechanisms",
 		"Manifest Engine",

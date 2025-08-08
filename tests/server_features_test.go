@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jowharshamshiri/GoJanus/pkg/models"
-	"github.com/jowharshamshiri/GoJanus/pkg/server"
+	"GoJanus/pkg/models"
+	"GoJanus/pkg/server"
 )
 
 // Test helper for server testing
@@ -50,21 +50,21 @@ func (h *ServerTestHelper) Cleanup() {
 	os.RemoveAll(h.tempDir)
 }
 
-// TestCommandHandlerRegistry validates command handler registration and management
-func TestCommandHandlerRegistry(t *testing.T) {
+// TestRequestHandlerRegistry validates request handler registration and management
+func TestRequestHandlerRegistry(t *testing.T) {
 	helper := NewServerTestHelper()
 	defer helper.Cleanup()
 	
 	// Test handler registration
-	testHandler := server.NewStringHandler(func(cmd *models.JanusCommand) (string, error) {
+	testHandler := server.NewStringHandler(func(cmd *models.JanusRequest) (string, error) {
 		return "test response", nil
 	})
 	
-	helper.server.RegisterHandler("test_command", testHandler)
+	helper.server.RegisterHandler("test_request", testHandler)
 	
 	// Verify handler was registered (access through server's handler registry)
-	// Since the registry is private, we'll test through command execution
-	t.Log("✅ Command handler registration completed")
+	// Since the registry is private, we'll test through request execution
+	t.Log("✅ Request handler registration completed")
 }
 
 // TestMultiClientConnectionManagement validates multiple client support
@@ -73,7 +73,7 @@ func TestMultiClientConnectionManagement(t *testing.T) {
 	defer helper.Cleanup()
 	
 	// Register test handler
-	helper.server.RegisterHandler("ping", server.NewStringHandler(func(cmd *models.JanusCommand) (string, error) {
+	helper.server.RegisterHandler("ping", server.NewStringHandler(func(cmd *models.JanusRequest) (string, error) {
 		return "pong", nil
 	}))
 	
@@ -117,18 +117,18 @@ func TestMultiClientConnectionManagement(t *testing.T) {
 			defer responseConn.Close()
 			defer os.Remove(responseSocketPath)
 			
-			// Send command
-			cmd := models.JanusCommand{
+			// Send request
+			cmd := models.JanusRequest{
 				ID:        fmt.Sprintf("test-%d-%d", clientID, time.Now().UnixNano()),
 				ChannelID: "test",
-				Command:   "ping",
+				Request:   "ping",
 				ReplyTo:   &responseSocketPath,
 				Timestamp: float64(time.Now().Unix()),
 			}
 			
 			cmdData, _ := json.Marshal(cmd)
 			if _, err := conn.Write(cmdData); err != nil {
-				t.Errorf("Client %d failed to send command: %v", clientID, err)
+				t.Errorf("Client %d failed to send request: %v", clientID, err)
 				return
 			}
 			
@@ -175,9 +175,9 @@ func TestEventDrivenArchitecture(t *testing.T) {
 		eventMutex.Unlock()
 	})
 	
-	helper.server.On("command", func(data interface{}) {
+	helper.server.On("request", func(data interface{}) {
 		eventMutex.Lock()
-		events = append(events, "command")
+		events = append(events, "request")
 		eventMutex.Unlock()
 	})
 	
@@ -195,7 +195,7 @@ func TestEventDrivenArchitecture(t *testing.T) {
 	// Give server time to start and emit listening event
 	time.Sleep(200 * time.Millisecond)
 	
-	// Send a test command to trigger command and response events
+	// Send a test request to trigger request and response events
 	conn, err := net.DialUnix("unixgram", nil, &net.UnixAddr{Name: helper.socketPath, Net: "unixgram"})
 	if err != nil {
 		t.Fatalf("Failed to connect to server: %v", err)
@@ -212,11 +212,11 @@ func TestEventDrivenArchitecture(t *testing.T) {
 	defer responseConn.Close()
 	defer os.Remove(responseSocketPath)
 	
-	// Send ping command (built-in)
-	cmd := models.JanusCommand{
+	// Send ping request (built-in)
+	cmd := models.JanusRequest{
 		ID:        "event-test",
 		ChannelID: "test",
-		Command:   "ping",
+		Request:   "ping",
 		ReplyTo:   &responseSocketPath,
 		Timestamp: float64(time.Now().Unix()),
 	}
@@ -236,7 +236,7 @@ func TestEventDrivenArchitecture(t *testing.T) {
 	eventMutex.Lock()
 	defer eventMutex.Unlock()
 	
-	expectedEvents := []string{"listening", "command", "response"}
+	expectedEvents := []string{"listening", "request", "response"}
 	for _, expected := range expectedEvents {
 		found := false
 		for _, event := range events {
@@ -298,15 +298,15 @@ func TestConnectionProcessingLoop(t *testing.T) {
 	helper := NewServerTestHelper()
 	defer helper.Cleanup()
 	
-	// Track processed commands
-	var processedCommands []string
-	var commandMutex sync.Mutex
+	// Track processed requests
+	var processedRequests []string
+	var requestMutex sync.Mutex
 	
-	// Register custom handler that tracks commands
-	helper.server.RegisterHandler("track_test", server.NewStringHandler(func(cmd *models.JanusCommand) (string, error) {
-		commandMutex.Lock()
-		processedCommands = append(processedCommands, cmd.ID)
-		commandMutex.Unlock()
+	// Register custom handler that tracks requests
+	helper.server.RegisterHandler("track_test", server.NewStringHandler(func(cmd *models.JanusRequest) (string, error) {
+		requestMutex.Lock()
+		processedRequests = append(processedRequests, cmd.ID)
+		requestMutex.Unlock()
 		return "tracked", nil
 	}))
 	
@@ -316,10 +316,10 @@ func TestConnectionProcessingLoop(t *testing.T) {
 	}()
 	time.Sleep(100 * time.Millisecond)
 	
-	// Send multiple commands to test processing loop
-	commandIDs := []string{"cmd1", "cmd2", "cmd3"}
+	// Send multiple requests to test processing loop
+	requestIDs := []string{"cmd1", "cmd2", "cmd3"}
 	
-	for _, cmdID := range commandIDs {
+	for _, cmdID := range requestIDs {
 		conn, _ := net.DialUnix("unixgram", nil, &net.UnixAddr{Name: helper.socketPath, Net: "unixgram"})
 		
 		responseSocketPath := filepath.Join(os.TempDir(), fmt.Sprintf("janus-lp%s-%d.sock", cmdID, time.Now().UnixNano()))
@@ -332,10 +332,10 @@ func TestConnectionProcessingLoop(t *testing.T) {
 			t.Fatalf("Failed to create response socket: %v", err)
 		}
 		
-		cmd := models.JanusCommand{
+		cmd := models.JanusRequest{
 			ID:        cmdID,
 			ChannelID: "test",
-			Command:   "track_test",
+			Request:   "track_test",
 			ReplyTo:   &responseSocketPath,
 			Timestamp: float64(time.Now().Unix()),
 		}
@@ -353,25 +353,25 @@ func TestConnectionProcessingLoop(t *testing.T) {
 		os.Remove(responseSocketPath)
 	}
 	
-	// Verify all commands were processed
+	// Verify all requests were processed
 	time.Sleep(100 * time.Millisecond)
-	commandMutex.Lock()
-	defer commandMutex.Unlock()
+	requestMutex.Lock()
+	defer requestMutex.Unlock()
 	
-	if len(processedCommands) != len(commandIDs) {
-		t.Errorf("Expected %d processed commands, got %d", len(commandIDs), len(processedCommands))
+	if len(processedRequests) != len(requestIDs) {
+		t.Errorf("Expected %d processed requests, got %d", len(requestIDs), len(processedRequests))
 	}
 	
-	for _, expectedID := range commandIDs {
+	for _, expectedID := range requestIDs {
 		found := false
-		for _, processedID := range processedCommands {
+		for _, processedID := range processedRequests {
 			if processedID == expectedID {
 				found = true
 				break
 			}
 		}
 		if !found {
-			t.Errorf("Command %s was not processed", expectedID)
+			t.Errorf("Request %s was not processed", expectedID)
 		}
 	}
 	
@@ -389,7 +389,7 @@ func TestErrorResponseGeneration(t *testing.T) {
 	}()
 	time.Sleep(100 * time.Millisecond)
 	
-	// Send command that doesn't have a handler (should generate error)
+	// Send request that doesn't have a handler (should generate error)
 	conn, _ := net.DialUnix("unixgram", nil, &net.UnixAddr{Name: helper.socketPath, Net: "unixgram"})
 	defer conn.Close()
 	
@@ -405,10 +405,10 @@ func TestErrorResponseGeneration(t *testing.T) {
 	defer responseConn.Close()
 	defer os.Remove(responseSocketPath)
 	
-	cmd := models.JanusCommand{
+	cmd := models.JanusRequest{
 		ID:        "error-test",
 		ChannelID: "test",
-		Command:   "nonexistent_command",
+		Request:   "nonexistent_request",
 		ReplyTo:   &responseSocketPath,
 		Timestamp: float64(time.Now().Unix()),
 	}
@@ -448,8 +448,8 @@ func TestErrorResponseGeneration(t *testing.T) {
 	}
 	t.Logf("✅ Error response validation completed: Code=%d, Message=%s", response.Error.Code, response.Error.Message)
 	
-	if response.CommandID != cmd.ID {
-		t.Errorf("Expected CommandID %s, got %s", cmd.ID, response.CommandID)
+	if response.RequestID != cmd.ID {
+		t.Errorf("Expected RequestID %s, got %s", cmd.ID, response.RequestID)
 	}
 	
 	t.Log("✅ Error response generation validated")
@@ -460,8 +460,8 @@ func TestClientActivityTracking(t *testing.T) {
 	helper := NewServerTestHelper()
 	defer helper.Cleanup()
 	
-	// This test validates that client activity is tracked through command processing
-	// Since client tracking is handled internally, we test through successful command execution
+	// This test validates that client activity is tracked through request processing
+	// Since client tracking is handled internally, we test through successful request execution
 	
 	// Start server
 	go func() {
@@ -469,7 +469,7 @@ func TestClientActivityTracking(t *testing.T) {
 	}()
 	time.Sleep(100 * time.Millisecond)
 	
-	// Send multiple commands from same "client" (same channel)
+	// Send multiple requests from same "client" (same channel)
 	for i := 0; i < 3; i++ {
 		conn, _ := net.DialUnix("unixgram", nil, &net.UnixAddr{Name: helper.socketPath, Net: "unixgram"})
 		
@@ -483,10 +483,10 @@ func TestClientActivityTracking(t *testing.T) {
 			t.Fatalf("Failed to create response socket: %v", err)
 		}
 		
-		cmd := models.JanusCommand{
+		cmd := models.JanusRequest{
 			ID:        fmt.Sprintf("activity-test-%d", i),
 			ChannelID: "test-client",  // Same channel = same client
-			Command:   "ping",
+			Request:   "ping",
 			ReplyTo:   &responseSocketPath,
 			Timestamp: float64(time.Now().Unix()),
 		}
@@ -503,20 +503,20 @@ func TestClientActivityTracking(t *testing.T) {
 		responseConn.Close()
 		os.Remove(responseSocketPath)
 		
-		// Small delay between commands
+		// Small delay between requests
 		time.Sleep(50 * time.Millisecond)
 	}
 	
-	t.Log("✅ Client activity tracking validated through command processing")
+	t.Log("✅ Client activity tracking validated through request processing")
 }
 
-// TestCommandExecutionWithTimeout validates handler timeout management
-func TestCommandExecutionWithTimeout(t *testing.T) {
+// TestRequestExecutionWithTimeout validates handler timeout management
+func TestRequestExecutionWithTimeout(t *testing.T) {
 	helper := NewServerTestHelper()
 	defer helper.Cleanup()
 	
 	// Register slow handler that should timeout
-	helper.server.RegisterHandler("slow_command", server.NewStringHandler(func(cmd *models.JanusCommand) (string, error) {
+	helper.server.RegisterHandler("slow_request", server.NewStringHandler(func(cmd *models.JanusRequest) (string, error) {
 		time.Sleep(10 * time.Second) // Much longer than server timeout
 		return "should not reach here", nil
 	}))
@@ -527,7 +527,7 @@ func TestCommandExecutionWithTimeout(t *testing.T) {
 	}()
 	time.Sleep(100 * time.Millisecond)
 	
-	// Send slow command
+	// Send slow request
 	conn, _ := net.DialUnix("unixgram", nil, &net.UnixAddr{Name: helper.socketPath, Net: "unixgram"})
 	defer conn.Close()
 	
@@ -543,10 +543,10 @@ func TestCommandExecutionWithTimeout(t *testing.T) {
 	defer responseConn.Close()
 	defer os.Remove(responseSocketPath)
 	
-	cmd := models.JanusCommand{
+	cmd := models.JanusRequest{
 		ID:        "timeout-test",
 		ChannelID: "test",
-		Command:   "slow_command",
+		Request:   "slow_request",
 		ReplyTo:   &responseSocketPath,
 		Timeout:   func() *float64 { v := 1.0; return &v }(), // 1 second timeout
 		Timestamp: float64(time.Now().Unix()),
@@ -587,7 +587,7 @@ func TestCommandExecutionWithTimeout(t *testing.T) {
 		t.Error("Expected timeout to generate error response")
 	}
 	
-	t.Log("✅ Command execution with timeout validated")
+	t.Log("✅ Request execution with timeout validated")
 }
 
 // TestSocketFileCleanup validates configurable socket cleanup

@@ -10,36 +10,36 @@ import (
 	"unicode/utf8"
 )
 
-// SecurityValidator implements all 25+ security mechanisms from Swift specification
+// SecurityValidator implements all 25+ security mechanisms from Swift manifest
 // Provides defensive security for Unix socket communication
 type SecurityValidator struct {
 	maxSocketPathLength   int
 	maxChannelNameLength  int
-	maxCommandNameLength  int
+	maxRequestNameLength  int
 	maxArgsDataSize       int
 	allowedDirectories    []string
-	commandNamePattern    *regexp.Regexp
+	requestNamePattern    *regexp.Regexp
 	channelNamePattern    *regexp.Regexp
 }
 
 // NewSecurityValidator creates a new security validator with Swift-compatible defaults
 func NewSecurityValidator() *SecurityValidator {
-	// Command and channel names: alphanumeric + hyphen + underscore only
+	// Request and channel names: alphanumeric + hyphen + underscore only
 	// Matches Swift security validation exactly
-	commandPattern := regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+	requestPattern := regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 	channelPattern := regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 	
 	return &SecurityValidator{
 		maxSocketPathLength:  108, // Unix socket path limit
 		maxChannelNameLength: 256, // Matches Swift default
-		maxCommandNameLength: 256, // Matches Swift default
+		maxRequestNameLength: 256, // Matches Swift default
 		maxArgsDataSize:      5 * 1024 * 1024, // 5MB matches Swift
 		allowedDirectories: []string{
 			"/tmp/",
 			"/var/run/",
 			"/var/tmp/",
 		},
-		commandNamePattern: commandPattern,
+		requestNamePattern: requestPattern,
 		channelNamePattern: channelPattern,
 	}
 }
@@ -117,30 +117,30 @@ func (sv *SecurityValidator) ValidateChannelID(channelID string) error {
 	return nil
 }
 
-// ValidateCommandName validates command name for security
-// Matches Swift command validation rules exactly
-func (sv *SecurityValidator) ValidateCommandName(commandName string) error {
-	if commandName == "" {
-		return fmt.Errorf("command name cannot be empty")
+// ValidateRequestName validates request name for security
+// Matches Swift request validation rules exactly
+func (sv *SecurityValidator) ValidateRequestName(requestName string) error {
+	if requestName == "" {
+		return fmt.Errorf("request name cannot be empty")
 	}
 	
-	if len(commandName) > sv.maxCommandNameLength {
-		return fmt.Errorf("command name length %d exceeds maximum %d", len(commandName), sv.maxCommandNameLength)
+	if len(requestName) > sv.maxRequestNameLength {
+		return fmt.Errorf("request name length %d exceeds maximum %d", len(requestName), sv.maxRequestNameLength)
 	}
 	
 	// Null byte injection prevention
-	if strings.Contains(commandName, "\x00") {
-		return fmt.Errorf("null byte detected in command name")
+	if strings.Contains(requestName, "\x00") {
+		return fmt.Errorf("null byte detected in request name")
 	}
 	
 	// Pattern validation: alphanumeric + hyphen + underscore only
-	if !sv.commandNamePattern.MatchString(commandName) {
-		return fmt.Errorf("command name contains invalid characters (only alphanumeric, hyphen, underscore allowed)")
+	if !sv.requestNamePattern.MatchString(requestName) {
+		return fmt.Errorf("request name contains invalid characters (only alphanumeric, hyphen, underscore allowed)")
 	}
 	
 	// UTF-8 validation
-	if !utf8.ValidString(commandName) {
-		return fmt.Errorf("command name contains invalid UTF-8 sequences")
+	if !utf8.ValidString(requestName) {
+		return fmt.Errorf("request name contains invalid UTF-8 sequences")
 	}
 	
 	return nil
@@ -233,7 +233,7 @@ func (sv *SecurityValidator) isValidPathCharacters(path string) bool {
 
 // ValidateResourceLimits validates resource usage limits
 // Matches Swift resource monitoring and limits
-func (sv *SecurityValidator) ValidateResourceLimits(connectionCount, handlerCount, pendingCommands int) error {
+func (sv *SecurityValidator) ValidateResourceLimits(connectionCount, handlerCount, pendingRequests int) error {
 	// These limits match Swift configuration defaults
 	maxConnections := 100
 	maxHandlers := 500
@@ -247,14 +247,14 @@ func (sv *SecurityValidator) ValidateResourceLimits(connectionCount, handlerCoun
 		return fmt.Errorf("handler count %d exceeds maximum %d", handlerCount, maxHandlers)
 	}
 	
-	if pendingCommands > maxPending {
-		return fmt.Errorf("pending commands %d exceeds maximum %d", pendingCommands, maxPending)
+	if pendingRequests > maxPending {
+		return fmt.Errorf("pending requests %d exceeds maximum %d", pendingRequests, maxPending)
 	}
 	
 	return nil
 }
 
-// ValidateChannelIsolation ensures commands stay within their designated channels
+// ValidateChannelIsolation ensures requests stay within their designated channels
 // Implements Swift channel security verification
 func (sv *SecurityValidator) ValidateChannelIsolation(expectedChannelID, actualChannelID string) error {
 	if expectedChannelID != actualChannelID {
@@ -295,20 +295,20 @@ func (sv *SecurityValidator) ValidateStringContent(str string) error {
 	return nil
 }
 
-// ValidateCommandId validates command ID format and security (matches Swift implementation)
-func (sv *SecurityValidator) ValidateCommandId(commandId string) error {
-	if commandId == "" {
-		return fmt.Errorf("command ID cannot be empty")
+// ValidateRequestId validates request ID format and security (matches Swift implementation)
+func (sv *SecurityValidator) ValidateRequestId(requestId string) error {
+	if requestId == "" {
+		return fmt.Errorf("request ID cannot be empty")
 	}
 	
-	if len(commandId) > 64 {
-		return fmt.Errorf("command ID exceeds maximum length of 64 characters")
+	if len(requestId) > 64 {
+		return fmt.Errorf("request ID exceeds maximum length of 64 characters")
 	}
 	
 	// Must be alphanumeric or UUID-like format (matches Swift pattern)
 	uuidPattern := regexp.MustCompile(`^[a-zA-Z0-9-]+$`)
-	if !uuidPattern.MatchString(commandId) {
-		return fmt.Errorf("command ID contains invalid characters")
+	if !uuidPattern.MatchString(requestId) {
+		return fmt.Errorf("request ID contains invalid characters")
 	}
 	
 	return nil
@@ -324,7 +324,7 @@ func (sv *SecurityValidator) ValidateTimestamp(timestamp float64) error {
 	
 	// Allow 5-minute clock skew (300 seconds)
 	if timeDiff > 300 {
-		return fmt.Errorf("command timestamp is too far from current time")
+		return fmt.Errorf("request timestamp is too far from current time")
 	}
 	
 	return nil
@@ -344,14 +344,14 @@ func (sv *SecurityValidator) ValidateReservedChannelName(channelName string) err
 	return nil
 }
 
-// ValidateDangerousCommandName validates command names don't contain dangerous patterns (matches Swift implementation)
-func (sv *SecurityValidator) ValidateDangerousCommandName(commandName string) error {
+// ValidateDangerousRequestName validates request names don't contain dangerous patterns (matches Swift implementation)
+func (sv *SecurityValidator) ValidateDangerousRequestName(requestName string) error {
 	dangerousPatterns := []string{"eval", "exec", "system", "shell", "rm", "delete", "drop"}
-	lowerCommandName := strings.ToLower(commandName)
+	lowerRequestName := strings.ToLower(requestName)
 	
 	for _, pattern := range dangerousPatterns {
-		if strings.Contains(lowerCommandName, pattern) {
-			return fmt.Errorf("command name contains dangerous pattern: %s", pattern)
+		if strings.Contains(lowerRequestName, pattern) {
+			return fmt.Errorf("request name contains dangerous pattern: %s", pattern)
 		}
 	}
 	
@@ -441,7 +441,7 @@ func (sv *SecurityValidator) ValidateEnhancedJSONStructure(data []byte) error {
 	return nil
 }
 
-// ValidateUUIDFormat validates command ID UUID format (matches TypeScript implementation)
+// ValidateUUIDFormat validates request ID UUID format (matches TypeScript implementation)
 func (sv *SecurityValidator) ValidateUUIDFormat(uuid string) error {
 	// UUID v4 format: 8-4-4-4-12 hexadecimal digits
 	uuidPattern := `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`
@@ -491,14 +491,14 @@ func (sv *SecurityValidator) ValidateReservedChannels(channelId string) error {
 	return nil
 }
 
-// ValidateDangerousCommand checks for dangerous command patterns (matches Swift implementation)
-func (sv *SecurityValidator) ValidateDangerousCommand(commandName string) error {
+// ValidateDangerousRequest checks for dangerous request patterns (matches Swift implementation)
+func (sv *SecurityValidator) ValidateDangerousRequest(requestName string) error {
 	dangerousPatterns := []string{"eval", "exec", "system", "shell", "rm", "delete", "drop"}
-	lowerCommand := strings.ToLower(commandName)
+	lowerRequest := strings.ToLower(requestName)
 	
 	for _, pattern := range dangerousPatterns {
-		if strings.Contains(lowerCommand, pattern) {
-			return fmt.Errorf("command name contains dangerous pattern: %s", pattern)
+		if strings.Contains(lowerRequest, pattern) {
+			return fmt.Errorf("request name contains dangerous pattern: %s", pattern)
 		}
 	}
 	return nil

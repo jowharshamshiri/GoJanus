@@ -4,21 +4,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jowharshamshiri/GoJanus/pkg/protocol"
-	"github.com/jowharshamshiri/GoJanus/pkg/models"
+	"GoJanus/pkg/protocol"
+	"GoJanus/pkg/models"
 )
 
 func TestRequestHandleCreation(t *testing.T) {
 	// Test F0194: Request ID Assignment and F0196: RequestHandle Structure
 	internalID := "test-uuid-12345"
-	command := "test_command"
+	request := "test_request"
 	channel := "test_channel"
 	
-	handle := models.NewRequestHandle(internalID, command, channel)
+	handle := models.NewRequestHandle(internalID, request, channel)
 	
 	// Verify handle properties
-	if handle.GetCommand() != command {
-		t.Errorf("Expected command %s, got %s", command, handle.GetCommand())
+	if handle.GetRequest() != request {
+		t.Errorf("Expected request %s, got %s", request, handle.GetRequest())
 	}
 	
 	if handle.GetChannel() != channel {
@@ -41,7 +41,7 @@ func TestRequestHandleCreation(t *testing.T) {
 
 func TestRequestHandleCancellation(t *testing.T) {
 	// Test F0204: Request Cancellation and F0212: Request Cleanup
-	handle := models.NewRequestHandle("test-id", "test_command", "test_channel")
+	handle := models.NewRequestHandle("test-id", "test_request", "test_channel")
 	
 	if handle.IsCancelled() {
 		t.Error("New handle should not be cancelled")
@@ -66,7 +66,7 @@ func TestRequestStatusTracking(t *testing.T) {
 	defer client.Close()
 	
 	// Create a handle
-	handle := models.NewRequestHandle("test-id", "test_command", "test_channel")
+	handle := models.NewRequestHandle("test-id", "test_request", "test_channel")
 	
 	// Test initial status (should be completed since not in registry)
 	status := client.GetRequestStatus(handle)
@@ -141,11 +141,11 @@ func TestRequestLifecycleManagement(t *testing.T) {
 
 func TestIDVisibilityControl(t *testing.T) {
 	// Test F0195: ID Visibility Control - UUIDs should be hidden from normal API
-	handle := models.NewRequestHandle("internal-uuid-12345", "test_command", "test_channel")
+	handle := models.NewRequestHandle("internal-uuid-12345", "test_request", "test_channel")
 	
-	// User should only see command and channel, not internal UUID through normal API
-	if handle.GetCommand() != "test_command" {
-		t.Errorf("Expected command test_command, got %s", handle.GetCommand())
+	// User should only see request and channel, not internal UUID through normal API
+	if handle.GetRequest() != "test_request" {
+		t.Errorf("Expected request test_request, got %s", handle.GetRequest())
 	}
 	
 	if handle.GetChannel() != "test_channel" {

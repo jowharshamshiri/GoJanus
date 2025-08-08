@@ -2,7 +2,7 @@ package tests
 
 import (
 	"testing"
-	"github.com/jowharshamshiri/GoJanus/pkg/core"
+	"GoJanus/pkg/core"
 )
 
 // TestSocketPathValidation tests socket path validation without external dependencies

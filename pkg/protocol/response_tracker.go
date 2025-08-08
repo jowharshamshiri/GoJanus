@@ -5,11 +5,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jowharshamshiri/GoJanus/pkg/models"
+	"GoJanus/pkg/models"
 )
 
-// PendingCommand represents a command awaiting response
-type PendingCommand struct {
+// PendingRequest represents a request awaiting response
+type PendingRequest struct {
 	Resolve   chan *models.JanusResponse
 	Reject    chan error
 	Timestamp time.Time
@@ -32,14 +32,14 @@ func (e *ResponseTrackerError) Error() string {
 
 // TrackerConfig configures the response tracker
 type TrackerConfig struct {
-	MaxPendingCommands int
+	MaxPendingRequests int
 	CleanupInterval    time.Duration
 	DefaultTimeout     time.Duration
 }
 
 // ResponseTracker manages async response correlation and timeout handling
 type ResponseTracker struct {
-	pendingCommands    map[string]*PendingCommand
+	pendingRequests    map[string]*PendingRequest
 	mutex              sync.RWMutex
 	cleanupTimer       *time.Ticker
 	cleanupDone        chan bool
@@ -50,8 +50,8 @@ type ResponseTracker struct {
 
 // NewResponseTracker creates a new response tracker
 func NewResponseTracker(config TrackerConfig) *ResponseTracker {
-	if config.MaxPendingCommands <= 0 {
-		config.MaxPendingCommands = 1000
+	if config.MaxPendingRequests <= 0 {
+		config.MaxPendingRequests = 1000
 	}
 	if config.CleanupInterval <= 0 {
 		config.CleanupInterval = 30 * time.Second
@@ -61,7 +61,7 @@ func NewResponseTracker(config TrackerConfig) *ResponseTracker {
 	}
 
 	tracker := &ResponseTracker{
-		pendingCommands: make(map[string]*PendingCommand),
+		pendingRequests: make(map[string]*PendingRequest),
 		cleanupDone:     make(chan bool),
 		config:          config,
 		eventHandlers:   make(map[string][]func(interface{})),
@@ -71,9 +71,9 @@ func NewResponseTracker(config TrackerConfig) *ResponseTracker {
 	return tracker
 }
 
-// TrackCommand tracks a command awaiting response
-func (rt *ResponseTracker) TrackCommand(
-	commandID string,
+// TrackRequest tracks a request awaiting response
+func (rt *ResponseTracker) TrackRequest(
+	requestID string,
 	resolve chan *models.JanusResponse,
 	reject chan error,
 	timeout time.Duration,
@@ -86,37 +86,37 @@ func (rt *ResponseTracker) TrackCommand(
 	defer rt.mutex.Unlock()
 
 	// Check limits
-	if len(rt.pendingCommands) >= rt.config.MaxPendingCommands {
+	if len(rt.pendingRequests) >= rt.config.MaxPendingRequests {
 		return &ResponseTrackerError{
-			Message: "Too many pending commands",
-			Code:    "PENDING_COMMANDS_LIMIT",
-			Details: fmt.Sprintf("Maximum %d commands allowed", rt.config.MaxPendingCommands),
+			Message: "Too many pending requests",
+			Code:    "PENDING_REQUESTS_LIMIT",
+			Details: fmt.Sprintf("Maximum %d requests allowed", rt.config.MaxPendingRequests),
 		}
 	}
 
 	// Check for duplicate tracking
-	if _, exists := rt.pendingCommands[commandID]; exists {
+	if _, exists := rt.pendingRequests[requestID]; exists {
 		return &ResponseTrackerError{
-			Message: "Command already being tracked",
-			Code:    "DUPLICATE_COMMAND_ID",
-			Details: fmt.Sprintf("Command %s is already awaiting response", commandID),
+			Message: "Request already being tracked",
+			Code:    "DUPLICATE_REQUEST_ID",
+			Details: fmt.Sprintf("Request %s is already awaiting response", requestID),
 		}
 	}
 
-	// Create pending command entry
-	pending := &PendingCommand{
+	// Create pending request entry
+	pending := &PendingRequest{
 		Resolve:   resolve,
 		Reject:    reject,
 		Timestamp: time.Now(),
 		Timeout:   timeout,
 	}
 
-	rt.pendingCommands[commandID] = pending
+	rt.pendingRequests[requestID] = pending
 
 	// Set individual timeout
 	go func() {
 		time.Sleep(timeout)
-		rt.handleTimeout(commandID)
+		rt.handleTimeout(requestID)
 	}()
 
 	return nil
@@ -125,23 +125,23 @@ func (rt *ResponseTracker) TrackCommand(
 // HandleResponse handles an incoming response
 func (rt *ResponseTracker) HandleResponse(response *models.JanusResponse) bool {
 	rt.mutex.Lock()
-	pending, exists := rt.pendingCommands[response.CommandID]
+	pending, exists := rt.pendingRequests[response.RequestID]
 	if exists {
-		delete(rt.pendingCommands, response.CommandID)
+		delete(rt.pendingRequests, response.RequestID)
 	}
 	rt.mutex.Unlock()
 
 	if !exists {
-		// Response for unknown command (possibly timed out)
+		// Response for unknown request (possibly timed out)
 		return false
 	}
 
 	// Emit cleanup event
-	rt.emit("cleanup", response.CommandID)
+	rt.emit("cleanup", response.RequestID)
 
 	// Emit response event
 	rt.emit("response", map[string]interface{}{
-		"commandId": response.CommandID,
+		"requestId": response.RequestID,
 		"response":  response,
 	})
 
@@ -152,8 +152,8 @@ func (rt *ResponseTracker) HandleResponse(response *models.JanusResponse) bool {
 		default:
 		}
 	} else {
-		errorMsg := "Command failed"
-		errorCode := "COMMAND_FAILED"
+		errorMsg := "Request failed"
+		errorCode := "REQUEST_FAILED"
 		errorDetails := ""
 
 		if response.Error != nil {
@@ -181,12 +181,12 @@ func (rt *ResponseTracker) HandleResponse(response *models.JanusResponse) bool {
 	return true
 }
 
-// CancelCommand cancels tracking for a command
-func (rt *ResponseTracker) CancelCommand(commandID string, reason string) bool {
+// CancelRequest cancels tracking for a request
+func (rt *ResponseTracker) CancelRequest(requestID string, reason string) bool {
 	rt.mutex.Lock()
-	pending, exists := rt.pendingCommands[commandID]
+	pending, exists := rt.pendingRequests[requestID]
 	if exists {
-		delete(rt.pendingCommands, commandID)
+		delete(rt.pendingRequests, requestID)
 	}
 	rt.mutex.Unlock()
 
@@ -194,16 +194,16 @@ func (rt *ResponseTracker) CancelCommand(commandID string, reason string) bool {
 		return false
 	}
 
-	rt.emit("cleanup", commandID)
+	rt.emit("cleanup", requestID)
 
 	if reason == "" {
-		reason = "Command cancelled"
+		reason = "Request cancelled"
 	}
 
 	err := &ResponseTrackerError{
 		Message: reason,
-		Code:    "COMMAND_CANCELLED",
-		Details: fmt.Sprintf("Command %s was cancelled", commandID),
+		Code:    "REQUEST_CANCELLED",
+		Details: fmt.Sprintf("Request %s was cancelled", requestID),
 	}
 
 	select {
@@ -214,27 +214,27 @@ func (rt *ResponseTracker) CancelCommand(commandID string, reason string) bool {
 	return true
 }
 
-// CancelAllCommands cancels all pending commands
-func (rt *ResponseTracker) CancelAllCommands(reason string) int {
+// CancelAllRequests cancels all pending requests
+func (rt *ResponseTracker) CancelAllRequests(reason string) int {
 	rt.mutex.Lock()
-	commands := make(map[string]*PendingCommand)
-	for id, pending := range rt.pendingCommands {
-		commands[id] = pending
+	requests := make(map[string]*PendingRequest)
+	for id, pending := range rt.pendingRequests {
+		requests[id] = pending
 	}
-	rt.pendingCommands = make(map[string]*PendingCommand)
+	rt.pendingRequests = make(map[string]*PendingRequest)
 	rt.mutex.Unlock()
 
 	if reason == "" {
-		reason = "All commands cancelled"
+		reason = "All requests cancelled"
 	}
 
-	count := len(commands)
-	for commandID, pending := range commands {
-		rt.emit("cleanup", commandID)
+	count := len(requests)
+	for requestID, pending := range requests {
+		rt.emit("cleanup", requestID)
 
 		err := &ResponseTrackerError{
 			Message: reason,
-			Code:    "ALL_COMMANDS_CANCELLED",
+			Code:    "ALL_REQUESTS_CANCELLED",
 			Details: reason,
 		}
 
@@ -247,79 +247,79 @@ func (rt *ResponseTracker) CancelAllCommands(reason string) int {
 	return count
 }
 
-// GetPendingCount returns the number of pending commands
+// GetPendingCount returns the number of pending requests
 func (rt *ResponseTracker) GetPendingCount() int {
 	rt.mutex.RLock()
 	defer rt.mutex.RUnlock()
-	return len(rt.pendingCommands)
+	return len(rt.pendingRequests)
 }
 
-// GetPendingCommandIDs returns list of pending command IDs
-func (rt *ResponseTracker) GetPendingCommandIDs() []string {
+// GetPendingRequestIDs returns list of pending request IDs
+func (rt *ResponseTracker) GetPendingRequestIDs() []string {
 	rt.mutex.RLock()
 	defer rt.mutex.RUnlock()
 
-	ids := make([]string, 0, len(rt.pendingCommands))
-	for id := range rt.pendingCommands {
+	ids := make([]string, 0, len(rt.pendingRequests))
+	for id := range rt.pendingRequests {
 		ids = append(ids, id)
 	}
 	return ids
 }
 
-// IsTracking checks if a command is being tracked
-func (rt *ResponseTracker) IsTracking(commandID string) bool {
+// IsTracking checks if a request is being tracked
+func (rt *ResponseTracker) IsTracking(requestID string) bool {
 	rt.mutex.RLock()
 	defer rt.mutex.RUnlock()
-	_, exists := rt.pendingCommands[commandID]
+	_, exists := rt.pendingRequests[requestID]
 	return exists
 }
 
-// CommandStatistics holds statistics about pending commands
-type CommandStatistics struct {
+// RequestStatistics holds statistics about pending requests
+type RequestStatistics struct {
 	PendingCount   int                  `json:"pendingCount"`
 	AverageAge     float64              `json:"averageAge"`
-	OldestCommand  *CommandInfo         `json:"oldestCommand,omitempty"`
-	NewestCommand  *CommandInfo         `json:"newestCommand,omitempty"`
+	OldestRequest  *RequestInfo         `json:"oldestRequest,omitempty"`
+	NewestRequest  *RequestInfo         `json:"newestRequest,omitempty"`
 }
 
-// CommandInfo holds information about a command
-type CommandInfo struct {
+// RequestInfo holds information about a request
+type RequestInfo struct {
 	ID  string  `json:"id"`
 	Age float64 `json:"age"`
 }
 
-// GetStatistics returns statistics about pending commands
-func (rt *ResponseTracker) GetStatistics() CommandStatistics {
+// GetStatistics returns statistics about pending requests
+func (rt *ResponseTracker) GetStatistics() RequestStatistics {
 	rt.mutex.RLock()
 	defer rt.mutex.RUnlock()
 
 	now := time.Now()
-	stats := CommandStatistics{
-		PendingCount: len(rt.pendingCommands),
+	stats := RequestStatistics{
+		PendingCount: len(rt.pendingRequests),
 	}
 
-	if len(rt.pendingCommands) == 0 {
+	if len(rt.pendingRequests) == 0 {
 		return stats
 	}
 
-	type commandAge struct {
+	type requestAge struct {
 		id  string
 		age float64
 	}
 
-	ages := make([]commandAge, 0, len(rt.pendingCommands))
+	ages := make([]requestAge, 0, len(rt.pendingRequests))
 	totalAge := 0.0
 
-	for id, pending := range rt.pendingCommands {
+	for id, pending := range rt.pendingRequests {
 		age := now.Sub(pending.Timestamp).Seconds()
-		ages = append(ages, commandAge{id: id, age: age})
+		ages = append(ages, requestAge{id: id, age: age})
 		totalAge += age
 	}
 
 	stats.AverageAge = totalAge / float64(len(ages))
 
 	// Find oldest and newest
-	var oldest, newest *commandAge
+	var oldest, newest *requestAge
 	for i := range ages {
 		if oldest == nil || ages[i].age > oldest.age {
 			oldest = &ages[i]
@@ -330,35 +330,35 @@ func (rt *ResponseTracker) GetStatistics() CommandStatistics {
 	}
 
 	if oldest != nil {
-		stats.OldestCommand = &CommandInfo{ID: oldest.id, Age: oldest.age}
+		stats.OldestRequest = &RequestInfo{ID: oldest.id, Age: oldest.age}
 	}
 	if newest != nil {
-		stats.NewestCommand = &CommandInfo{ID: newest.id, Age: newest.age}
+		stats.NewestRequest = &RequestInfo{ID: newest.id, Age: newest.age}
 	}
 
 	return stats
 }
 
-// Cleanup removes expired commands
+// Cleanup removes expired requests
 func (rt *ResponseTracker) Cleanup() int {
 	rt.mutex.Lock()
 	defer rt.mutex.Unlock()
 
 	now := time.Now()
 	cleanedCount := 0
-	expiredCommands := []string{}
+	expiredRequests := []string{}
 
-	for commandID, pending := range rt.pendingCommands {
+	for requestID, pending := range rt.pendingRequests {
 		age := now.Sub(pending.Timestamp)
 		if age >= pending.Timeout {
-			expiredCommands = append(expiredCommands, commandID)
+			expiredRequests = append(expiredRequests, requestID)
 		}
 	}
 
-	for _, commandID := range expiredCommands {
-		delete(rt.pendingCommands, commandID)
+	for _, requestID := range expiredRequests {
+		delete(rt.pendingRequests, requestID)
 		cleanedCount++
-		go rt.handleTimeout(commandID)
+		go rt.handleTimeout(requestID)
 	}
 
 	return cleanedCount
@@ -370,7 +370,7 @@ func (rt *ResponseTracker) Shutdown() {
 		rt.cleanupTimer.Stop()
 		rt.cleanupDone <- true
 	}
-	rt.CancelAllCommands("Tracker shutdown")
+	rt.CancelAllRequests("Tracker shutdown")
 }
 
 // On registers an event handler
@@ -384,12 +384,12 @@ func (rt *ResponseTracker) On(event string, handler func(interface{})) {
 	rt.eventHandlers[event] = append(rt.eventHandlers[event], handler)
 }
 
-// handleTimeout handles command timeout
-func (rt *ResponseTracker) handleTimeout(commandID string) {
+// handleTimeout handles request timeout
+func (rt *ResponseTracker) handleTimeout(requestID string) {
 	rt.mutex.Lock()
-	pending, exists := rt.pendingCommands[commandID]
+	pending, exists := rt.pendingRequests[requestID]
 	if exists {
-		delete(rt.pendingCommands, commandID)
+		delete(rt.pendingRequests, requestID)
 	}
 	rt.mutex.Unlock()
 
@@ -397,13 +397,13 @@ func (rt *ResponseTracker) handleTimeout(commandID string) {
 		return // Already handled
 	}
 
-	rt.emit("timeout", commandID)
-	rt.emit("cleanup", commandID)
+	rt.emit("timeout", requestID)
+	rt.emit("cleanup", requestID)
 
 	err := &ResponseTrackerError{
-		Message: "Command timeout",
-		Code:    "COMMAND_TIMEOUT",
-		Details: fmt.Sprintf("Command %s timed out after %v", commandID, pending.Timeout),
+		Message: "Request timeout",
+		Code:    "REQUEST_TIMEOUT",
+		Details: fmt.Sprintf("Request %s timed out after %v", requestID, pending.Timeout),
 	}
 
 	select {

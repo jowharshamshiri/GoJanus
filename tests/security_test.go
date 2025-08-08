@@ -8,16 +8,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jowharshamshiri/GoJanus/pkg/core"
-	"github.com/jowharshamshiri/GoJanus/pkg/models"
-	"github.com/jowharshamshiri/GoJanus/pkg/protocol"
-	"github.com/jowharshamshiri/GoJanus/pkg/specification"
+	"GoJanus/pkg/core"
+	"GoJanus/pkg/models"
+	"GoJanus/pkg/protocol"
+	"GoJanus/pkg/manifest"
 )
 
 // TestPathTraversalAttackPrevention tests prevention of path traversal attacks
 // Matches Swift: testPathTraversalAttackPrevention()
 func TestPathTraversalAttackPrevention(t *testing.T) {
-	_ = createSecurityTestManifest() // Load spec but don't use it - specification is now fetched dynamically
+	_ = createSecurityTestManifest() // Load manifest but don't use it - manifest is now fetched dynamically
 	
 	// Test various path traversal attack patterns
 	maliciousPaths := []string{
@@ -48,7 +48,7 @@ func TestPathTraversalAttackPrevention(t *testing.T) {
 // TestNullByteInjectionDetection tests detection of null byte injection attacks
 // Matches Swift: testNullByteInjectionDetection()
 func TestNullByteInjectionDetection(t *testing.T) {
-	_ = createSecurityTestManifest() // Load spec but don't use it - specification is now fetched dynamically
+	_ = createSecurityTestManifest() // Load manifest but don't use it - manifest is now fetched dynamically
 	
 	// Test null byte injection in socket paths
 	nullBytePaths := []string{
@@ -79,7 +79,7 @@ func TestChannelIDInjectionAttacks(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	_ = createSecurityTestManifest() // Load spec but don't use it - specification is now fetched dynamically
+	_ = createSecurityTestManifest() // Load manifest but don't use it - manifest is now fetched dynamically
 	
 	// Test malicious channel IDs - should be rejected
 	maliciousChannelIDs := []string{
@@ -110,23 +110,23 @@ func TestChannelIDInjectionAttacks(t *testing.T) {
 	}
 }
 
-// TestCommandInjectionInArguments tests prevention of command injection in arguments
-// Matches Swift: testCommandInjectionInArguments()
-func TestCommandInjectionInArguments(t *testing.T) {
+// TestRequestInjectionInArguments tests prevention of request injection in arguments
+// Matches Swift: testRequestInjectionInArguments()
+func TestRequestInjectionInArguments(t *testing.T) {
 	testSocketPath := "/tmp/gojanus-security-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	_ = createSecurityTestManifest() // Load spec but don't use it - specification is now fetched dynamically
+	_ = createSecurityTestManifest() // Load manifest but don't use it - manifest is now fetched dynamically
 	client, err := protocol.New(testSocketPath, "security-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 	defer client.Close()
 	
-	// Test command injection patterns in arguments
+	// Test request injection patterns in arguments
 	injectionPatterns := []string{
 		"; rm -rf /",
 		"| whoami",
@@ -147,7 +147,7 @@ func TestCommandInjectionInArguments(t *testing.T) {
 		
 		// Test validation - should detect malicious content
 		validator := core.NewSecurityValidator()
-		jsonData, _ := models.NewJanusCommand("security-channel", "secure-command", args, nil).ToJSON()
+		jsonData, _ := models.NewJanusRequest("security-channel", "secure-request", args, nil).ToJSON()
 		
 		err := validator.ValidateMessageData(jsonData)
 		if err != nil && strings.Contains(injection, "\x00") {
@@ -178,7 +178,7 @@ func TestMalformedJSONAttackPrevention(t *testing.T) {
 	}
 	
 	for _, malformedData := range malformedJSONData {
-		_, err := specification.ParseJSON(malformedData)
+		_, err := manifest.ParseJSON(malformedData)
 		if err == nil {
 			t.Errorf("Expected JSON parsing error for malformed data: %s", string(malformedData))
 		}
@@ -199,7 +199,7 @@ func TestUnicodeNormalizationAttacks(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	_ = createSecurityTestManifest() // Load spec but don't use it - specification is now fetched dynamically
+	_ = createSecurityTestManifest() // Load manifest but don't use it - manifest is now fetched dynamically
 	client, err := protocol.New(testSocketPath, "security-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -222,8 +222,8 @@ func TestUnicodeNormalizationAttacks(t *testing.T) {
 			"secure_param": unicodeText,
 		}
 		
-		command := models.NewJanusCommand("security-channel", "secure-command", args, nil)
-		jsonData, err := command.ToJSON()
+		request := models.NewJanusRequest("security-channel", "secure-request", args, nil)
+		jsonData, err := request.ToJSON()
 		if err != nil {
 			t.Errorf("Failed to serialize Unicode text %s: %v", unicodeText, err)
 			continue
@@ -250,7 +250,7 @@ func TestMemoryExhaustionViaLargePayloads(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	_ = createSecurityTestManifest() // Load spec but don't use it - specification is now fetched dynamically
+	_ = createSecurityTestManifest() // Load manifest but don't use it - manifest is now fetched dynamically
 	client, err := protocol.New(testSocketPath, "security-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -264,8 +264,8 @@ func TestMemoryExhaustionViaLargePayloads(t *testing.T) {
 		"secure_param": largeString,
 	}
 	
-	command := models.NewJanusCommand("security-channel", "secure-command", args, nil)
-	jsonData, err := command.ToJSON()
+	request := models.NewJanusRequest("security-channel", "secure-request", args, nil)
+	jsonData, err := request.ToJSON()
 	if err != nil {
 		// Large serialization might fail, which is acceptable
 		return
@@ -286,7 +286,7 @@ func TestMemoryExhaustionViaLargePayloads(t *testing.T) {
 // TestResourceExhaustionViaConnectionFlooding tests protection against connection flooding
 // Matches Swift: testResourceExhaustionViaConnectionFlooding()
 func TestResourceExhaustionViaConnectionFlooding(t *testing.T) {
-	_ = createSecurityTestManifest() // Load spec but don't use it - specification is now fetched dynamically
+	_ = createSecurityTestManifest() // Load manifest but don't use it - manifest is now fetched dynamically
 	
 	// Test creating many clients rapidly
 	maxAttempts := 200 // More than default max connections (100)
@@ -339,7 +339,7 @@ func TestConfigurationSecurityValidation(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	_ = createSecurityTestManifest() // Load spec but don't use it - specification is now fetched dynamically
+	_ = createSecurityTestManifest() // Load manifest but don't use it - manifest is now fetched dynamically
 	
 	// Test insecure configurations
 	insecureConfigs := []protocol.JanusClientConfig{
@@ -374,7 +374,7 @@ func TestValidationBypassAttempts(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	spec := createSecurityTestManifest() // Create spec for validation bypass testing
+	manifest := createSecurityTestManifest() // Create manifest for validation bypass testing
 	client, err := protocol.New(testSocketPath, "security-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -400,14 +400,14 @@ func TestValidationBypassAttempts(t *testing.T) {
 	}
 	
 	for i, args := range bypassAttempts {
-		// Try to validate through the specification
-		commandSpec, err := spec.GetCommand("security-channel", "secure-command")
+		// Try to validate through the manifest
+		requestManifest, err := manifest.GetRequest("security-channel", "secure-request")
 		if err != nil {
-			t.Errorf("Failed to get command spec: %v", err)
+			t.Errorf("Failed to get request manifest: %v", err)
 			continue
 		}
 		
-		err = spec.ValidateCommandArgs(commandSpec, args)
+		err = manifest.ValidateRequestArgs(requestManifest, args)
 		
 		// Most bypass attempts should fail validation
 		switch i {
@@ -436,7 +436,7 @@ func TestValidationBypassAttempts(t *testing.T) {
 // TestSocketPathSecurityRestrictions tests socket path security restrictions
 // Matches Swift socket path security validation
 func TestSocketPathSecurityRestrictions(t *testing.T) {
-	_ = createSecurityTestManifest() // Load spec but don't use it - specification is now fetched dynamically
+	_ = createSecurityTestManifest() // Load manifest but don't use it - manifest is now fetched dynamically
 	
 	// Test paths outside allowed directories
 	restrictedPaths := []string{
@@ -485,20 +485,20 @@ func TestSocketPathSecurityRestrictions(t *testing.T) {
 }
 
 // Helper function to create security test Manifest
-func createSecurityTestManifest() *specification.Manifest {
-	return &specification.Manifest{
+func createSecurityTestManifest() *manifest.Manifest {
+	return &manifest.Manifest{
 		Version:     "1.0.0",
 		Name:        "Security Test API",
 		Description: "Manifest for security testing",
-		Channels: map[string]*specification.ChannelSpec{
+		Channels: map[string]*manifest.ChannelManifest{
 			"security-channel": {
 				Name:        "Security Channel",
 				Description: "Channel for security testing",
-				Commands: map[string]*specification.CommandSpec{
-					"secure-command": {
-						Name:        "Secure Command",
-						Description: "Command for security testing",
-						Args: map[string]*specification.ArgumentSpec{
+				Requests: map[string]*manifest.RequestManifest{
+					"secure-request": {
+						Name:        "Secure Request",
+						Description: "Request for security testing",
+						Args: map[string]*manifest.ArgumentManifest{
 							"secure_param": {
 								Name:        "Secure Parameter",
 								Type:        "string",
@@ -509,7 +509,7 @@ func createSecurityTestManifest() *specification.Manifest {
 								Pattern:     "^[a-zA-Z0-9_-]+$",
 							},
 						},
-						Response: &specification.ResponseSpec{
+						Response: &manifest.ResponseManifest{
 							Type:        "object",
 							Description: "Security test response",
 						},
@@ -543,7 +543,7 @@ func TestDynamicMessageSizeDetection(t *testing.T) {
 	ctx := context.Background()
 	
 	// This should fail with connection error, not validation error
-	_, err = client.SendCommand(ctx, "echo", normalArgs, protocol.CommandOptions{Timeout: 1*time.Second})
+	_, err = client.SendRequest(ctx, "echo", normalArgs, protocol.RequestOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected connection error since no server is running")
 	}
@@ -561,7 +561,7 @@ func TestDynamicMessageSizeDetection(t *testing.T) {
 	}
 	
 	// This should fail with size validation error before attempting connection
-	_, err = client.SendCommand(ctx, "echo", largeArgs, protocol.CommandOptions{Timeout: 1*time.Second})
+	_, err = client.SendRequest(ctx, "echo", largeArgs, protocol.RequestOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected validation error for oversized message")
 	}
@@ -573,12 +573,12 @@ func TestDynamicMessageSizeDetection(t *testing.T) {
 	}
 	
 	// Test fire-and-forget with large message
-	err = client.SendCommandNoResponse(ctx, "echo", largeArgs)
+	err = client.SendRequestNoResponse(ctx, "echo", largeArgs)
 	if err == nil {
 		t.Error("Expected validation error for oversized fire-and-forget message")
 	}
 	
-	// Message size detection should work for both response and no-response commands
+	// Message size detection should work for both response and no-response requests
 	if err != nil {
 		t.Logf("Fire-and-forget large message correctly rejected: %v", err)
 	}

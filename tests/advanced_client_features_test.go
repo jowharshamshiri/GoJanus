@@ -1,6 +1,6 @@
 /**
  * Comprehensive tests for Advanced Client Features in Go implementation
- * Tests all 7 features: Response Correlation, Command Cancellation, Bulk Cancellation,
+ * Tests all 7 features: Response Correlation, Request Cancellation, Bulk Cancellation,
  * Statistics, Parallel Execution, Channel Proxy, and Dynamic Argument Validation
  */
 
@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jowharshamshiri/GoJanus/pkg/protocol"
+	"GoJanus/pkg/protocol"
 )
 
 // TestResponseCorrelationSystem tests that responses are correctly correlated with requests
@@ -27,136 +27,136 @@ func TestResponseCorrelationSystem(t *testing.T) {
 	}
 	defer client.Close()
 
-	// Test multiple concurrent commands with different IDs
-	command1ID := uuid.New().String()
-	_ = uuid.New().String() // command2ID unused but shows concept
+	// Test multiple concurrent requests with different IDs
+	request1ID := uuid.New().String()
+	_ = uuid.New().String() // request2ID unused but shows concept
 
-	// Track pending commands before sending
-	initialCount := client.GetPendingCommandCount()
+	// Track pending requests before sending
+	initialCount := client.GetPendingRequestCount()
 	if initialCount != 0 {
-		t.Errorf("Should start with no pending commands, got %d", initialCount)
+		t.Errorf("Should start with no pending requests, got %d", initialCount)
 	}
 
 	// Test correlation tracking functionality exists
-	// Commands will fail due to no server but correlation should be tracked
+	// Requests will fail due to no server but correlation should be tracked
 
-	// Test individual command cancellation
-	cancelled := client.CancelCommand(command1ID, "Test cancellation")
+	// Test individual request cancellation
+	cancelled := client.CancelRequest(request1ID, "Test cancellation")
 	if cancelled {
-		t.Error("Cancelling non-existent command should return false")
+		t.Error("Cancelling non-existent request should return false")
 	}
 
-	t.Log("✅ Response correlation system tracks commands correctly")
+	t.Log("✅ Response correlation system tracks requests correctly")
 }
 
-// TestCommandCancellation tests cancelling individual commands
-func TestCommandCancellation(t *testing.T) {
+// TestRequestCancellation tests cancelling individual requests
+func TestRequestCancellation(t *testing.T) {
 	socketPath := fmt.Sprintf("/tmp/test_cancel_%s.sock", uuid.New().String())
 	
 	client, err := protocol.New(socketPath, "test-channel")
 	if err != nil {
-		t.Logf("⚠️ Command cancellation test setup failed (expected in test environment): %v", err)
+		t.Logf("⚠️ Request cancellation test setup failed (expected in test environment): %v", err)
 		return
 	}
 	defer client.Close()
 
-	commandID := uuid.New().String()
+	requestID := uuid.New().String()
 
-	// Test cancelling a non-existent command
-	cancelled := client.CancelCommand(commandID, "Test cancellation")
+	// Test cancelling a non-existent request
+	cancelled := client.CancelRequest(requestID, "Test cancellation")
 	if cancelled {
-		t.Error("Cancelling non-existent command should return false")
+		t.Error("Cancelling non-existent request should return false")
 	}
 
-	// Test command cancellation functionality exists
-	pendingCount := client.GetPendingCommandCount()
+	// Test request cancellation functionality exists
+	pendingCount := client.GetPendingRequestCount()
 	if pendingCount != 0 {
-		t.Errorf("Should have no pending commands initially, got %d", pendingCount)
+		t.Errorf("Should have no pending requests initially, got %d", pendingCount)
 	}
 
-	t.Log("✅ Command cancellation functionality works correctly")
+	t.Log("✅ Request cancellation functionality works correctly")
 }
 
-// TestBulkCommandCancellation tests cancelling all pending commands at once
-func TestBulkCommandCancellation(t *testing.T) {
+// TestBulkRequestCancellation tests cancelling all pending requests at once
+func TestBulkRequestCancellation(t *testing.T) {
 	socketPath := fmt.Sprintf("/tmp/test_bulk_cancel_%s.sock", uuid.New().String())
 	
 	client, err := protocol.New(socketPath, "test-channel")
 	if err != nil {
-		t.Logf("⚠️ Bulk command cancellation test setup failed (expected in test environment): %v", err)
+		t.Logf("⚠️ Bulk request cancellation test setup failed (expected in test environment): %v", err)
 		return
 	}
 	defer client.Close()
 
-	// Test bulk cancellation when no commands are pending
-	cancelledCount := client.CancelAllCommands("Bulk test cancellation")
+	// Test bulk cancellation when no requests are pending
+	cancelledCount := client.CancelAllRequests("Bulk test cancellation")
 	if cancelledCount != 0 {
-		t.Errorf("Should cancel 0 commands when none are pending, got %d", cancelledCount)
+		t.Errorf("Should cancel 0 requests when none are pending, got %d", cancelledCount)
 	}
 
-	// Verify pending command count is still 0
-	pendingCount := client.GetPendingCommandCount()
+	// Verify pending request count is still 0
+	pendingCount := client.GetPendingRequestCount()
 	if pendingCount != 0 {
-		t.Errorf("Should have no pending commands after bulk cancellation, got %d", pendingCount)
+		t.Errorf("Should have no pending requests after bulk cancellation, got %d", pendingCount)
 	}
 
-	t.Log("✅ Bulk command cancellation functionality works correctly")
+	t.Log("✅ Bulk request cancellation functionality works correctly")
 }
 
-// TestPendingCommandStatistics tests command metrics and monitoring
-func TestPendingCommandStatistics(t *testing.T) {
+// TestPendingRequestStatistics tests request metrics and monitoring
+func TestPendingRequestStatistics(t *testing.T) {
 	socketPath := fmt.Sprintf("/tmp/test_stats_%s.sock", uuid.New().String())
 	
 	client, err := protocol.New(socketPath, "test-channel")
 	if err != nil {
-		t.Logf("⚠️ Pending command statistics test setup failed (expected in test environment): %v", err)
+		t.Logf("⚠️ Pending request statistics test setup failed (expected in test environment): %v", err)
 		return
 	}
 	defer client.Close()
 
 	// Test initial statistics
-	pendingCount := client.GetPendingCommandCount()
+	pendingCount := client.GetPendingRequestCount()
 	if pendingCount != 0 {
-		t.Errorf("Should start with 0 pending commands, got %d", pendingCount)
+		t.Errorf("Should start with 0 pending requests, got %d", pendingCount)
 	}
 
-	pendingIds := client.GetPendingCommandIDs()
+	pendingIds := client.GetPendingRequestIDs()
 	if len(pendingIds) != 0 {
-		t.Errorf("Should start with no pending command IDs, got %d", len(pendingIds))
+		t.Errorf("Should start with no pending request IDs, got %d", len(pendingIds))
 	}
 
-	// Test command tracking functionality
-	testCommandID := uuid.New().String()
-	isPending := client.IsCommandPending(testCommandID)
+	// Test request tracking functionality
+	testRequestID := uuid.New().String()
+	isPending := client.IsRequestPending(testRequestID)
 	if isPending {
-		t.Error("Non-existent command should not be pending")
+		t.Error("Non-existent request should not be pending")
 	}
 
-	// Test command statistics
-	stats := client.GetCommandStatistics()
+	// Test request statistics
+	stats := client.GetRequestStatistics()
 	if stats.PendingCount != 0 {
-		t.Errorf("Should start with 0 pending commands in stats, got %d", stats.PendingCount)
+		t.Errorf("Should start with 0 pending requests in stats, got %d", stats.PendingCount)
 	}
 
-	t.Log("✅ Pending command statistics work correctly")
+	t.Log("✅ Pending request statistics work correctly")
 }
 
-// TestMultiCommandParallelExecution tests executing multiple commands in parallel
-func TestMultiCommandParallelExecution(t *testing.T) {
+// TestMultiRequestParallelExecution tests executing multiple requests in parallel
+func TestMultiRequestParallelExecution(t *testing.T) {
 	socketPath := fmt.Sprintf("/tmp/test_parallel_%s.sock", uuid.New().String())
 	
 	client, err := protocol.New(socketPath, "test-channel")
 	if err != nil {
-		t.Logf("⚠️ Multi-command parallel execution test setup failed (expected in test environment): %v", err)
+		t.Logf("⚠️ Multi-request parallel execution test setup failed (expected in test environment): %v", err)
 		return
 	}
 	defer client.Close()
 
-	// Create multiple test commands
-	commands := []protocol.ParallelCommand{
-		{Command: "ping", Args: map[string]interface{}{}},
-		{Command: "echo", Args: map[string]interface{}{"message": "test1"}},
-		{Command: "echo", Args: map[string]interface{}{"message": "test2"}},
+	// Create multiple test requests
+	requests := []protocol.ParallelRequest{
+		{Request: "ping", Args: map[string]interface{}{}},
+		{Request: "echo", Args: map[string]interface{}{"message": "test1"}},
+		{Request: "echo", Args: map[string]interface{}{"message": "test2"}},
 	}
 
 	// Test parallel execution capability
@@ -164,12 +164,12 @@ func TestMultiCommandParallelExecution(t *testing.T) {
 	defer cancel()
 	
 	startTime := time.Now()
-	results := client.ExecuteCommandsInParallel(ctx, commands)
+	results := client.ExecuteRequestsInParallel(ctx, requests)
 	executionTime := time.Since(startTime)
 
 	// Verify parallel execution functionality exists (results will be errors due to no server)
 	if len(results) != 3 {
-		t.Errorf("Should return results for all 3 commands, got %d", len(results))
+		t.Errorf("Should return results for all 3 requests, got %d", len(results))
 	}
 
 	if executionTime > 10*time.Second {
@@ -179,15 +179,15 @@ func TestMultiCommandParallelExecution(t *testing.T) {
 	// All results should be errors due to no server, but that's expected
 	for i, result := range results {
 		if result.Error == nil {
-			t.Errorf("Command %d should fail without server but succeeded", i)
+			t.Errorf("Request %d should fail without server but succeeded", i)
 		}
 		// Expected - no server available
 	}
 
-	t.Log("✅ Multi-command parallel execution functionality works correctly")
+	t.Log("✅ Multi-request parallel execution functionality works correctly")
 }
 
-// TestChannelProxy tests channel-specific command execution
+// TestChannelProxy tests channel-manifestific request execution
 func TestChannelProxy(t *testing.T) {
 	socketPath := fmt.Sprintf("/tmp/test_proxy_%s.sock", uuid.New().String())
 	
@@ -207,13 +207,13 @@ func TestChannelProxy(t *testing.T) {
 		t.Errorf("Channel proxy should have correct channel ID, expected %s, got %s", proxyChannelID, channelProxy.GetChannelID())
 	}
 
-	// Test proxy command execution capability
+	// Test proxy request execution capability
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	
-	_, err = channelProxy.SendCommand(ctx, "ping", map[string]interface{}{})
+	_, err = channelProxy.SendRequest(ctx, "ping", map[string]interface{}{})
 	if err == nil {
-		t.Error("Command should fail without server but proxy functionality should work")
+		t.Error("Request should fail without server but proxy functionality should work")
 	}
 	// Expected - no server available, but proxy functionality works
 
@@ -238,21 +238,21 @@ func TestDynamicArgumentValidation(t *testing.T) {
 		"boolean_param": true,
 	}
 
-	// Test argument validation through command sending
+	// Test argument validation through request sending
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	
-	_, err = client.SendCommand(ctx, "test_command", validArgs)
+	_, err = client.SendRequest(ctx, "test_request", validArgs)
 	if err == nil {
-		t.Error("Command should fail without server but argument validation should work")
+		t.Error("Request should fail without server but argument validation should work")
 	}
 	// Expected - no server available, but argument validation should work
 
 	// Test empty arguments
 	emptyArgs := map[string]interface{}{}
-	_, err = client.SendCommand(ctx, "ping", emptyArgs)
+	_, err = client.SendRequest(ctx, "ping", emptyArgs)
 	if err == nil {
-		t.Error("Command should fail without server but empty arguments should be valid")
+		t.Error("Request should fail without server but empty arguments should be valid")
 	}
 	// Expected - no server available, but empty arguments should be valid
 
@@ -273,9 +273,9 @@ func TestAdvancedClientFeaturesIntegration(t *testing.T) {
 	// Test integrated workflow: statistics -> parallel execution -> cancellation
 
 	// 1. Check initial statistics
-	initialStats := client.GetCommandStatistics()
+	initialStats := client.GetRequestStatistics()
 	if initialStats.PendingCount != 0 {
-		t.Errorf("Should start with no pending commands, got %d", initialStats.PendingCount)
+		t.Errorf("Should start with no pending requests, got %d", initialStats.PendingCount)
 	}
 
 	// 2. Create channel proxy
@@ -285,27 +285,27 @@ func TestAdvancedClientFeaturesIntegration(t *testing.T) {
 	}
 
 	// 3. Test bulk operations
-	bulkCancelled := client.CancelAllCommands("Integration test cleanup")
+	bulkCancelled := client.CancelAllRequests("Integration test cleanup")
 	if bulkCancelled != 0 {
-		t.Errorf("Should cancel 0 commands initially, got %d", bulkCancelled)
+		t.Errorf("Should cancel 0 requests initially, got %d", bulkCancelled)
 	}
 
 	// 4. Verify final state
-	finalStats := client.GetCommandStatistics()
+	finalStats := client.GetRequestStatistics()
 	if finalStats.PendingCount != 0 {
-		t.Errorf("Should end with no pending commands, got %d", finalStats.PendingCount)
+		t.Errorf("Should end with no pending requests, got %d", finalStats.PendingCount)
 	}
 
 	t.Log("✅ Advanced Client Features integration test completed successfully")
 }
 
-// TestCommandTimeoutAndCorrelation tests command timeout handling with response correlation
-func TestCommandTimeoutAndCorrelation(t *testing.T) {
+// TestRequestTimeoutAndCorrelation tests request timeout handling with response correlation
+func TestRequestTimeoutAndCorrelation(t *testing.T) {
 	socketPath := fmt.Sprintf("/tmp/test_timeout_%s.sock", uuid.New().String())
 	
 	client, err := protocol.New(socketPath, "test-channel")
 	if err != nil {
-		t.Logf("⚠️ Command timeout test setup failed (expected in test environment): %v", err)
+		t.Logf("⚠️ Request timeout test setup failed (expected in test environment): %v", err)
 		return
 	}
 	defer client.Close()
@@ -316,25 +316,25 @@ func TestCommandTimeoutAndCorrelation(t *testing.T) {
 	defer cancel()
 	
 	startTime := time.Now()
-	_, err = client.SendCommand(ctx, "ping", map[string]interface{}{})
+	_, err = client.SendRequest(ctx, "ping", map[string]interface{}{})
 	elapsed := time.Since(startTime)
 
 	// Should timeout quickly
 	if err == nil {
-		t.Error("Command should timeout without server")
+		t.Error("Request should timeout without server")
 	}
 
 	if elapsed > 2*time.Second {
-		t.Errorf("Timeout should be respected, took %v", elapsed)
+		t.Errorf("Timeout should be remanifestted, took %v", elapsed)
 	}
 
-	// Verify no pending commands after timeout
-	pendingAfterTimeout := client.GetPendingCommandCount()
+	// Verify no pending requests after timeout
+	pendingAfterTimeout := client.GetPendingRequestCount()
 	if pendingAfterTimeout != 0 {
-		t.Errorf("Should have no pending commands after timeout, got %d", pendingAfterTimeout)
+		t.Errorf("Should have no pending requests after timeout, got %d", pendingAfterTimeout)
 	}
 
-	t.Log("✅ Command timeout and correlation handling works correctly")
+	t.Log("✅ Request timeout and correlation handling works correctly")
 }
 
 // TestConcurrentOperations tests concurrent Advanced Client Features operations
@@ -359,8 +359,8 @@ func TestConcurrentOperations(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		go func(index int) {
-			count := client.GetPendingCommandCount()
-			ids := client.GetPendingCommandIDs()
+			count := client.GetPendingRequestCount()
+			ids := client.GetPendingRequestIDs()
 			results <- statsResult{index, count, ids}
 		}(i)
 	}
@@ -386,7 +386,7 @@ func TestConcurrentOperations(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 		go func(index int) {
-			cancelled := client.CancelAllCommands(fmt.Sprintf("Concurrent test %d", index))
+			cancelled := client.CancelAllRequests(fmt.Sprintf("Concurrent test %d", index))
 			cancelResults <- cancelResult{index, cancelled}
 		}(i)
 	}

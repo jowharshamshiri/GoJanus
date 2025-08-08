@@ -7,21 +7,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jowharshamshiri/GoJanus/pkg/models"
-	"github.com/jowharshamshiri/GoJanus/pkg/protocol"
-	"github.com/jowharshamshiri/GoJanus/pkg/specification"
+	"GoJanus/pkg/models"
+	"GoJanus/pkg/protocol"
+	"GoJanus/pkg/manifest"
 )
 
-// TestCommandValidationWithoutConnection tests command validation without requiring a connection
-// Matches Swift: testCommandValidationWithoutConnection()
-func TestCommandValidationWithoutConnection(t *testing.T) {
+// TestRequestValidationWithoutConnection tests request validation without requiring a connection
+// Matches Swift: testRequestValidationWithoutConnection()
+func TestRequestValidationWithoutConnection(t *testing.T) {
 	testSocketPath := "/tmp/gojanus-stateless-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	_ = createStatelessTestManifest() // Load spec but don't use it - specification is now fetched dynamically
+	_ = createStatelessTestManifest() // Load manifest but don't use it - manifest is now fetched dynamically
 	client, err := protocol.New(testSocketPath, "stateless-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -35,7 +35,7 @@ func TestCommandValidationWithoutConnection(t *testing.T) {
 		"test_param": "valid_value",
 	}
 	
-	_, err = client.SendCommand(ctx, "stateless-command", validArgs, protocol.CommandOptions{Timeout: 1*time.Second})
+	_, err = client.SendRequest(ctx, "stateless-request", validArgs, protocol.RequestOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected connection error since no server is running")
 	}
@@ -45,13 +45,13 @@ func TestCommandValidationWithoutConnection(t *testing.T) {
 		t.Errorf("Got validation error when expecting connection error: %v", err)
 	}
 	
-	// Test with invalid arguments - in Dynamic Specification Architecture, 
+	// Test with invalid arguments - in Dynamic Manifest Architecture, 
 	// this will also fail at connection stage before validation can occur
 	invalidArgs := map[string]interface{}{
 		"wrong_param": "value",
 	}
 	
-	_, err = client.SendCommand(ctx, "stateless-command", invalidArgs, protocol.CommandOptions{Timeout: 1*time.Second})
+	_, err = client.SendRequest(ctx, "stateless-request", invalidArgs, protocol.RequestOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected connection error since no server is running")
 	}
@@ -62,16 +62,16 @@ func TestCommandValidationWithoutConnection(t *testing.T) {
 	}
 }
 
-// TestIndependentCommandExecution tests that commands execute independently
-// Matches Swift: testIndependentCommandExecution()
-func TestIndependentCommandExecution(t *testing.T) {
+// TestIndependentRequestExecution tests that requests execute independently
+// Matches Swift: testIndependentRequestExecution()
+func TestIndependentRequestExecution(t *testing.T) {
 	testSocketPath := "/tmp/gojanus-stateless-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	_ = createStatelessTestManifest() // Load spec but don't use it - specification is now fetched dynamically
+	_ = createStatelessTestManifest() // Load manifest but don't use it - manifest is now fetched dynamically
 	client, err := protocol.New(testSocketPath, "stateless-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -80,7 +80,7 @@ func TestIndependentCommandExecution(t *testing.T) {
 	
 	ctx := context.Background()
 	
-	// Create multiple commands with different IDs
+	// Create multiple requests with different IDs
 	args1 := map[string]interface{}{
 		"test_param": "value1",
 	}
@@ -90,9 +90,9 @@ func TestIndependentCommandExecution(t *testing.T) {
 	}
 	
 	// Both should fail with connection error (no server running)
-	// but each should have unique command IDs
-	_, err1 := client.SendCommand(ctx, "stateless-command", args1, protocol.CommandOptions{Timeout: 1*time.Second})
-	_, err2 := client.SendCommand(ctx, "stateless-command", args2, protocol.CommandOptions{Timeout: 1*time.Second})
+	// but each should have unique request IDs
+	_, err1 := client.SendRequest(ctx, "stateless-request", args1, protocol.RequestOptions{Timeout: 1*time.Second})
+	_, err2 := client.SendRequest(ctx, "stateless-request", args2, protocol.RequestOptions{Timeout: 1*time.Second})
 	
 	if err1 == nil || err2 == nil {
 		t.Error("Expected connection errors since no server is running")
@@ -118,7 +118,7 @@ func TestChannelIsolationBetweenClients(t *testing.T) {
 		os.Remove(testSocketPath2)
 	}()
 	
-	_ = createMultiChannelManifest() // Load spec but don't use it - specification is now fetched dynamically
+	_ = createMultiChannelManifest() // Load manifest but don't use it - manifest is now fetched dynamically
 	
 	// Create clients for different channels
 	client1, err := protocol.New(testSocketPath1, "channel-1")
@@ -140,24 +140,24 @@ func TestChannelIsolationBetweenClients(t *testing.T) {
 	
 	ctx := context.Background()
 	
-	// Client1 should be able to call channel-1 commands
+	// Client1 should be able to call channel-1 requests
 	args1 := map[string]interface{}{
 		"param1": "value",
 	}
 	
-	_, err = client1.SendCommand(ctx, "command-1", args1, protocol.CommandOptions{Timeout: 1*time.Second})
+	_, err = client1.SendRequest(ctx, "request-1", args1, protocol.RequestOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected connection error since no server is running")
 	}
 	
-	// Should be connection error, not validation error (command exists in channel-1)
+	// Should be connection error, not validation error (request exists in channel-1)
 	if strings.Contains(err.Error(), "validation") || strings.Contains(err.Error(), "not found") {
 		t.Errorf("Got validation/not-found error when expecting connection error: %v", err)
 	}
 	
-	// Client1 should NOT be able to call channel-2 commands
-	// In Dynamic Specification Architecture, this fails at connection stage
-	_, err = client1.SendCommand(ctx, "command-2", args1, protocol.CommandOptions{Timeout: 1*time.Second})
+	// Client1 should NOT be able to call channel-2 requests
+	// In Dynamic Manifest Architecture, this fails at connection stage
+	_, err = client1.SendRequest(ctx, "request-2", args1, protocol.RequestOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected connection error since no server is running")
 	}
@@ -177,7 +177,7 @@ func TestArgumentValidationInStatelessMode(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	_ = createStatelessTestManifest() // Load spec but don't use it - specification is now fetched dynamically
+	_ = createStatelessTestManifest() // Load manifest but don't use it - manifest is now fetched dynamically
 	client, err := protocol.New(testSocketPath, "stateless-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -191,23 +191,23 @@ func TestArgumentValidationInStatelessMode(t *testing.T) {
 		"optional_param": "value",
 	}
 	
-	_, err = client.SendCommand(ctx, "validation-command", argsWithoutRequired, protocol.CommandOptions{Timeout: 1*time.Second})
+	_, err = client.SendRequest(ctx, "validation-request", argsWithoutRequired, protocol.RequestOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected connection error since no server is running")
 	}
 	
-	// In Dynamic Specification Architecture, this fails at connection stage
+	// In Dynamic Manifest Architecture, this fails at connection stage
 	if strings.Contains(err.Error(), "validation") {
 		t.Errorf("Got validation error when expecting connection error: %v", err)
 	}
 	
-	// Test type validation - also fails at connection stage in Dynamic Specification Architecture
+	// Test type validation - also fails at connection stage in Dynamic Manifest Architecture
 	argsWithWrongType := map[string]interface{}{
 		"required_param": 123, // Should be string
 		"optional_param": "value",
 	}
 	
-	_, err = client.SendCommand(ctx, "validation-command", argsWithWrongType, protocol.CommandOptions{Timeout: 1*time.Second})
+	_, err = client.SendRequest(ctx, "validation-request", argsWithWrongType, protocol.RequestOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected connection error since no server is running")
 	}
@@ -223,7 +223,7 @@ func TestArgumentValidationInStatelessMode(t *testing.T) {
 		"optional_param": "optional_value",
 	}
 	
-	_, err = client.SendCommand(ctx, "validation-command", validArgs, protocol.CommandOptions{Timeout: 1*time.Second})
+	_, err = client.SendRequest(ctx, "validation-request", validArgs, protocol.RequestOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected connection error since no server is running")
 	}
@@ -243,21 +243,21 @@ func TestMessageSerializationForStatelessOperations(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	_ = createStatelessTestManifest() // Load spec but don't use it - specification is now fetched dynamically
+	_ = createStatelessTestManifest() // Load manifest but don't use it - manifest is now fetched dynamically
 	client, err := protocol.New(testSocketPath, "stateless-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 	// Note: SOCK_DGRAM clients are connectionless and don't need explicit cleanup
 	
-	// Test publish command (fire-and-forget)
+	// Test publish request (fire-and-forget)
 	publishArgs := map[string]interface{}{
 		"test_param": "publish_value",
 	}
 	
 	ctx := context.Background()
 	
-	commandID, err := client.PublishCommand(ctx, "stateless-command", publishArgs)
+	requestID, err := client.PublishRequest(ctx, "stateless-request", publishArgs)
 	if err == nil {
 		t.Error("Expected connection error since no server is running")
 	}
@@ -267,14 +267,14 @@ func TestMessageSerializationForStatelessOperations(t *testing.T) {
 		t.Errorf("Got validation error when expecting connection error: %v", err)
 	}
 	
-	// Even though it failed due to connection, the command ID should have been generated
+	// Even though it failed due to connection, the request ID should have been generated
 	// (this tests that serialization and validation happened before connection attempt)
-	if commandID != "" {
-		t.Error("Command ID should be empty when publish fails")
+	if requestID != "" {
+		t.Error("Request ID should be empty when publish fails")
 	}
 }
 
-// TestMultiChannelManifestHandling tests handling of multi-channel specifications
+// TestMultiChannelManifestHandling tests handling of multi-channel manifests
 // Matches Swift: testMultiChannelManifestHandling()
 func TestMultiChannelManifestHandling(t *testing.T) {
 	testSocketPath := "/tmp/gojanus-stateless-test.sock"
@@ -283,7 +283,7 @@ func TestMultiChannelManifestHandling(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	_ = createMultiChannelManifest() // Load spec but don't use it - specification is now fetched dynamically
+	_ = createMultiChannelManifest() // Load manifest but don't use it - manifest is now fetched dynamically
 	
 	// Test creating clients for different channels
 	client1, err := protocol.New(testSocketPath, "channel-1")
@@ -307,42 +307,42 @@ func TestMultiChannelManifestHandling(t *testing.T) {
 		t.Errorf("Expected channel-2, got %s", client2.ChannelIdentifier())
 	}
 	
-	// Verify clients have access to the same specification
-	if client1.Specification() != client2.Specification() {
-		t.Error("Clients should share the same specification reference")
+	// Verify clients have access to the same manifest
+	if client1.Manifest() != client2.Manifest() {
+		t.Error("Clients should share the same manifest reference")
 	}
 	
-	// Verify each client can only access commands from its channel
+	// Verify each client can only access requests from its channel
 	ctx := context.Background()
 	
 	args := map[string]interface{}{
 		"param1": "value",
 	}
 	
-	// In Dynamic Specification Architecture, both commands fail at connection stage
-	// Client1 attempts to validate command-1 (would exist in channel-1 if server was running)
-	_, err = client1.SendCommand(ctx, "command-1", args, protocol.CommandOptions{Timeout: 1*time.Second})
+	// In Dynamic Manifest Architecture, both requests fail at connection stage
+	// Client1 attempts to validate request-1 (would exist in channel-1 if server was running)
+	_, err = client1.SendRequest(ctx, "request-1", args, protocol.RequestOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected connection error since no server is running")
 	}
 	
-	// Client1 attempts to validate command-2 (would not exist in channel-1 if server was running)
-	_, err = client1.SendCommand(ctx, "command-2", args, protocol.CommandOptions{Timeout: 1*time.Second})
+	// Client1 attempts to validate request-2 (would not exist in channel-1 if server was running)
+	_, err = client1.SendRequest(ctx, "request-2", args, protocol.RequestOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected connection error since no server is running")
 	}
 }
 
-// TestStatelessCommandUUIDGeneration tests that each stateless command gets unique UUID
+// TestStatelessRequestUUIDGeneration tests that each stateless request gets unique UUID
 // Matches Swift stateless UUID generation patterns
-func TestStatelessCommandUUIDGeneration(t *testing.T) {
+func TestStatelessRequestUUIDGeneration(t *testing.T) {
 	testSocketPath := "/tmp/gojanus-stateless-test.sock"
 	
 	// Clean up before and after test
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	_ = createStatelessTestManifest() // Load spec but don't use it - specification is now fetched dynamically
+	_ = createStatelessTestManifest() // Load manifest but don't use it - manifest is now fetched dynamically
 	client, err := protocol.New(testSocketPath, "stateless-channel")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -354,36 +354,36 @@ func TestStatelessCommandUUIDGeneration(t *testing.T) {
 		t.Errorf("Expected channel ID 'stateless-channel', got %s", client.ChannelIdentifier())
 	}
 	
-	// Create multiple commands and verify they have different UUIDs
+	// Create multiple requests and verify they have different UUIDs
 	args := map[string]interface{}{
 		"test_param": "value",
 	}
 	
-	command1 := models.NewJanusCommand("stateless-channel", "stateless-command", args, nil)
-	command2 := models.NewJanusCommand("stateless-channel", "stateless-command", args, nil)
-	command3 := models.NewJanusCommand("stateless-channel", "stateless-command", args, nil)
+	request1 := models.NewJanusRequest("stateless-channel", "stateless-request", args, nil)
+	request2 := models.NewJanusRequest("stateless-channel", "stateless-request", args, nil)
+	request3 := models.NewJanusRequest("stateless-channel", "stateless-request", args, nil)
 	
 	// Verify UUIDs are different
-	if command1.ID == command2.ID {
-		t.Error("Commands should have different UUIDs")
+	if request1.ID == request2.ID {
+		t.Error("Requests should have different UUIDs")
 	}
 	
-	if command2.ID == command3.ID {
-		t.Error("Commands should have different UUIDs")
+	if request2.ID == request3.ID {
+		t.Error("Requests should have different UUIDs")
 	}
 	
-	if command1.ID == command3.ID {
-		t.Error("Commands should have different UUIDs")
+	if request1.ID == request3.ID {
+		t.Error("Requests should have different UUIDs")
 	}
 	
 	// Verify UUIDs are not empty
-	if command1.ID == "" || command2.ID == "" || command3.ID == "" {
-		t.Error("Command UUIDs should not be empty")
+	if request1.ID == "" || request2.ID == "" || request3.ID == "" {
+		t.Error("Request UUIDs should not be empty")
 	}
 	
 	// Verify UUID format (should be valid UUID string)
-	if len(command1.ID) != 36 { // Standard UUID length
-		t.Errorf("Expected UUID length 36, got %d", len(command1.ID))
+	if len(request1.ID) != 36 { // Standard UUID length
+		t.Errorf("Expected UUID length 36, got %d", len(request1.ID))
 	}
 }
 
@@ -396,7 +396,7 @@ func TestChannelIsolationValidation(t *testing.T) {
 	os.Remove(testSocketPath)
 	defer os.Remove(testSocketPath)
 	
-	_ = createMultiChannelManifest() // Load spec but don't use it - specification is now fetched dynamically
+	_ = createMultiChannelManifest() // Load manifest but don't use it - manifest is now fetched dynamically
 	client, err := protocol.New(testSocketPath, "channel-1")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -407,11 +407,11 @@ func TestChannelIsolationValidation(t *testing.T) {
 	
 	// Test that client validates channel isolation
 	args := map[string]interface{}{
-		"param2": "value", // This is the correct param for command-2
+		"param2": "value", // This is the correct param for request-2
 	}
 	
-	// Try to call command from different channel - fails at connection stage in Dynamic Specification Architecture
-	_, err = client.SendCommand(ctx, "command-2", args, protocol.CommandOptions{Timeout: 1*time.Second})
+	// Try to call request from different channel - fails at connection stage in Dynamic Manifest Architecture
+	_, err = client.SendRequest(ctx, "request-2", args, protocol.RequestOptions{Timeout: 1*time.Second})
 	if err == nil {
 		t.Error("Expected connection error since no server is running")
 	}
@@ -423,20 +423,20 @@ func TestChannelIsolationValidation(t *testing.T) {
 }
 
 // Helper function to create a stateless test Manifest
-func createStatelessTestManifest() *specification.Manifest {
-	return &specification.Manifest{
+func createStatelessTestManifest() *manifest.Manifest {
+	return &manifest.Manifest{
 		Version:     "1.0.0",
 		Name:        "Stateless Test API",
 		Description: "Manifest for stateless communication testing",
-		Channels: map[string]*specification.ChannelSpec{
+		Channels: map[string]*manifest.ChannelManifest{
 			"stateless-channel": {
 				Name:        "Stateless Channel",
 				Description: "Channel for stateless testing",
-				Commands: map[string]*specification.CommandSpec{
-					"stateless-command": {
-						Name:        "Stateless Command",
-						Description: "Command for stateless testing",
-						Args: map[string]*specification.ArgumentSpec{
+				Requests: map[string]*manifest.RequestManifest{
+					"stateless-request": {
+						Name:        "Stateless Request",
+						Description: "Request for stateless testing",
+						Args: map[string]*manifest.ArgumentManifest{
 							"test_param": {
 								Name:        "Test Parameter",
 								Type:        "string",
@@ -444,15 +444,15 @@ func createStatelessTestManifest() *specification.Manifest {
 								Required:    true,
 							},
 						},
-						Response: &specification.ResponseSpec{
+						Response: &manifest.ResponseManifest{
 							Type:        "object",
 							Description: "Test response",
 						},
 					},
-					"validation-command": {
-						Name:        "Validation Command",
-						Description: "Command for validation testing",
-						Args: map[string]*specification.ArgumentSpec{
+					"validation-request": {
+						Name:        "Validation Request",
+						Description: "Request for validation testing",
+						Args: map[string]*manifest.ArgumentManifest{
 							"required_param": {
 								Name:        "Required Parameter",
 								Type:        "string",
@@ -466,7 +466,7 @@ func createStatelessTestManifest() *specification.Manifest {
 								Required:    false,
 							},
 						},
-						Response: &specification.ResponseSpec{
+						Response: &manifest.ResponseManifest{
 							Type:        "object",
 							Description: "Validation response",
 						},
@@ -478,20 +478,20 @@ func createStatelessTestManifest() *specification.Manifest {
 }
 
 // Helper function to create a multi-channel Manifest
-func createMultiChannelManifest() *specification.Manifest {
-	return &specification.Manifest{
+func createMultiChannelManifest() *manifest.Manifest {
+	return &manifest.Manifest{
 		Version:     "1.0.0",
 		Name:        "Multi-Channel Test API",
 		Description: "Manifest with multiple channels",
-		Channels: map[string]*specification.ChannelSpec{
+		Channels: map[string]*manifest.ChannelManifest{
 			"channel-1": {
 				Name:        "Channel 1",
 				Description: "First test channel",
-				Commands: map[string]*specification.CommandSpec{
-					"command-1": {
-						Name:        "Command 1",
-						Description: "First channel command",
-						Args: map[string]*specification.ArgumentSpec{
+				Requests: map[string]*manifest.RequestManifest{
+					"request-1": {
+						Name:        "Request 1",
+						Description: "First channel request",
+						Args: map[string]*manifest.ArgumentManifest{
 							"param1": {
 								Name:        "Parameter 1",
 								Type:        "string",
@@ -499,7 +499,7 @@ func createMultiChannelManifest() *specification.Manifest {
 								Required:    true,
 							},
 						},
-						Response: &specification.ResponseSpec{
+						Response: &manifest.ResponseManifest{
 							Type:        "object",
 							Description: "Response from channel 1",
 						},
@@ -509,11 +509,11 @@ func createMultiChannelManifest() *specification.Manifest {
 			"channel-2": {
 				Name:        "Channel 2",
 				Description: "Second test channel",
-				Commands: map[string]*specification.CommandSpec{
-					"command-2": {
-						Name:        "Command 2",
-						Description: "Second channel command",
-						Args: map[string]*specification.ArgumentSpec{
+				Requests: map[string]*manifest.RequestManifest{
+					"request-2": {
+						Name:        "Request 2",
+						Description: "Second channel request",
+						Args: map[string]*manifest.ArgumentManifest{
 							"param2": {
 								Name:        "Parameter 2",
 								Type:        "string",
@@ -521,7 +521,7 @@ func createMultiChannelManifest() *specification.Manifest {
 								Required:    true,
 							},
 						},
-						Response: &specification.ResponseSpec{
+						Response: &manifest.ResponseManifest{
 							Type:        "object",
 							Description: "Response from channel 2",
 						},

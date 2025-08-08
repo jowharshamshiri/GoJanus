@@ -5,28 +5,28 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/jowharshamshiri/GoJanus/pkg/core"
-	"github.com/jowharshamshiri/GoJanus/pkg/models"
-	"github.com/jowharshamshiri/GoJanus/pkg/specification"
+	"GoJanus/pkg/core"
+	"GoJanus/pkg/models"
+	"GoJanus/pkg/manifest"
 )
 
 // JanusClient is the main client interface for SOCK_DGRAM Unix socket communication
 // Connectionless implementation for cross-language compatibility
 type JanusClient struct {
 	socketPath     string
-	channelID      string
-	manifest        *specification.Manifest
+	manifest        *manifest.Manifest
 	config         JanusClientConfig
 	
 	janusClient *core.JanusClient
 	validator      *core.SecurityValidator
 	
-	// Command handler registry (thread-safe)
-	handlers      map[string]models.CommandHandler
+	// Request handler registry (thread-safe)
+	handlers      map[string]models.RequestHandler
 	handlerMutex  sync.RWMutex
 	
 	// Timeout management
@@ -59,21 +59,10 @@ func DefaultJanusClientConfig() JanusClientConfig {
 }
 
 // validateConstructorInputs validates constructor parameters
-func validateConstructorInputs(socketPath, channelID string, config JanusClientConfig) error {
+func validateConstructorInputs(socketPath string, config JanusClientConfig) error {
 	// Validate socket path
 	if socketPath == "" {
 		return fmt.Errorf("socket path cannot be empty")
-	}
-	
-	// Validate channel ID for security
-	if channelID == "" {
-		return fmt.Errorf("channel ID cannot be empty")
-	}
-	
-	// Check for malicious channel IDs
-	if strings.ContainsAny(channelID, "\x00;`$|&\n\r\t/") || 
-	   strings.Contains(channelID, "..") {
-		return fmt.Errorf("invalid channel ID: contains forbidden characters")
 	}
 	
 	// Manifest is always fetched from server - no validation needed here
@@ -94,33 +83,38 @@ func validateConstructorInputs(socketPath, channelID string, config JanusClientC
 	return nil
 }
 
-// fetchSpecificationFromServer fetches the Manifest from the server
-func fetchSpecificationFromServer(janusClient *core.JanusClient, socketPath string, cfg JanusClientConfig) (*specification.Manifest, error) {
+// fetchManifestFromServer fetches the Manifest from the server
+func fetchManifestFromServer(janusClient *core.JanusClient, socketPath string, cfg JanusClientConfig) (*manifest.Manifest, error) {
+	log.Printf("[GO-PROTOCOL] fetchManifestFromServer ENTER - Server: %s", socketPath)
+	
 	// Generate response socket path
-	responseSocketPath := fmt.Sprintf("/tmp/janus_spec_%d_%s.sock", time.Now().UnixNano(), generateRandomID())
+	responseSocketPath := fmt.Sprintf("/tmp/janus_manifest_%d_%s.sock", time.Now().UnixNano(), generateRandomID())
+	log.Printf("[GO-PROTOCOL] Generated response socket path: %s", responseSocketPath)
 	
-	// Create spec command with proper JanusCommand structure
-	specCommand := models.JanusCommand{
-		ID:        generateUUID(),
-		ChannelID: "default", // Use default channel for spec command
-		Command:   "spec",
-		ReplyTo:   &responseSocketPath,
-		Timestamp: float64(time.Now().Unix()),
-	}
+	// Create manifest request with proper JanusRequest structure
+	manifestRequest := *models.NewJanusRequest("manifest", nil, nil)
+	manifestRequest.ReplyTo = &responseSocketPath
 	
-	commandJSON, err := json.Marshal(specCommand)
+	requestJSON, err := json.Marshal(manifestRequest)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal spec command: %w", err)
+		return nil, fmt.Errorf("failed to marshal manifest request: %w", err)
 	}
 	
-	// Send spec command to server with timeout context
+	// Send manifest request to server with timeout context
+	log.Printf("[GO-PROTOCOL] Creating timeout context: %v", cfg.DefaultTimeout)
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.DefaultTimeout)
-	defer cancel()
+	defer func() {
+		log.Printf("[GO-PROTOCOL] Context cancel called")
+		cancel()
+	}()
 	
-	responseData, err := janusClient.SendDatagram(ctx, commandJSON, responseSocketPath)
+	log.Printf("[GO-PROTOCOL] Calling core SendDatagram with response path: %s", responseSocketPath)
+	responseData, err := janusClient.SendDatagram(ctx, requestJSON, responseSocketPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch specification from server: %w", err)
+		log.Printf("[GO-PROTOCOL] ERROR: SendDatagram failed: %v", err)
+		return nil, fmt.Errorf("failed to fetch manifest from server: %w", err)
 	}
+	log.Printf("[GO-PROTOCOL] SendDatagram SUCCESS - Received %d bytes", len(responseData))
 	
 	// Parse the response JSON
 	var response map[string]interface{}
@@ -128,29 +122,30 @@ func fetchSpecificationFromServer(janusClient *core.JanusClient, socketPath stri
 		return nil, fmt.Errorf("failed to parse server response: %w", err)
 	}
 	
-	// Check for error in response
-	if errorMsg, exists := response["error"]; exists {
+	// Check for error in response (PRIME DIRECTIVE format)
+	if errorMsg, exists := response["error"]; exists && errorMsg != nil {
 		return nil, fmt.Errorf("server returned error: %v", errorMsg)
 	}
 	
-	// Extract specification from response
-	specData, exists := response["result"]
+	// Extract manifest from response
+	manifestData, exists := response["result"]
 	if !exists {
 		return nil, fmt.Errorf("server response missing 'result' field")
 	}
 	
-	// Convert spec data to JSON and parse
-	specJSON, err := json.Marshal(specData)
+	// Convert manifest data to JSON and parse
+	manifestJSON, err := json.Marshal(manifestData)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal specification data: %w", err)
+		return nil, fmt.Errorf("failed to marshal manifest data: %w", err)
 	}
 	
-	parser := specification.NewManifestParser()
-	manifest, err := parser.ParseJSON(specJSON)
+	parser := manifest.NewManifestParser()
+	manifest, err := parser.ParseJSON(manifestJSON)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse server specification: %w", err)
+		return nil, fmt.Errorf("failed to parse server manifest: %w", err)
 	}
 	
+	log.Printf("[GO-PROTOCOL] fetchManifestFromServer SUCCESS - Returning manifest")
 	return manifest, nil
 }
 
@@ -166,15 +161,15 @@ func generateRandomID() string {
 }
 
 // New creates a new datagram API client
-// Always fetches specification from server - no hardcoded specs allowed
-func New(socketPath, channelID string, config ...JanusClientConfig) (*JanusClient, error) {
+// Always fetches manifest from server - no hardcoded manifests allowed
+func New(socketPath string, config ...JanusClientConfig) (*JanusClient, error) {
 	cfg := DefaultJanusClientConfig()
 	if len(config) > 0 {
 		cfg = config[0]
 	}
 	
 	// Validate inputs 
-	if err := validateConstructorInputs(socketPath, channelID, cfg); err != nil {
+	if err := validateConstructorInputs(socketPath, cfg); err != nil {
 		return nil, err
 	}
 	
@@ -196,7 +191,7 @@ func New(socketPath, channelID string, config ...JanusClientConfig) (*JanusClien
 	
 	// Initialize response tracker for advanced client features
 	trackerConfig := TrackerConfig{
-		MaxPendingCommands: 1000,
+		MaxPendingRequests: 1000,
 		CleanupInterval:    30 * time.Second,
 		DefaultTimeout:     cfg.DefaultTimeout,
 	}
@@ -204,12 +199,11 @@ func New(socketPath, channelID string, config ...JanusClientConfig) (*JanusClien
 	
 	return &JanusClient{
 		socketPath:      socketPath,
-		channelID:       channelID,
 		manifest:         nil,
 		config:          cfg,
 		janusClient:     janusClient,
 		validator:       validator,
-		handlers:        make(map[string]models.CommandHandler),
+		handlers:        make(map[string]models.RequestHandler),
 		timeoutManager:  timeoutManager,
 		responseTracker: responseTracker,
 		requestRegistry: make(map[string]*models.RequestHandle),
@@ -226,42 +220,33 @@ func (client *JanusClient) ensureManifestLoaded() error {
 		return nil // Validation disabled, no need to fetch
 	}
 	
-	// Fetch specification from server
-	fetchedSpec, err := fetchSpecificationFromServer(client.janusClient, client.socketPath, client.config)
+	// Fetch manifest from server
+	fetchedManifest, err := fetchManifestFromServer(client.janusClient, client.socketPath, client.config)
 	if err != nil {
 		return fmt.Errorf("failed to fetch Manifest: %w", err)
 	}
 	
-	// Validate channel exists in fetched specification
-	if _, exists := fetchedSpec.Channels[client.channelID]; !exists {
-		return fmt.Errorf("channel '%s' not found in server specification", client.channelID)
-	}
-	
-	client.manifest = fetchedSpec
+	// Channels have been removed from the protocol
+	client.manifest = fetchedManifest
 	return nil
 }
 
-// SendCommand sends a command via SOCK_DGRAM and waits for response
-func (client *JanusClient) SendCommand(ctx context.Context, command string, args map[string]interface{}, options ...CommandOptions) (*models.JanusResponse, error) {
+// SendRequest sends a request via SOCK_DGRAM and waits for response
+func (client *JanusClient) SendRequest(ctx context.Context, request string, args map[string]interface{}, options ...RequestOptions) (*models.JanusResponse, error) {
 	// Apply options
-	opts := mergeCommandOptions(options...)
+	opts := mergeRequestOptions(options...)
 	
-	// Generate command ID
-	commandID := generateUUID()
+	// Generate request ID
+	requestID := generateUUID()
 	
 	// Generate response socket path
 	responseSocketPath := client.janusClient.GenerateResponseSocketPath()
 	
-	// Create socket command
-	janusCommand := models.JanusCommand{
-		ID:        commandID,
-		ChannelID: client.channelID,
-		Command:   command,
-		ReplyTo:   &responseSocketPath,
-		Args:      args,
-		Timeout:   func() *float64 { f := opts.Timeout.Seconds(); return &f }(),
-		Timestamp: float64(time.Now().Unix()),
-	}
+	// Create socket request
+	timeoutSeconds := opts.Timeout.Seconds()
+	janusRequest := *models.NewJanusRequest(request, args, &timeoutSeconds)
+	janusRequest.ID = requestID // Use provided request ID
+	janusRequest.ReplyTo = &responseSocketPath
 	
 	// Ensure Manifest is loaded for validation
 	if client.config.EnableValidation {
@@ -274,21 +259,21 @@ func (client *JanusClient) SendCommand(ctx context.Context, command string, args
 		}
 	}
 
-	// Validate command arguments against Manifest (but don't reject unknown commands)
-	// Unknown commands should be sent to the server which will respond with an error
+	// Validate request arguments against Manifest (but don't reject unknown requests)
+	// Unknown requests should be sent to the server which will respond with an error
 	if client.config.EnableValidation && client.manifest != nil {
-		// Only validate arguments if the command exists in the manifest
-		if client.manifest.HasCommand(client.channelID, command) {
-			commandSpec, err := client.manifest.GetCommand(client.channelID, command)
+		// Only validate arguments if the request exists in the manifest
+		if client.manifest.HasRequest(request) {
+			requestManifest, err := client.manifest.GetRequest(request)
 			if err != nil {
-				return nil, fmt.Errorf("command validation failed: %w", err)
+				return nil, fmt.Errorf("request validation failed: %w", err)
 			}
 			
-			if err := client.manifest.ValidateCommandArgs(commandSpec, args); err != nil {
-				return nil, fmt.Errorf("command validation failed: %w", err)
+			if err := client.manifest.ValidateRequestArgs(requestManifest, args); err != nil {
+				return nil, fmt.Errorf("request validation failed: %w", err)
 			}
 		}
-		// If command doesn't exist in manifest, still send it to server
+		// If request doesn't exist in manifest, still send it to server
 		// Server will respond with METHOD_NOT_FOUND error
 	}
 	
@@ -298,19 +283,19 @@ func (client *JanusClient) SendCommand(ctx context.Context, command string, args
 		timeout = client.config.DefaultTimeout
 	}
 	
-	commandCtx, cancel := context.WithTimeout(ctx, timeout)
+	requestCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	
-	// Serialize command
-	commandData, err := json.Marshal(janusCommand)
+	// Serialize request
+	requestData, err := json.Marshal(janusRequest)
 	if err != nil {
-		return nil, fmt.Errorf("failed to serialize command: %w", err)
+		return nil, fmt.Errorf("failed to serialize request: %w", err)
 	}
 	
 	// Send datagram and wait for response
-	responseData, err := client.janusClient.SendDatagram(commandCtx, commandData, responseSocketPath)
+	responseData, err := client.janusClient.SendDatagram(requestCtx, requestData, responseSocketPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send command datagram: %w", err)
+		return nil, fmt.Errorf("failed to send request datagram: %w", err)
 	}
 	
 	// Deserialize response
@@ -320,56 +305,34 @@ func (client *JanusClient) SendCommand(ctx context.Context, command string, args
 	}
 	
 	// Validate response correlation
-	if response.CommandID != commandID {
-		return nil, fmt.Errorf("response correlation mismatch: expected %s, got %s", commandID, response.CommandID)
+	if response.RequestID != requestID {
+		return nil, fmt.Errorf("response correlation mismatch: expected %s, got %s", requestID, response.RequestID)
 	}
 	
-	if response.ChannelID != client.channelID {
-		return nil, fmt.Errorf("channel mismatch: expected %s, got %s", client.channelID, response.ChannelID)
-	}
+	// PRIME DIRECTIVE: Channel validation removed - responses don't include channel info
 	
 	return &response, nil
 }
 
-// SendCommandNoResponse sends a command without expecting a response (fire-and-forget)
-func (client *JanusClient) SendCommandNoResponse(ctx context.Context, command string, args map[string]interface{}) error {
-	// Generate command ID
-	commandID := generateUUID()
+// SendRequestNoResponse sends a request without expecting a response (fire-and-forget)
+func (client *JanusClient) SendRequestNoResponse(ctx context.Context, request string, args map[string]interface{}) error {
+	// Generate request ID
+	requestID := generateUUID()
 	
-	// Create socket command (no reply_to field)
-	janusCommand := models.JanusCommand{
-		ID:        commandID,
-		ChannelID: client.channelID,
-		Command:   command,
-		Args:      args,
-		Timeout:   nil, // No timeout for fire-and-forget
-		Timestamp: float64(time.Now().Unix()),
-	}
+	// Create socket request (no reply_to field)
+	janusRequest := *models.NewJanusRequest(request, args, nil)
+	janusRequest.ID = requestID // Use provided request ID
 	
-	// Validate command against Manifest
-	if client.config.EnableValidation && client.manifest != nil {
-		if !client.manifest.HasCommand(client.channelID, command) {
-			return fmt.Errorf("command '%s' not found in channel '%s'", command, client.channelID)
-		}
-		
-		commandSpec, err := client.manifest.GetCommand(client.channelID, command)
-		if err != nil {
-			return fmt.Errorf("command validation failed: %w", err)
-		}
-		
-		if err := client.manifest.ValidateCommandArgs(commandSpec, args); err != nil {
-			return fmt.Errorf("command validation failed: %w", err)
-		}
-	}
+	// Channels have been removed - skip validation
 	
-	// Serialize command
-	commandData, err := json.Marshal(janusCommand)
+	// Serialize request
+	requestData, err := json.Marshal(janusRequest)
 	if err != nil {
-		return fmt.Errorf("failed to serialize command: %w", err)
+		return fmt.Errorf("failed to serialize request: %w", err)
 	}
 	
 	// Send datagram without waiting for response
-	return client.janusClient.SendDatagramNoResponse(ctx, commandData)
+	return client.janusClient.SendDatagramNoResponse(ctx, requestData)
 }
 
 // TestConnection tests connectivity to the server
@@ -391,7 +354,7 @@ func (client *JanusClient) Close() error {
 	
 	// Clear handlers
 	client.handlerMutex.Lock()
-	client.handlers = make(map[string]models.CommandHandler)
+	client.handlers = make(map[string]models.RequestHandler)
 	client.handlerMutex.Unlock()
 	
 	// Cancel and clear all pending requests
@@ -400,9 +363,9 @@ func (client *JanusClient) Close() error {
 	return nil
 }
 
-// GetChannelID returns the channel ID
+// GetChannelID returns empty string - channels have been removed
 func (client *JanusClient) GetChannelID() string {
-	return client.channelID
+	return ""
 }
 
 // GetSocketPath returns the socket path
@@ -411,40 +374,40 @@ func (client *JanusClient) GetSocketPath() string {
 }
 
 // GetManifest returns the Manifest
-func (client *JanusClient) GetManifest() *specification.Manifest {
+func (client *JanusClient) GetManifest() *manifest.Manifest {
 	return client.manifest
 }
 
 // Helper functions
 
-// generateUUID generates a simple UUID for command correlation
+// generateUUID generates a simple UUID for request correlation
 func generateUUID() string {
 	b := make([]byte, 16)
 	rand.Read(b)
 	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
 }
 
-// isBuiltinCommand checks if a command is a built-in command
-func (client *JanusClient) isBuiltinCommand(command string) bool {
-	builtinCommands := map[string]bool{
+// isBuiltinRequest checks if a request is a built-in request
+func (client *JanusClient) isBuiltinRequest(request string) bool {
+	builtinRequests := map[string]bool{
 		"ping":         true,
 		"echo":         true,
 		"get_info":     true,
-		"spec":         true,
+		"manifest":         true,
 		"validate":     true,
 		"slow_process": true,
 	}
-	return builtinCommands[command]
+	return builtinRequests[request]
 }
 
-// CommandOptions holds options for sending commands
-type CommandOptions struct {
+// RequestOptions holds options for sending requests
+type RequestOptions struct {
 	Timeout time.Duration
 }
 
-// mergeCommandOptions merges command options with defaults
-func mergeCommandOptions(options ...CommandOptions) CommandOptions {
-	opts := CommandOptions{
+// mergeRequestOptions merges request options with defaults
+func mergeRequestOptions(options ...RequestOptions) RequestOptions {
+	opts := RequestOptions{
 		Timeout: 30 * time.Second, // default
 	}
 	
@@ -459,34 +422,34 @@ func mergeCommandOptions(options ...CommandOptions) CommandOptions {
 
 // Automatic ID Management Methods (F0193-F0216)
 
-// SendCommandWithHandle sends a command and returns a RequestHandle for tracking
+// SendRequestWithHandle sends a request and returns a RequestHandle for tracking
 // Hides UUID complexity from users while providing request lifecycle management
-func (client *JanusClient) SendCommandWithHandle(ctx context.Context, command string, args map[string]interface{}, options ...CommandOptions) (*models.RequestHandle, chan *models.JanusResponse, chan error) {
+func (client *JanusClient) SendRequestWithHandle(ctx context.Context, request string, args map[string]interface{}, options ...RequestOptions) (*models.RequestHandle, chan *models.JanusResponse, chan error) {
 	// Generate internal UUID (hidden from user)
-	commandID := generateUUID()
+	requestID := generateUUID()
 	
 	// Create request handle for user
-	handle := models.NewRequestHandle(commandID, command, client.channelID)
+	handle := models.NewRequestHandle(requestID, request)
 	
 	// Register the request handle
 	client.registryMutex.Lock()
-	client.requestRegistry[commandID] = handle
+	client.requestRegistry[requestID] = handle
 	client.registryMutex.Unlock()
 	
 	// Create response and error channels
 	responseChan := make(chan *models.JanusResponse, 1)
 	errorChan := make(chan error, 1)
 	
-	// Execute command asynchronously
+	// Execute request asynchronously
 	go func() {
 		defer func() {
 			// Clean up request handle when done
 			client.registryMutex.Lock()
-			delete(client.requestRegistry, commandID)
+			delete(client.requestRegistry, requestID)
 			client.registryMutex.Unlock()
 		}()
 		
-		response, err := client.SendCommand(ctx, command, args, options...)
+		response, err := client.SendRequest(ctx, request, args, options...)
 		if err != nil {
 			errorChan <- err
 			return
@@ -562,23 +525,23 @@ func (client *JanusClient) CancelAllRequests() int {
 
 // Backward compatibility methods for tests
 
-// ChannelIdentifier returns the channel ID for backward compatibility
+// ChannelIdentifier returns empty string - channels have been removed
 func (client *JanusClient) ChannelIdentifier() string {
-	return client.channelID
+	return ""
 }
 
-// Specification returns the Manifest for backward compatibility  
-func (client *JanusClient) Specification() *specification.Manifest {
+// Manifest returns the Manifest for backward compatibility  
+func (client *JanusClient) Manifest() *manifest.Manifest {
 	return client.manifest
 }
 
-// PublishCommand sends a command without expecting response for backward compatibility
-func (client *JanusClient) PublishCommand(ctx context.Context, command string, args map[string]interface{}) (string, error) {
-	err := client.SendCommandNoResponse(ctx, command, args)
+// PublishRequest sends a request without expecting response for backward compatibility
+func (client *JanusClient) PublishRequest(ctx context.Context, request string, args map[string]interface{}) (string, error) {
+	err := client.SendRequestNoResponse(ctx, request, args)
 	if err != nil {
 		return "", err
 	}
-	// Return a generated command ID for compatibility
+	// Return a generated request ID for compatibility
 	return generateUUID(), nil
 }
 
@@ -587,21 +550,14 @@ func (client *JanusClient) SocketPathString() string {
 	return client.socketPath
 }
 
-// RegisterCommandHandler validates command exists in specification (SOCK_DGRAM compatibility)
-func (client *JanusClient) RegisterCommandHandler(command string, handler interface{}) error {
+// RegisterRequestHandler validates request exists in manifest (SOCK_DGRAM compatibility)
+func (client *JanusClient) RegisterRequestHandler(request string, handler interface{}) error {
 	// Ensure manifest is loaded first
 	if err := client.ensureManifestLoaded(); err != nil {
 		return fmt.Errorf("failed to load manifest for handler validation: %w", err)
 	}
 	
-	// Validate command exists in the Manifest for the client's channel
-	if client.manifest != nil {
-		if channel, exists := client.manifest.Channels[client.channelID]; exists {
-			if _, commandExists := channel.Commands[command]; !commandExists {
-				return fmt.Errorf("command '%s' not found in channel '%s'", command, client.channelID)
-			}
-		}
-	}
+	// Channels have been removed - skip validation
 	
 	// SOCK_DGRAM doesn't actually use handlers, but validation passed
 	return nil
@@ -619,22 +575,22 @@ func (client *JanusClient) IsConnected() bool {
 	return true
 }
 
-// Ping sends a ping command and returns success/failure
-// Convenience method for testing connectivity with a simple ping command
+// Ping sends a ping request and returns success/failure
+// Convenience method for testing connectivity with a simple ping request
 func (client *JanusClient) Ping(ctx context.Context) bool {
-	_, err := client.SendCommand(ctx, "ping", nil)
+	_, err := client.SendRequest(ctx, "ping", nil)
 	return err == nil
 }
 
 // MARK: - Advanced Client Features (Response Correlation System)
 
-// SendCommandAsync sends a command and returns a channel for receiving the response
-func (client *JanusClient) SendCommandAsync(ctx context.Context, command string, args map[string]interface{}) (<-chan *models.JanusResponse, <-chan error) {
+// SendRequestAsync sends a request and returns a channel for receiving the response
+func (client *JanusClient) SendRequestAsync(ctx context.Context, request string, args map[string]interface{}) (<-chan *models.JanusResponse, <-chan error) {
 	responseChan := make(chan *models.JanusResponse, 1)
 	errorChan := make(chan error, 1)
 
 	go func() {
-		response, err := client.SendCommand(ctx, command, args)
+		response, err := client.SendRequest(ctx, request, args)
 		if err != nil {
 			errorChan <- err
 			return
@@ -645,80 +601,58 @@ func (client *JanusClient) SendCommandAsync(ctx context.Context, command string,
 	return responseChan, errorChan
 }
 
-// SendCommandWithCorrelation sends a command with response correlation tracking
-func (client *JanusClient) SendCommandWithCorrelation(ctx context.Context, command string, args map[string]interface{}, timeout time.Duration) (<-chan *models.JanusResponse, <-chan error, string) {
-	commandID := generateUUID()
+// SendRequestWithCorrelation sends a request with response correlation tracking
+func (client *JanusClient) SendRequestWithCorrelation(ctx context.Context, request string, args map[string]interface{}, timeout time.Duration) (<-chan *models.JanusResponse, <-chan error, string) {
+	requestID := generateUUID()
 	responseChan := make(chan *models.JanusResponse, 1)
 	errorChan := make(chan error, 1)
 
-	// Track the command in response tracker
-	err := client.responseTracker.TrackCommand(commandID, responseChan, errorChan, timeout)
+	// Track the request in response tracker
+	err := client.responseTracker.TrackRequest(requestID, responseChan, errorChan, timeout)
 	if err != nil {
 		go func() { errorChan <- err }()
-		return responseChan, errorChan, commandID
+		return responseChan, errorChan, requestID
 	}
 
-	// Send the command asynchronously
+	// Send the request asynchronously
 	go func() {
 		// Create response socket path
 		responseSocketPath := fmt.Sprintf("/tmp/janus_response_%d_%s.sock", time.Now().UnixNano(), generateRandomID())
 
-		// Create socket command with specific ID
+		// Create socket request with manifestific ID
 		timeoutSeconds := float64(timeout.Seconds())
-		janusCommand := models.JanusCommand{
-			ID:        commandID,
-			ChannelID: client.channelID,
-			Command:   command,
-			Args:      args,
-			ReplyTo:   &responseSocketPath,
-			Timeout:   &timeoutSeconds,
-			Timestamp: float64(time.Now().Unix()),
-		}
+		janusRequest := *models.NewJanusRequest(request, args, &timeoutSeconds)
+		janusRequest.ID = requestID // Use provided request ID
+		janusRequest.ReplyTo = &responseSocketPath
 
-		// Validate and send command
+		// Validate and send request
 		if client.config.EnableValidation {
 			if err := client.ensureManifestLoaded(); err != nil {
-				client.responseTracker.CancelCommand(commandID, fmt.Sprintf("Manifest loading failed: %v", err))
+				client.responseTracker.CancelRequest(requestID, fmt.Sprintf("Manifest loading failed: %v", err))
 				return
 			}
 
-			if client.manifest != nil && !client.isBuiltinCommand(command) {
-				if !client.manifest.HasCommand(client.channelID, command) {
-					client.responseTracker.CancelCommand(commandID, fmt.Sprintf("command '%s' not found in channel '%s'", command, client.channelID))
-					return
-				}
-
-				commandSpec, err := client.manifest.GetCommand(client.channelID, command)
-				if err != nil {
-					client.responseTracker.CancelCommand(commandID, fmt.Sprintf("command validation failed: %v", err))
-					return
-				}
-
-				if err := client.manifest.ValidateCommandArgs(commandSpec, args); err != nil {
-					client.responseTracker.CancelCommand(commandID, fmt.Sprintf("command validation failed: %v", err))
-					return
-				}
-			}
+			// Channels have been removed - skip validation
 		}
 
-		// Serialize and send command
-		commandData, err := json.Marshal(janusCommand)
+		// Serialize and send request
+		requestData, err := json.Marshal(janusRequest)
 		if err != nil {
-			client.responseTracker.CancelCommand(commandID, fmt.Sprintf("failed to serialize command: %v", err))
+			client.responseTracker.CancelRequest(requestID, fmt.Sprintf("failed to serialize request: %v", err))
 			return
 		}
 
 		// Send datagram and wait for response
-		responseData, err := client.janusClient.SendDatagram(ctx, commandData, responseSocketPath)
+		responseData, err := client.janusClient.SendDatagram(ctx, requestData, responseSocketPath)
 		if err != nil {
-			client.responseTracker.CancelCommand(commandID, fmt.Sprintf("failed to send command datagram: %v", err))
+			client.responseTracker.CancelRequest(requestID, fmt.Sprintf("failed to send request datagram: %v", err))
 			return
 		}
 
 		// Parse response
 		var response models.JanusResponse
 		if err := json.Unmarshal(responseData, &response); err != nil {
-			client.responseTracker.CancelCommand(commandID, fmt.Sprintf("failed to deserialize response: %v", err))
+			client.responseTracker.CancelRequest(requestID, fmt.Sprintf("failed to deserialize response: %v", err))
 			return
 		}
 
@@ -726,52 +660,44 @@ func (client *JanusClient) SendCommandWithCorrelation(ctx context.Context, comma
 		client.responseTracker.HandleResponse(&response)
 	}()
 
-	return responseChan, errorChan, commandID
+	return responseChan, errorChan, requestID
 }
 
-// CancelCommand cancels a pending command by ID
-func (client *JanusClient) CancelCommand(commandID string, reason string) bool {
-	return client.responseTracker.CancelCommand(commandID, reason)
-}
+// These methods are already defined above at lines 500 and 532
 
-// CancelAllCommands cancels all pending commands
-func (client *JanusClient) CancelAllCommands(reason string) int {
-	return client.responseTracker.CancelAllCommands(reason)
-}
-
-// GetPendingCommandCount returns the number of pending commands
-func (client *JanusClient) GetPendingCommandCount() int {
+// GetPendingRequestCount returns the number of pending requests
+func (client *JanusClient) GetPendingRequestCount() int {
 	return client.responseTracker.GetPendingCount()
 }
 
-// GetPendingCommandIDs returns the IDs of all pending commands
-func (client *JanusClient) GetPendingCommandIDs() []string {
-	return client.responseTracker.GetPendingCommandIDs()
+// GetPendingRequestIDs returns the IDs of all pending requests
+func (client *JanusClient) GetPendingRequestIDs() []string {
+	return client.responseTracker.GetPendingRequestIDs()
 }
 
-// IsCommandPending checks if a command is currently pending
-func (client *JanusClient) IsCommandPending(commandID string) bool {
-	return client.responseTracker.IsTracking(commandID)
+// IsRequestPending checks if a request is currently pending
+func (client *JanusClient) IsRequestPending(requestID string) bool {
+	return client.responseTracker.IsTracking(requestID)
 }
 
-// GetCommandStatistics returns statistics about pending commands
-func (client *JanusClient) GetCommandStatistics() CommandStatistics {
+// GetRequestStatistics returns statistics about pending requests
+func (client *JanusClient) GetRequestStatistics() RequestStatistics {
 	return client.responseTracker.GetStatistics()
 }
 
-// ExecuteCommandsInParallel executes multiple commands in parallel
-func (client *JanusClient) ExecuteCommandsInParallel(ctx context.Context, commands []ParallelCommand) []ParallelResult {
-	results := make([]ParallelResult, len(commands))
+// ExecuteRequestsInParallel executes multiple requests in parallel
+func (client *JanusClient) ExecuteRequestsInParallel(ctx context.Context, requests []ParallelRequest) []ParallelResult {
+	results := make([]ParallelResult, len(requests))
 	var wg sync.WaitGroup
 
-	for i, cmd := range commands {
+	for i, cmd := range requests {
 		wg.Add(1)
-		go func(index int, command ParallelCommand) {
+		go func(index int, request ParallelRequest) {
 			defer wg.Done()
 
-			response, err := client.SendCommand(ctx, command.Command, command.Args)
+			response, err := client.SendRequest(ctx, request.Request, request.Args)
 			results[index] = ParallelResult{
-				CommandID: command.ID,
+				RequestID: request.ID,
 				Response:  response,
 				Error:     err,
 			}
@@ -782,49 +708,20 @@ func (client *JanusClient) ExecuteCommandsInParallel(ctx context.Context, comman
 	return results
 }
 
-// CreateChannelProxy creates a proxy for executing commands on a specific channel
-func (client *JanusClient) CreateChannelProxy(channelID string) *ChannelProxy {
-	return &ChannelProxy{
-		client:    client,
-		channelID: channelID,
-	}
-}
 
 // MARK: - Helper Types for Advanced Features
 
-// ParallelCommand represents a command to be executed in parallel
-type ParallelCommand struct {
+// ParallelRequest represents a request to be executed in parallel
+type ParallelRequest struct {
 	ID      string                 `json:"id"`
-	Command string                 `json:"command"`
+	Request string                 `json:"request"`
 	Args    map[string]interface{} `json:"args"`
 }
 
-// ParallelResult represents the result of a parallel command execution  
+// ParallelResult represents the result of a parallel request execution  
 type ParallelResult struct {
-	CommandID string                  `json:"commandId"`
+	RequestID string                  `json:"requestId"`
 	Response  *models.JanusResponse  `json:"response,omitempty"`
 	Error     error                   `json:"error,omitempty"`
 }
 
-// ChannelProxy provides channel-specific command execution
-type ChannelProxy struct {
-	client    *JanusClient
-	channelID string
-}
-
-// SendCommand sends a command through this channel proxy
-func (proxy *ChannelProxy) SendCommand(ctx context.Context, command string, args map[string]interface{}) (*models.JanusResponse, error) {
-	// Temporarily override channel ID
-	originalChannelID := proxy.client.channelID
-	proxy.client.channelID = proxy.channelID
-	defer func() {
-		proxy.client.channelID = originalChannelID
-	}()
-
-	return proxy.client.SendCommand(ctx, command, args)
-}
-
-// GetChannelID returns the proxy's channel ID
-func (proxy *ChannelProxy) GetChannelID() string {
-	return proxy.channelID
-}

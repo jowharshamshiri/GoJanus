@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jowharshamshiri/GoJanus/pkg/models"
-	"github.com/jowharshamshiri/GoJanus/pkg/protocol"
+	"GoJanus/pkg/models"
+	"GoJanus/pkg/protocol"
 )
 
 // TestSOCKDGRAMSocketCreation tests actual Unix domain datagram socket creation
@@ -140,14 +140,14 @@ func TestSendWithResponse(t *testing.T) {
 	}
 	
 	// Test message with reply_to field
-	command := models.NewJanusCommand("test-channel", "test-command", map[string]interface{}{
+	request := models.NewJanusRequest("test-channel", "test-request", map[string]interface{}{
 		"test_param": "test_value",
 	}, nil)
-	command.ReplyTo = &responseSocketPath
+	request.ReplyTo = &responseSocketPath
 	
-	jsonData, err := command.ToJSON()
+	jsonData, err := request.ToJSON()
 	if err != nil {
-		t.Fatalf("Failed to serialize command: %v", err)
+		t.Fatalf("Failed to serialize request: %v", err)
 	}
 	
 	// Send to server socket
@@ -172,24 +172,24 @@ func TestSendWithResponse(t *testing.T) {
 	receivedData := buffer[:n]
 	
 	// Verify received message
-	var receivedCommand models.JanusCommand
-	err = receivedCommand.FromJSON(receivedData)
+	var receivedRequest models.JanusRequest
+	err = receivedRequest.FromJSON(receivedData)
 	if err != nil {
-		t.Fatalf("Failed to deserialize received command: %v", err)
+		t.Fatalf("Failed to deserialize received request: %v", err)
 	}
 	
-	if receivedCommand.ChannelID != "test-channel" {
-		t.Errorf("Expected channel 'test-channel', got '%s'", receivedCommand.ChannelID)
+	if receivedRequest.ChannelID != "test-channel" {
+		t.Errorf("Expected channel 'test-channel', got '%s'", receivedRequest.ChannelID)
 	}
 	
-	if receivedCommand.Command != "test-command" {
-		t.Errorf("Expected command 'test-command', got '%s'", receivedCommand.Command)
+	if receivedRequest.Request != "test-request" {
+		t.Errorf("Expected request 'test-request', got '%s'", receivedRequest.Request)
 	}
 	
-	if receivedCommand.ReplyTo == nil || *receivedCommand.ReplyTo != responseSocketPath {
+	if receivedRequest.ReplyTo == nil || *receivedRequest.ReplyTo != responseSocketPath {
 		replyTo := ""
-		if receivedCommand.ReplyTo != nil {
-			replyTo = *receivedCommand.ReplyTo
+		if receivedRequest.ReplyTo != nil {
+			replyTo = *receivedRequest.ReplyTo
 		}
 		t.Errorf("Expected reply_to '%s', got '%s'", responseSocketPath, replyTo)
 	}
@@ -216,17 +216,17 @@ func TestFireAndForgetSend(t *testing.T) {
 		t.Fatalf("Failed to bind server socket: %v", err)
 	}
 	
-	// We don't need a client for this low-level test, just create the command directly
+	// We don't need a client for this low-level test, just create the request directly
 	
-	// Test fire-and-forget command (no reply_to field)
-	command := models.NewJanusCommand("test-channel", "fire-and-forget", map[string]interface{}{
+	// Test fire-and-forget request (no reply_to field)
+	request := models.NewJanusRequest("test-channel", "fire-and-forget", map[string]interface{}{
 		"message": "no response needed",
 	}, nil)
 	// ReplyTo should be empty for fire-and-forget
 	
-	jsonData, err := command.ToJSON()
+	jsonData, err := request.ToJSON()
 	if err != nil {
-		t.Fatalf("Failed to serialize command: %v", err)
+		t.Fatalf("Failed to serialize request: %v", err)
 	}
 	
 	// Send using fire-and-forget pattern
@@ -250,22 +250,22 @@ func TestFireAndForgetSend(t *testing.T) {
 	
 	receivedData := buffer[:n]
 	
-	var receivedCommand models.JanusCommand
-	err = receivedCommand.FromJSON(receivedData)
+	var receivedRequest models.JanusRequest
+	err = receivedRequest.FromJSON(receivedData)
 	if err != nil {
-		t.Fatalf("Failed to deserialize received command: %v", err)
+		t.Fatalf("Failed to deserialize received request: %v", err)
 	}
 	
-	if receivedCommand.ReplyTo != nil && *receivedCommand.ReplyTo != "" {
+	if receivedRequest.ReplyTo != nil && *receivedRequest.ReplyTo != "" {
 		replyTo := ""
-		if receivedCommand.ReplyTo != nil {
-			replyTo = *receivedCommand.ReplyTo
+		if receivedRequest.ReplyTo != nil {
+			replyTo = *receivedRequest.ReplyTo
 		}
-		t.Errorf("Fire-and-forget command should have empty ReplyTo, got '%s'", replyTo)
+		t.Errorf("Fire-and-forget request should have empty ReplyTo, got '%s'", replyTo)
 	}
 	
-	if receivedCommand.Command != "fire-and-forget" {
-		t.Errorf("Expected command 'fire-and-forget', got '%s'", receivedCommand.Command)
+	if receivedRequest.Request != "fire-and-forget" {
+		t.Errorf("Expected request 'fire-and-forget', got '%s'", receivedRequest.Request)
 	}
 }
 
@@ -295,7 +295,7 @@ func TestDynamicMessageSizeDetectionCore(t *testing.T) {
 	maxSuccessfulSize := 0
 	
 	for _, size := range testSizes {
-		// Create test message of specific size
+		// Create test message of manifestific size
 		testData := make([]byte, size)
 		for i := range testData {
 			testData[i] = 'A'

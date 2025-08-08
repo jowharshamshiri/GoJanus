@@ -6,7 +6,7 @@ import (
 	"testing" 
 	"time"
 	
-	"github.com/jowharshamshiri/GoJanus/pkg/protocol"
+	"GoJanus/pkg/protocol"
 )
 
 // TestTimeoutExtension tests the timeout extension capability
@@ -22,12 +22,12 @@ func TestTimeoutExtension(t *testing.T) {
 		atomic.StoreInt32(&callbackCalled, 1)
 	}
 
-	commandID := "test-extend-command"
-	manager.RegisterTimeout(commandID, 100*time.Millisecond, callback)
+	requestID := "test-extend-request"
+	manager.RegisterTimeout(requestID, 100*time.Millisecond, callback)
 
 	// Wait 50ms, then extend by 100ms
 	time.Sleep(50 * time.Millisecond)
-	extended := manager.ExtendTimeout(commandID, 100*time.Millisecond)
+	extended := manager.ExtendTimeout(requestID, 100*time.Millisecond)
 
 	if !extended {
 		t.Error("Expected timeout extension to succeed")
@@ -72,8 +72,8 @@ func TestErrorHandledRegistration(t *testing.T) {
 	}
 
 	// Register timeout with error callback
-	commandID := "test-error-handled"
-	manager.RegisterTimeoutWithErrorCallback(commandID, 50*time.Millisecond, callback, errorCallback)
+	requestID := "test-error-handled"
+	manager.RegisterTimeoutWithErrorCallback(requestID, 50*time.Millisecond, callback, errorCallback)
 
 	if manager.ActiveTimeouts() != 1 {
 		t.Errorf("Expected 1 active timeout, got %d", manager.ActiveTimeouts())
@@ -104,9 +104,9 @@ func TestBilateralTimeoutManagement(t *testing.T) {
 	}
 
 	// Register bilateral timeout
-	baseCommandID := "test-bilateral"
-	requestID := baseCommandID + "-request"
-	responseID := baseCommandID + "-response"
+	baseRequestID := "test-bilateral"
+	requestID := baseRequestID + "-request"
+	responseID := baseRequestID + "-response"
 
 	manager.RegisterBilateralTimeout(requestID, responseID, 100*time.Millisecond, bilateralCallback)
 
@@ -116,7 +116,7 @@ func TestBilateralTimeoutManagement(t *testing.T) {
 	}
 
 	// Cancel bilateral timeout
-	cancelledCount := manager.CancelBilateralTimeout(baseCommandID)
+	cancelledCount := manager.CancelBilateralTimeout(baseRequestID)
 
 	if cancelledCount != 2 {
 		t.Errorf("Expected to cancel 2 timeouts, cancelled %d", cancelledCount)
@@ -146,9 +146,9 @@ func TestBilateralTimeoutExpiration(t *testing.T) {
 	}
 
 	// Register bilateral timeout with short duration
-	baseCommandID := "test-bilateral-expire"
-	requestID := baseCommandID + "-request"
-	responseID := baseCommandID + "-response"
+	baseRequestID := "test-bilateral-expire"
+	requestID := baseRequestID + "-request"
+	responseID := baseRequestID + "-response"
 
 	manager.RegisterBilateralTimeout(requestID, responseID, 50*time.Millisecond, bilateralCallback)
 
@@ -253,8 +253,8 @@ func TestTimeoutManagerConcurrency(t *testing.T) {
 	for i := 0; i < numGoroutines; i++ {
 		go func(goroutineID int) {
 			for j := 0; j < timeoutsPerGoroutine; j++ {
-				commandID := fmt.Sprintf("concurrent-%d-%d", goroutineID, j)
-				manager.RegisterTimeout(commandID, 100*time.Millisecond, func() {})
+				requestID := fmt.Sprintf("concurrent-%d-%d", goroutineID, j)
+				manager.RegisterTimeout(requestID, 100*time.Millisecond, func() {})
 			}
 		}(i)
 	}
@@ -277,8 +277,8 @@ func TestTimeoutManagerConcurrency(t *testing.T) {
 	for i := 0; i < numGoroutines; i++ {
 		go func(goroutineID int) {
 			for j := 0; j < timeoutsPerGoroutine/2; j++ {
-				commandID := fmt.Sprintf("concurrent-%d-%d", goroutineID, j)
-				manager.CancelTimeout(commandID)
+				requestID := fmt.Sprintf("concurrent-%d-%d", goroutineID, j)
+				manager.CancelTimeout(requestID)
 			}
 		}(i)
 	}
