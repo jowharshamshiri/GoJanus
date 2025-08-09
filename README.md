@@ -7,7 +7,7 @@ A production-ready Unix domain socket communication library for Go with **SOCK_D
 - **Connectionless SOCK_DGRAM**: Unix domain datagram sockets with reply-to mechanism
 - **Automatic ID Management**: RequestHandle system hides UUID complexity from users
 - **Cross-Language Compatibility**: Perfect compatibility with Rust, Swift, and TypeScript implementations  
-- **Dynamic Manifest**: Server-provided Manifests with auto-fetch validation
+- **Dynamic Manifest**: Server-provided manifests with auto-fetch validation
 - **Security Framework**: 27 comprehensive security mechanisms and attack prevention
 - **JSON-RPC 2.0 Compliance**: Standardized error codes and response format
 - **Performance Optimized**: Sub-millisecond response times with 500+ requests/second
@@ -18,7 +18,8 @@ A production-ready Unix domain socket communication library for Go with **SOCK_D
 
 ```bash
 go mod init your-project
-go get github.com/jowharshamshiri/GoJanus
+# Use local path for GoJanus
+go mod edit -replace GoJanus=./path/to/GoJanus
 ```
 
 ## Quick Start
@@ -85,19 +86,18 @@ package main
 import (
     "context"
     "fmt"
-    "github.com/jowharshamshiri/GoJanus/pkg/protocol"
+    "GoJanus/pkg/protocol"
 )
 
 func main() {
     // Create client - manifest is fetched automatically from server
-    client, err := protocol.NewJanusClient("/tmp/my-server.sock", "default")
+    client, err := protocol.New("/tmp/my-server.sock")
     if err != nil {
         panic(err)
     }
-    defer client.Close()
     
     // Built-in requests (always available)
-    response, err := client.SendRequest("ping", nil)
+    response, err := client.SendRequest(context.Background(), "ping", nil)
     if err != nil {
         panic(err)
     }
@@ -106,12 +106,12 @@ func main() {
         fmt.Printf("Server ping: %v\n", response.Result)
     }
     
-    // Custom request defined in Manifest (arguments validated automatically)
+    // Custom request defined in manifest (arguments validated automatically)
     userArgs := map[string]interface{}{
         "user_id": "user123",
     }
     
-    response, err = client.SendRequest("get_user", userArgs)
+    response, err = client.SendRequest(context.Background(), "get_user", userArgs)
     if err != nil {
         panic(err)
     }
@@ -188,14 +188,14 @@ import (
     "os/signal"
     "syscall"
     
-    "github.com/jowharshamshiri/GoJanus/pkg/server"
-    "github.com/jowharshamshiri/GoJanus/pkg/models"
-    "github.com/jowharshamshiri/GoJanus/pkg/manifest"
+    "GoJanus/pkg/server"
+    "GoJanus/pkg/models"
+    "GoJanus/pkg/manifest"
 )
 
 func main() {
-    // Load API manifest from Manifest file
-    manifest, err := manifest.ParseManifestFromFile("my-api-manifest.json")
+    // Load API manifest from file (optional)
+    manifestData, err := manifest.ParseManifestFromFile("my-api-manifest.json")
     if err != nil {
         fmt.Printf("Failed to load manifest: %v\n", err)
         return
@@ -203,18 +203,16 @@ func main() {
     
     // Create server with configuration
     config := &server.ServerConfig{
-        SocketPath:        "/tmp/my-server.sock",
-        CleanupOnStart:    true,
-        CleanupOnShutdown: true,
+        SocketPath: "/tmp/my-server.sock",
     }
     srv := server.NewJanusServer(config)
     
     // Set the server's manifest for validation and manifest request
-    srv.SetManifest(manifest)
+    srv.SetManifest(manifestData)
     
-    // Register handlers for requests defined in the Manifest
+    // Register handlers for custom requests defined in the manifest
     srv.RegisterHandler("get_user", server.NewObjectHandler(func(cmd *models.JanusRequest) (map[string]interface{}, error) {
-        // Extract user_id argument (validated by Manifest)
+        // Extract user_id argument (validated by manifest)
         userID, exists := cmd.Args["user_id"]
         if !exists {
             return nil, &models.JSONRPCError{
@@ -280,7 +278,7 @@ func main() {
     }()
     
     // Start listening (blocks until stopped)
-    if err := srv.StartListening("/tmp/my-server.sock"); err != nil {
+    if err := srv.StartListening(); err != nil {
         fmt.Printf("Server error: %v\n", err)
     }
 }
@@ -292,25 +290,24 @@ func main() {
 package main
 
 import (
+    "context"
     "fmt"
-    "time"
     
-    "github.com/jowharshamshiri/GoJanus/pkg/protocol"
+    "GoJanus/pkg/protocol"
 )
 
 func main() {
     // Create client - manifest is fetched automatically from server
-    client, err := protocol.NewJanusClient("/tmp/my-server.sock", "default")
+    client, err := protocol.New("/tmp/my-server.sock")
     if err != nil {
         fmt.Printf("Failed to create client: %v\n", err)
         return
     }
     
-    // Set timeout for requests
-    client.SetTimeout(30 * time.Second)
+    ctx := context.Background()
     
     // Built-in requests (always available)
-    response, err := client.SendRequest("ping", nil)
+    response, err := client.SendRequest(ctx, "ping", nil)
     if err != nil {
         fmt.Printf("Ping failed: %v\n", err)
         return
@@ -320,12 +317,12 @@ func main() {
         fmt.Printf("Server ping: %v\n", response.Result)
     }
     
-    // Custom request defined in Manifest (arguments validated automatically)
+    // Custom request defined in manifest (arguments validated automatically)
     userArgs := map[string]interface{}{
         "user_id": "user123",
     }
     
-    response, err = client.SendRequest("get_user", userArgs)
+    response, err = client.SendRequest(ctx, "get_user", userArgs)
     if err != nil {
         fmt.Printf("Get user failed: %v\n", err)
         return
@@ -338,14 +335,9 @@ func main() {
     }
     
     // Get server API manifest
-    manifestResponse, err := client.SendRequest("manifest", nil)
+    manifestResponse, err := client.SendRequest(ctx, "manifest", nil)
     if err == nil && manifestResponse.Success {
         fmt.Printf("Server API manifest: %v\n", manifestResponse.Result)
-    }
-    
-    // Test connectivity
-    if client.Ping() {
-        fmt.Println("Server is responsive")
     }
 }
 ```
