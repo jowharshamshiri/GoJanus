@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -10,6 +11,22 @@ import (
 	"sync"
 	"time"
 )
+
+var (
+	// Debug logger - can be disabled by setting output to io.Discard
+	debugLog = log.New(os.Stderr, "[DEBUG] ", log.LstdFlags|log.Lshortfile)
+	// Info logger - for important operational messages
+	infoLog = log.New(os.Stderr, "[INFO] ", log.LstdFlags)
+	// Error logger - for errors
+	errorLog = log.New(os.Stderr, "[ERROR] ", log.LstdFlags|log.Lshortfile)
+)
+
+func init() {
+	// Disable debug logging by default, enable with GO_JANUS_DEBUG=1
+	if os.Getenv("GO_JANUS_DEBUG") == "" {
+		debugLog.SetOutput(io.Discard)
+	}
+}
 
 // JanusClient provides low-level Unix domain datagram socket communication  
 // SOCK_DGRAM connectionless implementation for cross-language compatibility
@@ -64,16 +81,16 @@ func NewJanusClient(socketPath string, config ...JanusClientConfig) (*JanusClien
 // BindResponseSocket creates a datagram socket for receiving responses
 // Connectionless SOCK_DGRAM implementation
 func (udc *JanusClient) BindResponseSocket(ctx context.Context, responsePath string) (net.Conn, error) {
-	log.Printf("[GO-CLIENT] BindResponseSocket ENTER - Path: %s", responsePath)
+	debugLog.Printf("BindResponseSocket ENTER - Path: %s", responsePath)
 	
 	// Create UDP-style Unix datagram socket
-	log.Printf("[GO-CLIENT] Resolving Unix address: %s", responsePath)
+	debugLog.Printf("Resolving Unix address: %s", responsePath)
 	addr, err := net.ResolveUnixAddr("unixgram", responsePath)
 	if err != nil {
-		log.Printf("[GO-CLIENT] ERROR: Failed to resolve address %s: %v", responsePath, err)
+		errorLog.Printf("Failed to resolve address %s: %v", responsePath, err)
 		return nil, fmt.Errorf("failed to resolve response socket address %s: %w", responsePath, err)
 	}
-	log.Printf("[GO-CLIENT] Address resolved successfully: %v", addr)
+	debugLog.Printf("Address resolved successfully: %v", addr)
 	
 	// Listen on datagram socket for responses
 	log.Printf("[GO-CLIENT] Attempting to bind socket at: %s", responsePath)
